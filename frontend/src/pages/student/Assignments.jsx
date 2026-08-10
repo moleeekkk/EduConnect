@@ -1,87 +1,150 @@
-import React, { useState, useEffect } from "react";
-import { BookOpenCheck, Upload, CheckCircle2, Clock, FileText, ArrowLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from "react";
+import { BookOpenCheck, Upload, CheckCircle2, Clock, AlertCircle, FileText, Download } from "lucide-react";
 import Button from "../../components/common/Button";
-import { studentApi } from "../../services/api";
+import { mockAssignments, mockAssignmentSubmissions, mockSubjects } from "../../data/mockData";
 
 const StudentAssignments = () => {
-  const navigate = useNavigate();
-  const [assignments, setAssignments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [submissions, setSubmissions] = useState(mockAssignmentSubmissions);
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
 
-  useEffect(() => {
-    const fetchAssignments = async () => {
-      try {
-        const data = await studentApi.getAssignments("2024MCA001");
-        setAssignments(data);
-      } catch (err) {
-        // Fallback static data
-        setAssignments([
-          { id: "ASG-101", subject: "Advanced Web Technologies", title: "React 19 Hooks & State Management", dueDate: "12-AUG-2026", marks: "50", status: "Pending" },
-          { id: "ASG-102", subject: "Cloud Infrastructure", title: "Docker Containerization & Kubernetes", dueDate: "15-AUG-2026", marks: "100", status: "Submitted" },
-          { id: "ASG-103", subject: "Database Architecture", title: "PostgreSQL Indexing & Optimization", dueDate: "05-AUG-2026", marks: "50", status: "Graded", obtainedMarks: 46 },
-        ]);
-      } finally {
-        setLoading(false);
-      }
+  const handleSubmitAssignment = (e) => {
+    e.preventDefault();
+    if (!selectedAssignment || !uploadFile) return;
+
+    const newSub = {
+      submission_id: `sub-00${submissions.length + 1}`,
+      assignment_id: selectedAssignment.assignment_id,
+      student_id: "stu-001",
+      submission_date: new Date().toISOString(),
+      attachment: `/uploads/${uploadFile.name}`,
+      obtained_marks: null,
+      feedback: null,
+      submission_status: "Submitted",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
-    fetchAssignments();
-  }, []);
+
+    setSubmissions([newSub, ...submissions]);
+    setSelectedAssignment(null);
+    setUploadFile(null);
+    setUploadSuccess(true);
+    setTimeout(() => setUploadSuccess(false), 3000);
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-[#E2E8F0] shadow-xs">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => navigate("/student/dashboard")} className="text-[#64748B] hover:text-[#2563EB]">
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <h1 className="text-2xl font-bold text-[#1E293B]">Course Assignments</h1>
-          </div>
-          <p className="text-xs text-[#64748B] mt-1 ml-7">
-            Submit lab reports, assignments, and view teacher feedback & marks.
-          </p>
+          <h1 className="text-xl font-bold text-[#1E293B]">Assignments & Submissions (assignments)</h1>
+          <p className="text-xs text-[#64748B] mt-0.5">View course assignments, upload submission files, and view teacher feedback</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {assignments.map((asg) => (
-          <div key={asg.id} className="bg-white rounded-2xl p-6 border border-[#E2E8F0] shadow-xs flex flex-col justify-between hover:border-[#2563EB] transition-all">
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#2563EB]/10 text-[#2563EB]">
-                  {asg.subject}
-                </span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                  asg.status === 'Graded' ? 'bg-[#22C55E]/10 text-[#22C55E]' :
-                  asg.status === 'Submitted' ? 'bg-[#14B8A6]/10 text-[#14B8A6]' :
-                  'bg-[#F97316]/10 text-[#F97316]'
-                }`}>
-                  {asg.status}
-                </span>
-              </div>
-              <h3 className="text-base font-bold text-[#1E293B] mb-2">{asg.title}</h3>
-              <p className="text-xs text-[#64748B] mb-4">Max Marks: <strong className="text-[#1E293B]">{asg.marks}</strong></p>
-            </div>
+      {uploadSuccess && (
+        <div className="p-3 rounded-xl bg-[#22C55E]/10 border border-[#22C55E]/20 text-[#22C55E] text-xs font-semibold flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4" /> Assignment submitted successfully!
+        </div>
+      )}
 
-            <div className="pt-4 border-t border-[#E2E8F0]">
-              <div className="flex items-center justify-between text-xs text-[#64748B] mb-3">
-                <span>Due Date:</span>
-                <strong className="text-[#1E293B] font-mono">{asg.dueDate}</strong>
-              </div>
-              {asg.status === 'Graded' ? (
-                <div className="p-2.5 rounded-xl bg-[#22C55E]/10 text-center text-xs text-[#22C55E] font-bold">
-                  Obtained: {asg.obtainedMarks} / {asg.marks} Marks
+      {/* Assignment List Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {mockAssignments.map((asgn) => {
+          const submission = submissions.find((s) => s.assignment_id === asgn.assignment_id);
+          return (
+            <div key={asgn.assignment_id} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs flex flex-col justify-between space-y-4">
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#2563EB]/10 text-[#2563EB] font-bold">
+                    Total Marks: {asgn.total_marks}
+                  </span>
+                  <span className="font-mono text-[#64748B]">Due Date: {asgn.due_date}</span>
                 </div>
-              ) : (
-                <Button variant={asg.status === 'Submitted' ? 'secondary' : 'primary'} size="sm" icon={Upload} fullWidth className="text-xs">
-                  {asg.status === 'Submitted' ? 'Re-upload File' : 'Upload Submission'}
+
+                <h3 className="text-sm font-bold text-[#1E293B]">{asgn.title}</h3>
+                <p className="text-[#64748B] line-clamp-3">{asgn.description}</p>
+                <div className="pt-1">
+                  <span className="inline-flex items-center gap-1 text-[11px] text-[#2563EB] font-semibold cursor-pointer">
+                    <FileText className="w-3.5 h-3.5" /> Spec Attachment: {asgn.attachment}
+                  </span>
+                </div>
+              </div>
+
+              {/* Status & Action */}
+              <div className="border-t border-[#E2E8F0] pt-3 flex items-center justify-between text-xs">
+                <div>
+                  {submission ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#22C55E]/10 text-[#22C55E] font-bold text-[10px]">
+                      <CheckCircle2 className="w-3 h-3" /> Submitted ({submission.submission_status})
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#F97316]/10 text-[#F97316] font-bold text-[10px]">
+                      <Clock className="w-3 h-3" /> Pending Upload
+                    </span>
+                  )}
+                </div>
+
+                <Button
+                  variant={submission ? "outline" : "accent"}
+                  size="sm"
+                  onClick={() => setSelectedAssignment(asgn)}
+                  className="text-xs"
+                >
+                  {submission ? "Re-upload / View" : "Submit File"}
                 </Button>
+              </div>
+
+              {submission && submission.obtained_marks !== null && (
+                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] text-xs space-y-1">
+                  <p className="font-bold text-[#1E293B]">
+                    Teacher Feedback & Marks: <span className="text-[#2563EB]">{submission.obtained_marks} / {asgn.total_marks}</span>
+                  </p>
+                  <p className="text-[11px] text-[#64748B]">{submission.feedback}</p>
+                </div>
               )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
+
+      {/* Upload Modal Dialog */}
+      {selectedAssignment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl border border-[#E2E8F0] space-y-4">
+            <h3 className="text-base font-bold text-[#1E293B] border-b border-[#E2E8F0] pb-2">
+              Upload Submission File (assignment_submissions)
+            </h3>
+
+            <div className="text-xs space-y-1">
+              <p className="font-bold text-[#2563EB]">{selectedAssignment.title}</p>
+              <p className="text-[#64748B]">Due Date: {selectedAssignment.due_date} • Max Marks: {selectedAssignment.total_marks}</p>
+            </div>
+
+            <form onSubmit={handleSubmitAssignment} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-medium text-[#64748B] mb-1">Select File to Upload (attachment)</label>
+                <input
+                  type="file"
+                  required
+                  onChange={(e) => setUploadFile(e.target.files[0])}
+                  className="w-full p-2 border border-[#E2E8F0] rounded-lg bg-[#F8FAFC]"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" size="sm" type="button" onClick={() => setSelectedAssignment(null)}>
+                  Cancel
+                </Button>
+                <Button variant="accent" size="sm" type="submit" icon={Upload}>
+                  Submit Assignment
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,100 +1,92 @@
 import React from "react";
-import { CalendarCheck, CheckCircle2, XCircle, AlertTriangle, ArrowLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import Button from "../../components/common/Button";
+import { CalendarCheck, CheckCircle2, XCircle, Clock, Filter } from "lucide-react";
+import { mockAttendanceSessions, mockAttendanceRecords, mockSubjects } from "../../data/mockData";
 
 const StudentAttendance = () => {
-  const navigate = useNavigate();
+  const studentId = "stu-001";
+  
+  // Map records with session details
+  const attendanceHistory = mockAttendanceRecords
+    .filter((rec) => rec.student_id === studentId)
+    .map((rec) => {
+      const session = mockAttendanceSessions.find((s) => s.session_id === rec.session_id);
+      const subject = mockSubjects[0]; // Advanced Web Tech
+      return {
+        ...rec,
+        session,
+        subject,
+      };
+    });
 
-  const coursesAttendance = [
-    { code: "MCA301", title: "Advanced Web Technologies", total: 40, attended: 36, percentage: 90.0, teacher: "Dr. Sarah Jenkins" },
-    { code: "MCA302", title: "Cloud Infrastructure & DevOps", total: 38, attended: 34, percentage: 89.4, teacher: "Prof. Michael Vance" },
-    { code: "MCA303", title: "Database Architecture Practical", total: 30, attended: 27, percentage: 90.0, teacher: "Er. Rahul Mehta" },
-    { code: "MCA304", title: "Software Engineering & Testing", total: 36, attended: 29, percentage: 80.5, teacher: "Dr. Ananya Sharma" },
-    { code: "MCA305", title: "Cyber Security Fundamentals", total: 32, attended: 23, percentage: 71.8, teacher: "Prof. David Miller" },
-  ];
-
-  const getStatusBadge = (percentage) => {
-    if (percentage >= 85) {
-      return <span className="px-2.5 py-1 rounded-full bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20 text-[11px] font-bold">Good (&gt;85%)</span>;
-    } else if (percentage >= 75) {
-      return <span className="px-2.5 py-1 rounded-full bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/20 text-[11px] font-bold">Eligible (75-84%)</span>;
-    } else {
-      return <span className="px-2.5 py-1 rounded-full bg-[#F97316]/10 text-[#F97316] border border-[#F97316]/20 text-[11px] font-bold">Shortage (&lt;75%)</span>;
-    }
-  };
+  const presentCount = attendanceHistory.filter((r) => r.attendance_status === "Present").length;
+  const totalCount = attendanceHistory.length || 1;
+  const attendancePct = ((presentCount / totalCount) * 100).toFixed(1);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-[#E2E8F0] shadow-xs">
+      {/* Overview Cards */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => navigate("/student/dashboard")} className="text-[#64748B] hover:text-[#2563EB]">
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <h1 className="text-2xl font-bold text-[#1E293B]">Attendance Summary</h1>
-          </div>
-          <p className="text-xs text-[#64748B] mt-1 ml-7">
-            Master of Computer Applications • Semester 3 • Required Minimum: 75%
-          </p>
+          <h1 className="text-xl font-bold text-[#1E293B]">Attendance Log (attendance_records)</h1>
+          <p className="text-xs text-[#64748B] mt-0.5">Semester 3 • Master of Computer Applications</p>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="px-4 py-2 rounded-xl bg-[#2563EB]/10 border border-[#2563EB]/20 text-center">
-            <span className="text-[10px] text-[#64748B] uppercase font-bold block">Aggregate</span>
-            <span className="text-lg font-extrabold text-[#2563EB]">88.5%</span>
+          <div className="px-4 py-2 bg-[#22C55E]/10 rounded-xl border border-[#22C55E]/20 text-center">
+            <span className="block text-[10px] uppercase font-bold text-[#22C55E]">Overall Percentage</span>
+            <span className="text-lg font-extrabold text-[#22C55E]">{attendancePct}%</span>
+          </div>
+          <div className="px-4 py-2 bg-[#2563EB]/10 rounded-xl border border-[#2563EB]/20 text-center">
+            <span className="block text-[10px] uppercase font-bold text-[#2563EB]">Sessions Attended</span>
+            <span className="text-lg font-extrabold text-[#2563EB]">{presentCount} / {totalCount}</span>
           </div>
         </div>
       </div>
 
-      {/* Attendance Table */}
-      <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs overflow-hidden">
-        <div className="p-5 border-b border-[#E2E8F0] flex items-center justify-between">
-          <h2 className="text-base font-bold text-[#1E293B]">Course-Wise Attendance Record</h2>
-          <span className="text-xs text-[#64748B]">Updated Today</span>
+      {/* Attendance Table matching DB structure */}
+      <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs overflow-hidden">
+        <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between">
+          <h2 className="text-sm font-bold text-[#1E293B]">Session Records History</h2>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-[#F8FAFC] text-[11px] font-bold text-[#64748B] uppercase tracking-wider border-b border-[#E2E8F0]">
-                <th className="py-3.5 px-5">Course Code & Name</th>
-                <th className="py-3.5 px-5">Faculty</th>
-                <th className="py-3.5 px-5">Attended / Total</th>
-                <th className="py-3.5 px-5">Percentage</th>
-                <th className="py-3.5 px-5">Status</th>
+          <table className="w-full text-left text-xs">
+            <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#64748B] font-semibold">
+              <tr>
+                <th className="p-3.5">Session Date (session_date)</th>
+                <th className="p-3.5">Subject</th>
+                <th className="p-3.5">Lecture No</th>
+                <th className="p-3.5">Timing (start_time - end_time)</th>
+                <th className="p-3.5">Topic Covered (topic)</th>
+                <th className="p-3.5">Status (attendance_status)</th>
+                <th className="p-3.5">Remarks</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E2E8F0] text-xs text-[#1E293B]">
-              {coursesAttendance.map((item) => (
-                <tr key={item.code} className="hover:bg-[#F8FAFC]/80 transition-colors">
-                  <td className="py-4 px-5 font-medium">
-                    <span className="font-bold text-[#2563EB] mr-2">{item.code}</span>
-                    {item.title}
+            <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
+              {attendanceHistory.map((item) => (
+                <tr key={item.attendance_id} className="hover:bg-[#F8FAFC] transition-colors">
+                  <td className="p-3.5 font-mono">{item.session?.session_date}</td>
+                  <td className="p-3.5 font-bold text-[#2563EB]">{item.subject?.subject_name}</td>
+                  <td className="p-3.5">Lecture #{item.session?.lecture_no}</td>
+                  <td className="p-3.5 font-mono">{item.session?.start_time} - {item.session?.end_time}</td>
+                  <td className="p-3.5">{item.session?.topic}</td>
+                  <td className="p-3.5">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                        item.attendance_status === "Present"
+                          ? "bg-[#22C55E]/10 text-[#22C55E]"
+                          : "bg-[#EF4444]/10 text-[#EF4444]"
+                      }`}
+                    >
+                      {item.attendance_status === "Present" ? (
+                        <CheckCircle2 className="w-3 h-3" />
+                      ) : (
+                        <XCircle className="w-3 h-3" />
+                      )}
+                      {item.attendance_status}
+                    </span>
                   </td>
-                  <td className="py-4 px-5 text-[#64748B]">{item.teacher}</td>
-                  <td className="py-4 px-5 font-mono font-semibold">
-                    {item.attended} / {item.total}
-                  </td>
-                  <td className="py-4 px-5">
-                    <div className="flex items-center gap-3">
-                      <span className="font-bold w-12">{item.percentage}%</span>
-                      <div className="w-32 h-2 bg-[#E2E8F0] rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${
-                            item.percentage >= 85
-                              ? "bg-[#22C55E]"
-                              : item.percentage >= 75
-                              ? "bg-[#2563EB]"
-                              : "bg-[#F97316]"
-                          }`}
-                          style={{ width: `${item.percentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-4 px-5">{getStatusBadge(item.percentage)}</td>
+                  <td className="p-3.5 text-[#64748B]">{item.remarks || "-"}</td>
                 </tr>
               ))}
             </tbody>

@@ -1,77 +1,214 @@
-import React from "react";
-import { User, Mail, Phone, Calendar, MapPin, GraduationCap, ArrowLeft, Shield } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from "react";
+import { User, Mail, Phone, Calendar, MapPin, Heart, Shield, Edit, Save, Check } from "lucide-react";
+import Button from "../../components/common/Button";
+import { mockStudents } from "../../data/mockData";
 
 const StudentProfile = () => {
-  const navigate = useNavigate();
+  const [profile, setProfile] = useState(mockStudents[0]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [savedSuccess, setSavedSuccess] = useState(false);
 
-  const profile = {
-    enrollmentNo: "2024MCA001",
-    name: "Alex Johnson",
-    email: "alex.johnson@educonnect.ac.in",
-    mobile: "+91 98765 43210",
-    gender: "Male",
-    dob: "15 August 2002",
-    address: "Hostel Block A, EduConnect Academic Campus, Sector 42",
-    program: "Master of Computer Applications",
-    semester: "Semester 3",
-    batch: "2024 - 2026",
+  const handleChange = (field, value) => {
+    setProfile((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = (e) => {
+    e.preventDefault();
+    setIsEditing(false);
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 3000);
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2 bg-white p-6 rounded-2xl border border-[#E2E8F0] shadow-xs">
-        <button onClick={() => navigate("/student/dashboard")} className="text-[#64748B] hover:text-[#2563EB]">
-          <ArrowLeft className="w-5 h-5" />
-        </button>
+    <div className="space-y-6 max-w-4xl mx-auto">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
+        <div className="flex items-center gap-4">
+          <img
+            src={profile.profile_photo}
+            alt={`${profile.first_name} ${profile.last_name}`}
+            className="w-16 h-16 rounded-full object-cover border-2 border-[#2563EB]"
+          />
+          <div>
+            <h1 className="text-xl font-bold text-[#1E293B]">
+              {profile.first_name} {profile.last_name}
+            </h1>
+            <p className="text-xs text-[#64748B] flex items-center gap-2 mt-0.5">
+              <span>Enrollment: <strong className="text-[#2563EB]">{profile.enrollment_no}</strong></span>
+              <span>•</span>
+              <span>Status: <strong className="text-[#22C55E]">Active Student</strong></span>
+            </p>
+          </div>
+        </div>
+
         <div>
-          <h1 className="text-2xl font-bold text-[#1E293B]">Student Profile</h1>
-          <p className="text-xs text-[#64748B]">Personal details and institutional registration records</p>
+          {isEditing ? (
+            <Button variant="accent" size="sm" onClick={handleSave} icon={Save} className="text-xs">
+              Save Changes
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} icon={Edit} className="text-xs">
+              Edit Profile
+            </Button>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-2xl p-6 border border-[#E2E8F0] shadow-xs text-center">
-          <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-[#2563EB] to-[#14B8A6] text-white flex items-center justify-center text-3xl font-bold mx-auto mb-4 shadow-md">
-            AJ
-          </div>
-          <h2 className="text-lg font-bold text-[#1E293B]">{profile.name}</h2>
-          <span className="inline-block px-3 py-1 rounded-full bg-[#2563EB]/10 text-[#2563EB] text-xs font-mono font-bold mt-1">
-            {profile.enrollmentNo}
-          </span>
-          <p className="text-xs text-[#64748B] mt-2">{profile.program}</p>
+      {savedSuccess && (
+        <div className="p-3 rounded-xl bg-[#22C55E]/10 border border-[#22C55E]/20 text-[#22C55E] text-xs font-semibold flex items-center gap-2">
+          <Check className="w-4 h-4" /> Profile details updated successfully!
         </div>
+      )}
 
-        <div className="md:col-span-2 bg-white rounded-2xl p-6 border border-[#E2E8F0] shadow-xs space-y-4">
-          <h3 className="text-sm font-bold text-[#1E293B] border-b border-[#E2E8F0] pb-3">Personal & Academic Information</h3>
+      {/* Form / Details View matching DB Table columns */}
+      <div className="bg-white rounded-xl p-6 border border-[#E2E8F0] shadow-xs space-y-6">
+        <h2 className="text-base font-bold text-[#1E293B] border-b border-[#E2E8F0] pb-3">
+          Student Information (Database Record)
+        </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
-              <span className="text-[#64748B] text-[10px] uppercase font-bold block">Email Address</span>
-              <strong className="text-[#1E293B]">{profile.email}</strong>
-            </div>
-
-            <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
-              <span className="text-[#64748B] text-[10px] uppercase font-bold block">Registered Mobile</span>
-              <strong className="text-[#1E293B]">{profile.mobile}</strong>
-            </div>
-
-            <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
-              <span className="text-[#64748B] text-[10px] uppercase font-bold block">Gender</span>
-              <strong className="text-[#1E293B]">{profile.gender}</strong>
-            </div>
-
-            <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
-              <span className="text-[#64748B] text-[10px] uppercase font-bold block">Date of Birth</span>
-              <strong className="text-[#1E293B]">{profile.dob}</strong>
-            </div>
+        <form onSubmit={handleSave} className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <div>
+            <label className="block font-medium text-[#64748B] mb-1">Student ID (UUID)</label>
+            <input
+              type="text"
+              value={profile.student_id}
+              disabled
+              className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-mono text-[#64748B]"
+            />
           </div>
 
-          <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-xs">
-            <span className="text-[#64748B] text-[10px] uppercase font-bold block">Residential Address</span>
-            <strong className="text-[#1E293B]">{profile.address}</strong>
+          <div>
+            <label className="block font-medium text-[#64748B] mb-1">Enrollment No (enrollment_no)</label>
+            <input
+              type="text"
+              value={profile.enrollment_no}
+              disabled
+              className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-semibold text-[#1E293B]"
+            />
           </div>
-        </div>
+
+          <div>
+            <label className="block font-medium text-[#64748B] mb-1">First Name (first_name)</label>
+            <input
+              type="text"
+              value={profile.first_name}
+              disabled={!isEditing}
+              onChange={(e) => handleChange("first_name", e.target.value)}
+              className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#2563EB]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`}
+            />
+          </div>
+
+          <div>
+            <label className="block font-medium text-[#64748B] mb-1">Last Name (last_name)</label>
+            <input
+              type="text"
+              value={profile.last_name}
+              disabled={!isEditing}
+              onChange={(e) => handleChange("last_name", e.target.value)}
+              className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#2563EB]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`}
+            />
+          </div>
+
+          <div>
+            <label className="block font-medium text-[#64748B] mb-1">Email Address (email)</label>
+            <input
+              type="email"
+              value={profile.email}
+              disabled={!isEditing}
+              onChange={(e) => handleChange("email", e.target.value)}
+              className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#2563EB]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`}
+            />
+          </div>
+
+          <div>
+            <label className="block font-medium text-[#64748B] mb-1">Mobile Number (mobile)</label>
+            <input
+              type="text"
+              value={profile.mobile}
+              disabled={!isEditing}
+              onChange={(e) => handleChange("mobile", e.target.value)}
+              className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#2563EB]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`}
+            />
+          </div>
+
+          <div>
+            <label className="block font-medium text-[#64748B] mb-1">Gender (gender)</label>
+            <select
+              value={profile.gender}
+              disabled={!isEditing}
+              onChange={(e) => handleChange("gender", e.target.value)}
+              className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#2563EB]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`}
+            >
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block font-medium text-[#64748B] mb-1">Date of Birth (date_of_birth)</label>
+            <input
+              type="date"
+              value={profile.date_of_birth}
+              disabled={!isEditing}
+              onChange={(e) => handleChange("date_of_birth", e.target.value)}
+              className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#2563EB]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`}
+            />
+          </div>
+
+          <div>
+            <label className="block font-medium text-[#64748B] mb-1">Blood Group (blood_group)</label>
+            <input
+              type="text"
+              value={profile.blood_group}
+              disabled={!isEditing}
+              onChange={(e) => handleChange("blood_group", e.target.value)}
+              className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#2563EB]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`}
+            />
+          </div>
+
+          <div>
+            <label className="block font-medium text-[#64748B] mb-1">Admission Date (admission_date)</label>
+            <input
+              type="date"
+              value={profile.admission_date}
+              disabled
+              className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
+            />
+          </div>
+
+          <div>
+            <label className="block font-medium text-[#64748B] mb-1">Parent Name (parent_name)</label>
+            <input
+              type="text"
+              value={profile.parent_name}
+              disabled={!isEditing}
+              onChange={(e) => handleChange("parent_name", e.target.value)}
+              className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#2563EB]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`}
+            />
+          </div>
+
+          <div>
+            <label className="block font-medium text-[#64748B] mb-1">Parent Mobile (parent_mobile)</label>
+            <input
+              type="text"
+              value={profile.parent_mobile}
+              disabled={!isEditing}
+              onChange={(e) => handleChange("parent_mobile", e.target.value)}
+              className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#2563EB]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`}
+            />
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="block font-medium text-[#64748B] mb-1">Address (address)</label>
+            <textarea
+              rows={2}
+              value={profile.address}
+              disabled={!isEditing}
+              onChange={(e) => handleChange("address", e.target.value)}
+              className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#2563EB]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`}
+            />
+          </div>
+        </form>
       </div>
     </div>
   );

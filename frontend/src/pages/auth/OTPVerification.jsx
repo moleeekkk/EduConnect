@@ -9,7 +9,7 @@ const OTPVerification = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const enrollmentNo = location.state?.enrollmentNo || "2024MCA001";
-  const maskedPhone = location.state?.maskedPhone || "+91 98*** **421";
+  const maskedEmail = location.state?.maskedEmail || "mau***al.gmail.com";
 
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
@@ -126,11 +126,11 @@ const OTPVerification = () => {
             <ShieldCheck className="w-8 h-8" />
           </div>
           <span className="inline-block px-3 py-1 rounded-full bg-[#14B8A6]/10 text-[#14B8A6] text-xs font-bold mb-2">
-            Two-Factor Verification
+            Verify OTP Code
           </span>
-          <h1 className="text-2xl font-bold text-[#1E293B]">Verify OTP Code</h1>
+
           <p className="text-xs text-[#64748B] mt-1 max-w-xs mx-auto">
-            Dispatched for <span className="font-bold text-[#1E293B]">{enrollmentNo}</span> ({maskedPhone})
+            Dispatched for <span className="font-bold text-[#1E293B]">{enrollmentNo}</span> ({maskedEmail})
           </p>
         </div>
 
@@ -172,7 +172,7 @@ const OTPVerification = () => {
             isLoading={isLoading}
             className="w-full"
           >
-            Verify Real OTP & Sign In
+            Verify OTP
           </Button>
         </form>
 
@@ -193,12 +193,12 @@ const OTPVerification = () => {
         </div>
 
         {/* Demo Hint */}
-        <div className="mt-6 pt-4 border-t border-[#E2E8F0] text-center text-xs text-[#64748B]">
+        {/* <div className="mt-6 pt-4 border-t border-[#E2E8F0] text-center text-xs text-[#64748B]">
           <p className="font-semibold text-[#1E293B]">Demo OTP Code:</p>
           <code className="bg-[#F8FAFC] text-[#14B8A6] px-2 py-0.5 rounded font-mono border border-[#E2E8F0] text-[11px] inline-block mt-1">
             1 2 3 4 5 6
           </code>
-        </div>
+        </div> */}
       </div>
     </AuthLayout>
   );
