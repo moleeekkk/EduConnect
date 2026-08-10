@@ -41,36 +41,6 @@ const Navbar = ({ role = "Student", userName = "Alex Johnson", userDetail = "202
           {role} Account
         </span>
 
-        {/* Notification Bell */}
-        <div className="relative">
-          <button
-            onClick={() => setShowNotifications(!showNotifications)}
-            className="w-9 h-9 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] hover:bg-[#E2E8F0]/50 text-[#1E293B] flex items-center justify-center relative transition-colors cursor-pointer"
-          >
-            <Bell className="w-4 h-4" />
-            <span className="w-2 h-2 rounded-full bg-[#EF4444] absolute top-2 right-2 animate-ping" />
-            <span className="w-2 h-2 rounded-full bg-[#EF4444] absolute top-2 right-2" />
-          </button>
-
-          {/* Notifications Dropdown */}
-          {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 bg-white border border-[#E2E8F0] rounded-2xl shadow-xl p-4 z-50 animate-in fade-in slide-in-from-top-2">
-              <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2 mb-2">
-                <h4 className="text-xs font-bold text-[#1E293B]">Notifications</h4>
-                <span className="text-[10px] text-[#2563EB] font-semibold">Mark all read</span>
-              </div>
-              <div className="space-y-2">
-                {notifications.map((n) => (
-                  <div key={n.id} className="p-2.5 rounded-xl hover:bg-[#F8FAFC] transition-colors cursor-pointer border border-transparent hover:border-[#E2E8F0]">
-                    <p className="text-xs font-medium text-[#1E293B]">{n.title}</p>
-                    <span className="text-[10px] text-[#64748B] mt-0.5 block">{n.time}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
         {/* User Profile Menu */}
         <div className="relative">
           <button

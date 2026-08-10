@@ -1,175 +1,171 @@
 import React, { useState } from "react";
-import { CalendarCheck, CheckCircle2, XCircle, Clock, Save, ArrowLeft, Users, Filter } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { CalendarCheck, Save, CheckCircle2, UserCheck, UserX } from "lucide-react";
 import Button from "../../components/common/Button";
+import { mockStudents, mockAttendanceSessions, mockSubjects } from "../../data/mockData";
 
-const AttendanceMarker = () => {
-  const navigate = useNavigate();
-  const [selectedCourse, setSelectedCourse] = useState("MCA301");
-  const [isSaved, setIsSaved] = useState(false);
+const TeacherAttendanceMarker = () => {
+  const [selectedSubject, setSelectedSubject] = useState(mockSubjects[0].subject_id);
+  const [sessionDate, setSessionDate] = useState("2026-08-08");
+  const [lectureNo, setLectureNo] = useState(1);
+  const [startTime, setStartTime] = useState("09:30");
+  const [endTime, setEndTime] = useState("11:00");
+  const [topic, setTopic] = useState("State Management & Custom Hooks Architecture");
 
-  const initialStudents = [
-    { id: "2024MCA001", name: "Alex Johnson", roll: "01", status: "present" },
-    { id: "2024MCA002", name: "Beatrix Kiddo", roll: "02", status: "present" },
-    { id: "2024MCA003", name: "Charles Xavier", roll: "03", status: "absent" },
-    { id: "2024MCA004", name: "Diana Prince", roll: "04", status: "present" },
-    { id: "2024MCA005", name: "Ethan Hunt", roll: "05", status: "late" },
-    { id: "2024MCA006", name: "Fiona Gallagher", roll: "06", status: "present" },
-    { id: "2024MCA007", name: "George Clark", roll: "07", status: "present" },
-    { id: "2024MCA008", name: "Hannah Abbott", roll: "08", status: "absent" },
-  ];
+  const [studentStatus, setStudentStatus] = useState({
+    "stu-001": "Present",
+    "stu-002": "Present",
+    "stu-003": "Absent",
+  });
 
-  const [students, setStudents] = useState(initialStudents);
+  const [saveMsg, setSaveMsg] = useState(false);
 
-  const handleStatusChange = (id, newStatus) => {
-    setStudents(
-      students.map((st) => (st.id === id ? { ...st, status: newStatus } : st))
-    );
-    setIsSaved(false);
+  const toggleStatus = (id) => {
+    setStudentStatus((prev) => ({
+      ...prev,
+      [id]: prev[id] === "Present" ? "Absent" : "Present",
+    }));
   };
 
-  const handleMarkAllPresent = () => {
-    setStudents(students.map((st) => ({ ...st, status: "present" })));
-    setIsSaved(false);
-  };
-
-  const presentCount = students.filter((s) => s.status === "present").length;
-  const absentCount = students.filter((s) => s.status === "absent").length;
-  const lateCount = students.filter((s) => s.status === "late").length;
-
-  const handleSave = () => {
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
+  const handleSaveAttendance = (e) => {
+    e.preventDefault();
+    setSaveMsg(true);
+    setTimeout(() => setSaveMsg(false), 3000);
   };
 
   return (
     <div className="space-y-6">
-      {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-[#E2E8F0] shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => navigate("/teacher/dashboard")} className="text-[#64748B] hover:text-[#2563EB]">
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <h1 className="text-2xl font-bold text-[#1E293B]">Class Attendance Marker</h1>
-          </div>
-          <p className="text-xs text-[#64748B] mt-1 ml-7">
-            Select course and record real-time attendance for today's session.
-          </p>
+          <h1 className="text-xl font-bold text-[#1E293B]">Attendance Marker (attendance_sessions & attendance_records)</h1>
+          <p className="text-xs text-[#64748B] mt-0.5">Record lecture sessions and mark student attendance</p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={handleMarkAllPresent} className="text-xs">
-            Mark All Present
-          </Button>
-          <Button variant="secondary" size="sm" onClick={handleSave} icon={Save} className="text-xs">
-            Save Attendance
-          </Button>
-        </div>
+        <Button variant="accent" size="sm" icon={Save} onClick={handleSaveAttendance} className="text-xs">
+          Save Attendance Record
+        </Button>
       </div>
 
-      {/* Alert notification */}
-      {isSaved && (
-        <div className="p-4 rounded-xl bg-[#22C55E]/10 border border-[#22C55E]/20 text-[#22C55E] text-xs font-semibold flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4" />
-          <span>Attendance sheet saved successfully! Synced with student portal.</span>
+      {saveMsg && (
+        <div className="p-3 rounded-xl bg-[#22C55E]/10 border border-[#22C55E]/20 text-[#22C55E] text-xs font-semibold flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4" /> Lecture session and attendance saved successfully!
         </div>
       )}
 
-      {/* Control Bar & Counters */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-[#E2E8F0] shadow-xs flex items-center justify-between">
+      {/* Session Config Form */}
+      <form onSubmit={handleSaveAttendance} className="bg-white rounded-xl p-5 border border-[#E2E8F0] shadow-xs space-y-4 text-xs">
+        <h2 className="text-sm font-bold text-[#1E293B] border-b border-[#E2E8F0] pb-2">Session Parameters</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <div>
-            <span className="text-[10px] text-[#64748B] font-bold uppercase">Total Enrolled</span>
-            <p className="text-2xl font-extrabold text-[#1E293B]">{students.length}</p>
+            <label className="block text-[#64748B] mb-1">Subject</label>
+            <select
+              value={selectedSubject}
+              onChange={(e) => setSelectedSubject(e.target.value)}
+              className="w-full p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
+            >
+              {mockSubjects.map((s) => (
+                <option key={s.subject_id} value={s.subject_id}>
+                  {s.subject_name} ({s.subject_code})
+                </option>
+              ))}
+            </select>
           </div>
-          <Users className="w-6 h-6 text-[#64748B]" />
-        </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-[#E2E8F0] shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[10px] text-[#22C55E] font-bold uppercase">Present</span>
-            <p className="text-2xl font-extrabold text-[#22C55E]">{presentCount}</p>
+            <label className="block text-[#64748B] mb-1">Lecture Date (session_date)</label>
+            <input
+              type="date"
+              value={sessionDate}
+              onChange={(e) => setSessionDate(e.target.value)}
+              className="w-full p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
+            />
           </div>
-          <CheckCircle2 className="w-6 h-6 text-[#22C55E]" />
-        </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-[#E2E8F0] shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[10px] text-[#EF4444] font-bold uppercase">Absent</span>
-            <p className="text-2xl font-extrabold text-[#EF4444]">{absentCount}</p>
+            <label className="block text-[#64748B] mb-1">Lecture No (lecture_no)</label>
+            <input
+              type="number"
+              value={lectureNo}
+              onChange={(e) => setLectureNo(e.target.value)}
+              className="w-full p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
+            />
           </div>
-          <XCircle className="w-6 h-6 text-[#EF4444]" />
-        </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-[#E2E8F0] shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[10px] text-[#F97316] font-bold uppercase">Late / Excused</span>
-            <p className="text-2xl font-extrabold text-[#F97316]">{lateCount}</p>
+            <label className="block text-[#64748B] mb-1">Start Time (start_time)</label>
+            <input
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              className="w-full p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
+            />
           </div>
-          <Clock className="w-6 h-6 text-[#F97316]" />
-        </div>
-      </div>
 
-      {/* Student Roster Table */}
-      <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs overflow-hidden">
-        <div className="p-4 bg-[#F8FAFC] border-b border-[#E2E8F0] flex items-center justify-between">
-          <span className="text-xs font-bold text-[#1E293B]">MCA Semester 3 • Section A</span>
-          <span className="text-xs font-mono text-[#64748B]">Date: 07-AUG-2026</span>
+          <div>
+            <label className="block text-[#64748B] mb-1">End Time (end_time)</label>
+            <input
+              type="time"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              className="w-full p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
+            />
+          </div>
         </div>
 
-        <div className="divide-y divide-[#E2E8F0]">
-          {students.map((st) => (
-            <div key={st.id} className="p-4 flex items-center justify-between hover:bg-[#F8FAFC] transition-colors">
-              <div className="flex items-center gap-4">
-                <span className="w-8 h-8 rounded-full bg-[#E2E8F0] text-[#1E293B] text-xs font-bold flex items-center justify-center">
-                  {st.roll}
-                </span>
-                <div>
-                  <h4 className="text-sm font-bold text-[#1E293B]">{st.name}</h4>
-                  <p className="text-xs text-[#64748B] font-mono">{st.id}</p>
+        <div>
+          <label className="block text-[#64748B] mb-1">Lecture Topic Covered (topic)</label>
+          <input
+            type="text"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            className="w-full p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
+          />
+        </div>
+      </form>
+
+      {/* Student Roster List for Marking */}
+      <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs overflow-hidden">
+        <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between">
+          <h2 className="text-sm font-bold text-[#1E293B]">Class Student Roster (attendance_records)</h2>
+          <span className="text-xs text-[#64748B]">Click on any student card to toggle Present / Absent</span>
+        </div>
+
+        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {mockStudents.map((stu) => {
+            const status = studentStatus[stu.student_id] || "Present";
+            const isPresent = status === "Present";
+            return (
+              <div
+                key={stu.student_id}
+                onClick={() => toggleStatus(stu.student_id)}
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                  isPresent
+                    ? "bg-[#22C55E]/5 border-[#22C55E]/30"
+                    : "bg-[#EF4444]/5 border-[#EF4444]/30"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <img src={stu.profile_photo} alt="" className="w-9 h-9 rounded-full object-cover" />
+                  <div>
+                    <h4 className="text-xs font-bold text-[#1E293B]">{stu.first_name} {stu.last_name}</h4>
+                    <p className="text-[10px] text-[#64748B] font-mono">{stu.enrollment_no}</p>
+                  </div>
                 </div>
-              </div>
 
-              {/* Status Selector Buttons */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleStatusChange(st.id, "present")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    st.status === "present"
-                      ? "bg-[#22C55E] text-white shadow-sm"
-                      : "bg-[#F8FAFC] text-[#64748B] border border-[#E2E8F0] hover:bg-[#22C55E]/10 hover:text-[#22C55E]"
+                <span
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                    isPresent ? "bg-[#22C55E] text-white" : "bg-[#EF4444] text-white"
                   }`}
                 >
-                  Present
-                </button>
-                <button
-                  onClick={() => handleStatusChange(st.id, "absent")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    st.status === "absent"
-                      ? "bg-[#EF4444] text-white shadow-sm"
-                      : "bg-[#F8FAFC] text-[#64748B] border border-[#E2E8F0] hover:bg-[#EF4444]/10 hover:text-[#EF4444]"
-                  }`}
-                >
-                  Absent
-                </button>
-                <button
-                  onClick={() => handleStatusChange(st.id, "late")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    st.status === "late"
-                      ? "bg-[#F97316] text-white shadow-sm"
-                      : "bg-[#F8FAFC] text-[#64748B] border border-[#E2E8F0] hover:bg-[#F97316]/10 hover:text-[#F97316]"
-                  }`}
-                >
-                  Late
-                </button>
+                  {isPresent ? <UserCheck className="w-3 h-3" /> : <UserX className="w-3 h-3" />}
+                  {status}
+                </span>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
   );
 };
 
-export default AttendanceMarker;
+export default TeacherAttendanceMarker;
