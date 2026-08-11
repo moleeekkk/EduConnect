@@ -1,23 +1,41 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Search, Bell, User, LogOut, ChevronDown, Sparkles, GraduationCap } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
-const Navbar = ({ role = "Student", userName = "Alex Johnson", userDetail = "2024MCA001" }) => {
+const Navbar = ({ role = "Student", userName, userDetail }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [showDropdown, setShowDropdown] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
+  const dropdownRef = useRef(null);
+
+  const userStr = localStorage.getItem("educonnect_user");
+  const loggedUser = userStr ? JSON.parse(userStr) : null;
+  const displayName = loggedUser?.name || userName || (role === "Admin" ? "Super Administrator" : role === "Teacher" ? "Faculty Member" : "Student User");
+  const displayDetail = loggedUser?.identifier || userDetail || (role === "Admin" ? "admin@educonnect.ac.in" : "");
+
+  // Automatically close dropdown when user clicks another module or navigates
+  useEffect(() => {
+    setShowDropdown(false);
+  }, [location.pathname]);
+
+  // Click outside listener to close dropdown when clicking anywhere else
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const roleColors = {
     Student: "bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/20",
     Teacher: "bg-[#14B8A6]/10 text-[#14B8A6] border-[#14B8A6]/20",
     Admin: "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20",
   };
-
-  const notifications = [
-    { id: 1, title: "Mid-Term Timetable Released", time: "10m ago", read: false },
-    { id: 2, title: "Attendance updated for Advanced Web Tech", time: "1h ago", read: false },
-    { id: 3, title: "Assignment #3 Grade Posted", time: "1d ago", read: true },
-  ];
 
   return (
     <header className="h-16 bg-white border-b border-[#E2E8F0] px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
@@ -27,7 +45,7 @@ const Navbar = ({ role = "Student", userName = "Alex Johnson", userDetail = "202
           <Search className="w-4 h-4 text-[#64748B] absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search courses, exams, announcements..."
+            placeholder="Search courses, subjects, schedules..."
             className="w-full pl-10 pr-4 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs text-[#1E293B] placeholder-[#64748B] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all"
           />
         </div>
@@ -41,27 +59,27 @@ const Navbar = ({ role = "Student", userName = "Alex Johnson", userDetail = "202
           {role} Account
         </span>
 
-        {/* User Profile Menu */}
-        <div className="relative">
+        {/* User Profile Menu Container */}
+        <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setShowDropdown(!showDropdown)}
             className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-[#F8FAFC] transition-colors cursor-pointer border border-transparent hover:border-[#E2E8F0]"
           >
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#2563EB] to-[#14B8A6] text-white flex items-center justify-center font-bold text-xs shadow-xs">
-              {userName.split(" ").map((n) => n[0]).join("")}
+              {displayName ? displayName.split(" ").map((n) => n[0]).join("") : "U"}
             </div>
             <div className="hidden md:block text-left">
-              <p className="text-xs font-bold text-[#1E293B] leading-tight">{userName}</p>
-              <p className="text-[10px] text-[#64748B]">{userDetail}</p>
+              <p className="text-xs font-bold text-[#1E293B] leading-tight">{displayName}</p>
+              <p className="text-[10px] text-[#64748B]">{displayDetail}</p>
             </div>
-            <ChevronDown className="w-3.5 h-3.5 text-[#64748B]" />
+            <ChevronDown className={`w-3.5 h-3.5 text-[#64748B] transition-transform duration-200 ${showDropdown ? "rotate-180" : ""}`} />
           </button>
 
           {/* User Menu Dropdown */}
           {showDropdown && (
-            <div className="absolute right-0 mt-2 w-52 bg-white border border-[#E2E8F0] rounded-2xl shadow-xl p-2 z-50">
+            <div className="absolute right-0 mt-2 w-52 bg-white border border-[#E2E8F0] rounded-2xl shadow-xl p-2 z-50 animate-fade-in">
               <div className="p-2 border-b border-[#E2E8F0] mb-1">
-                <p className="text-xs font-bold text-[#1E293B]">{userName}</p>
+                <p className="text-xs font-bold text-[#1E293B]">{displayName}</p>
                 <p className="text-[10px] text-[#64748B]">{role} Portal</p>
               </div>
               <button

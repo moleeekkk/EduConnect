@@ -8,8 +8,7 @@ const StudentWeeklyTests = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
-          <h1 className="text-xl font-bold text-[#1E293B]">Weekly Tests Schedule & Results (weekly_exams)</h1>
-          <p className="text-xs text-[#64748B] mt-0.5">Reference listing of conducted weekly tests, total marks, and evaluation scores</p>
+          <h1 className="text-xl font-bold text-[#1E293B]">Weekly Tests</h1>
         </div>
       </div>
 

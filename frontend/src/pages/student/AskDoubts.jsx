@@ -38,8 +38,7 @@ const StudentAskDoubts = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
-          <h1 className="text-xl font-bold text-[#1E293B]">Ask Doubts To Teacher (doubts)</h1>
-          <p className="text-xs text-[#64748B] mt-0.5">Submit academic queries directly to subject faculty</p>
+          <h1 className="text-xl font-bold text-[#1E293B]">Ask Doubts</h1>
         </div>
 
         <Button variant="accent" size="sm" icon={Plus} onClick={() => setShowModal(true)} className="text-xs">

@@ -38,8 +38,7 @@ const StudentMarksheet = () => {
       {/* Header with Semester Selection */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
-          <h1 className="text-xl font-bold text-[#1E293B]">Academic MarkSheet & Examination Results</h1>
-          <p className="text-xs text-[#64748B] mt-0.5">Select a semester term to view SGPA, CGPA, and subject-wise marks</p>
+          <h1 className="text-xl font-bold text-[#1E293B]">Marksheet</h1>
         </div>
 
         <div className="flex items-center gap-2">
@@ -85,7 +84,7 @@ const StudentMarksheet = () => {
         <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between">
           <div className="flex items-center gap-2">
             <BookOpen className="w-4 h-4 text-[#2563EB]" />
-            <h2 className="text-sm font-bold text-[#1E293B]">Subject-Wise Marks Breakdown (semester_result_details)</h2>
+            <h2 className="text-sm font-bold text-[#1E293B]">Subject-Wise Marks Breakdown</h2>
           </div>
           <span className="text-xs font-bold text-[#2563EB] bg-[#2563EB]/10 px-2.5 py-0.5 rounded-full">
             Semester {mockSemesters.find((s) => s.semester_id === selectedSemId)?.semester_number || 3}
@@ -131,7 +130,7 @@ const StudentMarksheet = () => {
       {/* Weekly Test Results Section */}
       <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs overflow-hidden">
         <div className="p-4 border-b border-[#E2E8F0]">
-          <h2 className="text-sm font-bold text-[#1E293B]">Weekly Test Exam Performance (weekly_exam_results)</h2>
+          <h2 className="text-sm font-bold text-[#1E293B]">Weekly Test Exam Performance</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">

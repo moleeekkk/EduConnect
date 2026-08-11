@@ -1,12 +1,54 @@
 import React, { useState, useEffect } from "react";
-import { GraduationCap, School, Plus, Edit, Trash2, Eye, UserCheck, Calendar, Phone, Mail, MapPin, Award, BookOpen, AtSign } from "lucide-react";
+import { GraduationCap, School, Plus, Edit, Trash2, Eye, UserCheck, Calendar, Phone, Mail, MapPin, Award, BookOpen, AtSign, X } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockStudents, mockTeachers } from "../../data/mockData";
+import { adminApi } from "../../services/api";
 
 const AdminUserManagement = ({ initialTab = "students" }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [students, setStudents] = useState(mockStudents);
-  const [teachers, setTeachers] = useState(mockTeachers);
+  const [students, setStudents] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+
+  const fetchUsers = async () => {
+    try {
+      const data = await adminApi.getUsers();
+      if (Array.isArray(data)) {
+        const dbStudents = data
+          .filter((u) => u.role === "Student")
+          .map((s) => ({
+            student_id: s.id,
+            enrollment_no: s.identifier || s.id,
+            first_name: s.name ? s.name.split(" ")[0] : "",
+            last_name: s.name && s.name.split(" ").length > 1 ? s.name.split(" ").slice(1).join(" ") : "",
+            email: s.email,
+            mobile: "+91 9876543210",
+            gender: "Male",
+            parent_mobile: "+91 9876543210",
+            is_active: s.status === "Active",
+          }));
+        const dbTeachers = data
+          .filter((u) => u.role === "Teacher")
+          .map((t) => ({
+            teacher_id: t.id,
+            employee_id: t.id,
+            first_name: t.name ? t.name.split(" ")[0] : "",
+            last_name: t.name && t.name.split(" ").length > 1 ? t.name.split(" ").slice(1).join(" ") : "",
+            email: t.email,
+            mobile: "+91 9876543210",
+            designation: t.department || "Assistant Professor",
+            experience: 5,
+            is_active: t.status === "Active",
+          }));
+        setStudents(dbStudents);
+        setTeachers(dbTeachers);
+      }
+    } catch (err) {
+      console.log("Error loading users:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -203,9 +245,8 @@ const AdminUserManagement = ({ initialTab = "students" }) => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
           <h1 className="text-xl font-bold text-[#1E293B]">
-            {activeTab === "students" ? "Student Management (students Table)" : "Teacher Management (teachers Table)"}
+            {activeTab === "students" ? "Student Management" : "Teacher Management"}
           </h1>
-          <p className="text-xs text-[#64748B] mt-0.5">Admin control center to view, edit all student & teacher information, and delete records</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -238,39 +279,49 @@ const AdminUserManagement = ({ initialTab = "students" }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
-                {students.map((stu) => (
-                  <tr key={stu.student_id} className="hover:bg-[#F8FAFC]">
-                    <td className="p-3.5 font-mono font-bold text-[#2563EB]">{stu.enrollment_no}</td>
-                    <td className="p-3.5 font-semibold">{stu.first_name} {stu.last_name}</td>
-                    <td className="p-3.5 text-[#64748B]">{stu.email}</td>
-                    <td className="p-3.5">{stu.mobile}</td>
-                    <td className="p-3.5">{stu.gender}</td>
-                    <td className="p-3.5 text-[#64748B]">{stu.parent_mobile}</td>
-                    <td className="p-3.5 text-right space-x-1.5 shrink-0">
-                      <button
-                        onClick={() => setViewStudent(stu)}
-                        className="p-1.5 hover:bg-[#2563EB]/10 rounded-lg text-[#2563EB] transition-colors"
-                        title="View Details"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleOpenStudentEdit(stu)}
-                        className="p-1.5 hover:bg-[#14B8A6]/10 rounded-lg text-[#14B8A6] transition-colors"
-                        title="Edit Full Info"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteStudent(stu.student_id)}
-                        className="p-1.5 hover:bg-[#EF4444]/10 rounded-lg text-[#EF4444] transition-colors"
-                        title="Delete Record"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                {students.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="p-8 text-center text-[#64748B] font-medium">
+                      No student records found in database. Click <strong className="text-[#2563EB]">"Add Student"</strong> to create a new student record.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  students.map((stu) => (
+                    <tr key={stu.student_id} className="hover:bg-[#F8FAFC]">
+                      <td className="p-3.5 font-mono font-bold text-[#2563EB]">{stu.enrollment_no}</td>
+                      <td className="p-3.5 font-semibold">{stu.first_name} {stu.last_name}</td>
+                      <td className="p-3.5 text-[#64748B]">{stu.email}</td>
+                      <td className="p-3.5">{stu.mobile}</td>
+                      <td className="p-3.5">{stu.gender}</td>
+                      <td className="p-3.5 text-[#64748B]">{stu.parent_mobile}</td>
+                      <td className="p-3.5 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => setViewStudent(stu)}
+                            className="p-1.5 hover:bg-[#2563EB]/10 rounded-lg text-[#2563EB] transition-colors"
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleOpenStudentEdit(stu)}
+                            className="p-1.5 hover:bg-[#14B8A6]/10 rounded-lg text-[#14B8A6] transition-colors"
+                            title="Edit Full Info"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteStudent(stu.student_id)}
+                            className="p-1.5 hover:bg-[#EF4444]/10 rounded-lg text-[#EF4444] transition-colors"
+                            title="Delete Record"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -291,39 +342,49 @@ const AdminUserManagement = ({ initialTab = "students" }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
-                {teachers.map((t) => (
-                  <tr key={t.teacher_id} className="hover:bg-[#F8FAFC]">
-                    <td className="p-3.5 font-mono font-bold text-[#14B8A6]">{t.employee_id}</td>
-                    <td className="p-3.5 font-semibold">{t.first_name} {t.last_name}</td>
-                    <td className="p-3.5 text-[#64748B]">{t.email}</td>
-                    <td className="p-3.5">{t.mobile}</td>
-                    <td className="p-3.5 font-medium">{t.designation}</td>
-                    <td className="p-3.5 text-[#64748B]">{t.experience} Years</td>
-                    <td className="p-3.5 text-right space-x-1.5 shrink-0">
-                      <button
-                        onClick={() => setViewTeacher(t)}
-                        className="p-1.5 hover:bg-[#2563EB]/10 rounded-lg text-[#2563EB] transition-colors"
-                        title="View Details"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleOpenTeacherEdit(t)}
-                        className="p-1.5 hover:bg-[#14B8A6]/10 rounded-lg text-[#14B8A6] transition-colors"
-                        title="Edit Full Info"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteTeacher(t.teacher_id)}
-                        className="p-1.5 hover:bg-[#EF4444]/10 rounded-lg text-[#EF4444] transition-colors"
-                        title="Delete Record"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                {teachers.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="p-8 text-center text-[#64748B] font-medium">
+                      No faculty records found in database. Click <strong className="text-[#14B8A6]">"Add Faculty"</strong> to create a new teacher record.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  teachers.map((t) => (
+                    <tr key={t.teacher_id} className="hover:bg-[#F8FAFC]">
+                      <td className="p-3.5 font-mono font-bold text-[#14B8A6]">{t.employee_id}</td>
+                      <td className="p-3.5 font-semibold">{t.first_name} {t.last_name}</td>
+                      <td className="p-3.5 text-[#64748B]">{t.email}</td>
+                      <td className="p-3.5">{t.mobile}</td>
+                      <td className="p-3.5 font-medium">{t.designation}</td>
+                      <td className="p-3.5 text-[#64748B]">{t.experience} Years</td>
+                      <td className="p-3.5 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => setViewTeacher(t)}
+                            className="p-1.5 hover:bg-[#2563EB]/10 rounded-lg text-[#2563EB] transition-colors"
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleOpenTeacherEdit(t)}
+                            className="p-1.5 hover:bg-[#14B8A6]/10 rounded-lg text-[#14B8A6] transition-colors"
+                            title="Edit Full Info"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTeacher(t.teacher_id)}
+                            className="p-1.5 hover:bg-[#EF4444]/10 rounded-lg text-[#EF4444] transition-colors"
+                            title="Delete Record"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -336,11 +397,15 @@ const AdminUserManagement = ({ initialTab = "students" }) => {
           <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-xl border border-[#E2E8F0] space-y-4 my-8 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
               <h3 className="text-base font-bold text-[#1E293B] flex items-center gap-2">
-                <GraduationCap className="w-5 h-5 text-[#2563EB]" /> Complete Student Information (students Table)
+                <GraduationCap className="w-5 h-5 text-[#2563EB]" /> Complete Student Information
               </h3>
-              <Button variant="outline" size="sm" onClick={() => setViewStudent(null)}>
-                Close
-              </Button>
+              <button
+                onClick={() => setViewStudent(null)}
+                className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             <div className="space-y-4 text-xs">
@@ -429,9 +494,13 @@ const AdminUserManagement = ({ initialTab = "students" }) => {
               <h3 className="text-base font-bold text-[#1E293B] flex items-center gap-2">
                 <School className="w-5 h-5 text-[#14B8A6]" /> Faculty Profile Details
               </h3>
-              <Button variant="outline" size="sm" onClick={() => setViewTeacher(null)}>
-                Close
-              </Button>
+              <button
+                onClick={() => setViewTeacher(null)}
+                className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             <div className="space-y-4 text-xs">

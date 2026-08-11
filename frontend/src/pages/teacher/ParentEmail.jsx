@@ -117,8 +117,7 @@ const TeacherParentEmail = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
-          <h1 className="text-xl font-bold text-[#1E293B]">Parent Email & Communication Desk</h1>
-          <p className="text-xs text-[#64748B] mt-0.5">Send direct email notifications or broadcast database Attendance & Marksheet reports to ALL students in one click</p>
+          <h1 className="text-xl font-bold text-[#1E293B]">Parent Email</h1>
         </div>
 
         {/* Mode Selector Buttons */}

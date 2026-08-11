@@ -6,7 +6,7 @@ const Button = ({
   onClick,
   variant = "primary",
   size = "md",
-  fullWidth = true,
+  fullWidth = false,
   isLoading = false,
   disabled = false,
   icon: Icon = null,

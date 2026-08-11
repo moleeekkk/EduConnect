@@ -62,23 +62,6 @@ const StudentDashboard = () => {
             Master of Computer Applications • Semester 3 • Batch 2025-2027
           </p>
         </div>
-
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => navigate("/student/profile")}
-            className="!bg-white/10 !text-white !border-white/30 hover:!bg-white/20 text-xs"
-          >
-            My Profile
-          </Button>
-          <Button
-            variant="accent"
-            onClick={() => navigate("/student/timetable")}
-            className="text-xs"
-          >
-            View Timetable
-          </Button>
-        </div>
       </div>
 
       {/* Metrics Cards */}

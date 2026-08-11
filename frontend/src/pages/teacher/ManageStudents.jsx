@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Users, Plus, Edit, Trash2, Eye, CheckCircle2 } from "lucide-react";
+import { Users, Plus, Edit, Trash2, Eye, CheckCircle2, X, GraduationCap } from "lucide-react";
 import Button from "../../components/common/Button";
 import { mockStudents } from "../../data/mockData";
 
@@ -78,8 +78,7 @@ const TeacherManageStudents = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
-          <h1 className="text-xl font-bold text-[#1E293B]">Manage Students (students Table)</h1>
-          <p className="text-xs text-[#64748B] mt-0.5">Add, Update, Delete, and View enrolled class students</p>
+          <h1 className="text-xl font-bold text-[#1E293B]">Student Management</h1>
         </div>
 
         <Button variant="accent" size="sm" icon={Plus} onClick={handleOpenAdd} className="text-xs">
@@ -104,24 +103,23 @@ const TeacherManageStudents = () => {
             </thead>
             <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
               {students.map((stu) => (
-                <tr key={stu.student_id} className="hover:bg-[#F8FAFC]">
+                <tr key={stu.student_id} className="hover:bg-[#F8FAFC] transition-colors">
                   <td className="p-3.5 font-mono font-bold text-[#2563EB]">{stu.enrollment_no}</td>
-                  <td className="p-3.5 font-semibold flex items-center gap-2">
-                    <img src={stu.profile_photo} alt="" className="w-7 h-7 rounded-full object-cover" />
-                    <span>{stu.first_name} {stu.last_name}</span>
+                  <td className="p-3.5 font-bold text-[#1E293B]">
+                    {stu.first_name} {stu.last_name}
                   </td>
                   <td className="p-3.5 text-[#64748B]">{stu.email}</td>
-                  <td className="p-3.5">{stu.mobile}</td>
+                  <td className="p-3.5 font-mono font-medium">{stu.mobile}</td>
                   <td className="p-3.5">{stu.gender}</td>
                   <td className="p-3.5 text-[#64748B]">{stu.parent_name} ({stu.parent_mobile})</td>
-                  <td className="p-3.5 text-right space-x-1">
-                    <button onClick={() => setViewStudent(stu)} className="p-1.5 hover:bg-gray-100 rounded text-[#2563EB]">
+                  <td className="p-3.5 text-right space-x-1 whitespace-nowrap">
+                    <button onClick={() => setViewStudent(stu)} className="p-1.5 hover:bg-[#2563EB]/10 rounded-lg text-[#2563EB] transition-colors" title="View Full Profile">
                       <Eye className="w-4 h-4" />
                     </button>
-                    <button onClick={() => handleOpenEdit(stu)} className="p-1.5 hover:bg-gray-100 rounded text-[#14B8A6]">
+                    <button onClick={() => handleOpenEdit(stu)} className="p-1.5 hover:bg-[#14B8A6]/10 rounded-lg text-[#14B8A6] transition-colors" title="Edit Student">
                       <Edit className="w-4 h-4" />
                     </button>
-                    <button onClick={() => handleDelete(stu.student_id)} className="p-1.5 hover:bg-gray-100 rounded text-[#EF4444]">
+                    <button onClick={() => handleDelete(stu.student_id)} className="p-1.5 hover:bg-[#EF4444]/10 rounded-lg text-[#EF4444] transition-colors" title="Delete Student">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </td>
@@ -132,26 +130,77 @@ const TeacherManageStudents = () => {
         </div>
       </div>
 
-      {/* View Detail Modal */}
+      {/* Full Student Profile Details Modal */}
       {viewStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl border border-[#E2E8F0] space-y-4">
-            <h3 className="text-base font-bold text-[#1E293B] border-b border-[#E2E8F0] pb-2">Student Full Profile (students Table)</h3>
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div><span className="text-[#64748B]">Enrollment No:</span> <strong className="block text-[#1E293B]">{viewStudent.enrollment_no}</strong></div>
-              <div><span className="text-[#64748B]">Full Name:</span> <strong className="block text-[#1E293B]">{viewStudent.first_name} {viewStudent.last_name}</strong></div>
-              <div><span className="text-[#64748B]">Email:</span> <strong className="block text-[#1E293B]">{viewStudent.email}</strong></div>
-              <div><span className="text-[#64748B]">Mobile:</span> <strong className="block text-[#1E293B]">{viewStudent.mobile}</strong></div>
-              <div><span className="text-[#64748B]">Gender:</span> <strong className="block text-[#1E293B]">{viewStudent.gender}</strong></div>
-              <div><span className="text-[#64748B]">DOB:</span> <strong className="block text-[#1E293B]">{viewStudent.date_of_birth}</strong></div>
-              <div><span className="text-[#64748B]">Blood Group:</span> <strong className="block text-[#1E293B]">{viewStudent.blood_group}</strong></div>
-              <div><span className="text-[#64748B]">Admission Date:</span> <strong className="block text-[#1E293B]">{viewStudent.admission_date}</strong></div>
-              <div><span className="text-[#64748B]">Parent Name:</span> <strong className="block text-[#1E293B]">{viewStudent.parent_name}</strong></div>
-              <div><span className="text-[#64748B]">Parent Mobile:</span> <strong className="block text-[#1E293B]">{viewStudent.parent_mobile}</strong></div>
-              <div className="col-span-2"><span className="text-[#64748B]">Address:</span> <strong className="block text-[#1E293B]">{viewStudent.address}</strong></div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-8 animate-fade-in">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
+              <h3 className="text-base font-bold text-[#1E293B] flex items-center gap-2">
+                <GraduationCap className="w-5 h-5 text-[#2563EB]" /> Official Student Profile Details
+              </h3>
+              <button
+                onClick={() => setViewStudent(null)}
+                className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <div className="flex justify-end pt-2 border-t border-[#E2E8F0]">
-              <Button variant="outline" size="sm" onClick={() => setViewStudent(null)}>Close</Button>
+
+            <div className="space-y-4 text-xs">
+              {/* Student Header Card */}
+              <div className="flex items-center gap-4 p-4 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                <img
+                  src={viewStudent.profile_photo || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"}
+                  alt={viewStudent.first_name}
+                  className="w-16 h-16 rounded-xl object-cover border border-[#E2E8F0] shadow-2xs"
+                />
+                <div>
+                  <h4 className="text-base font-extrabold text-[#1E293B]">
+                    {viewStudent.first_name} {viewStudent.last_name}
+                  </h4>
+                  <p className="font-mono text-[#2563EB] font-bold text-xs">
+                    Enrollment No: {viewStudent.enrollment_no}
+                  </p>
+                  <p className="text-xs text-[#64748B] font-medium mt-0.5">
+                    Master of Computer Applications (MCA) • Semester 3 • Active Student
+                  </p>
+                </div>
+              </div>
+
+              {/* Profile Details Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-0.5">
+                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">Email Address</span>
+                  <p className="font-medium text-[#1E293B] truncate">{viewStudent.email}</p>
+                </div>
+
+                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-0.5">
+                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">Mobile Number</span>
+                  <p className="font-mono text-[#1E293B] font-bold">{viewStudent.mobile}</p>
+                </div>
+
+                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-0.5">
+                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">Gender & Date of Birth</span>
+                  <p className="font-medium text-[#1E293B]">{viewStudent.gender} • {viewStudent.date_of_birth}</p>
+                </div>
+
+                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-0.5">
+                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">Blood Group & Admission Date</span>
+                  <p className="font-medium text-[#1E293B]">Blood Group: {viewStudent.blood_group || "O+"} • Adm: {viewStudent.admission_date || "2025-07-15"}</p>
+                </div>
+
+                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-0.5 sm:col-span-2">
+                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">Parent / Guardian Information</span>
+                  <p className="font-bold text-[#1E293B]">{viewStudent.parent_name || "Parent Name"}</p>
+                  <p className="font-mono text-[#14B8A6] font-bold">{viewStudent.parent_mobile} • {viewStudent.parent_email || "parent@gmail.com"}</p>
+                </div>
+
+                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-0.5 sm:col-span-2">
+                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">Residential Address</span>
+                  <p className="font-medium text-[#1E293B]">{viewStudent.address}</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>

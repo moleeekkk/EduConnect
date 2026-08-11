@@ -7,12 +7,6 @@ const StudentDigitalID = () => {
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
-      {/* Header */}
-      <div className="bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs text-center">
-        <h1 className="text-xl font-bold text-[#1E293B]">Official Digital Identification Card</h1>
-        <p className="text-xs text-[#64748B] mt-0.5">EduConnect Student Identity & Emergency Reference</p>
-      </div>
-
       {/* ID Card Box */}
       <div className="bg-gradient-to-br from-[#1E293B] via-[#2563EB] to-[#14B8A6] rounded-2xl p-6 text-white shadow-xl relative overflow-hidden space-y-6">
         {/* Background decoration */}
@@ -25,7 +19,7 @@ const StudentDigitalID = () => {
             <span className="text-xs font-bold text-white">Department of Computer Applications</span>
           </div>
           <span className="px-2.5 py-1 rounded-full bg-white/20 text-[10px] font-bold tracking-wider uppercase">
-            Student Pass
+            Student
           </span>
         </div>
 
@@ -43,7 +37,7 @@ const StudentDigitalID = () => {
             </h2>
             <p className="text-white/80 font-mono text-xs">Enrollment No: {student.enrollment_no}</p>
             <p className="text-white/80 text-[11px]">Program: Master of Computer Applications (MCA)</p>
-            
+
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
               <span className="px-2 py-0.5 rounded bg-white/15 text-[10px] font-semibold">Blood Group: {student.blood_group}</span>
               <span className="px-2 py-0.5 rounded bg-white/15 text-[10px] font-semibold">Batch: 2025-2027</span>

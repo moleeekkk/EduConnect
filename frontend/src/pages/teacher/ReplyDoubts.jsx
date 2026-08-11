@@ -27,8 +27,7 @@ const TeacherReplyDoubts = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
-          <h1 className="text-xl font-bold text-[#1E293B]">Reply Student Doubts (doubts Table)</h1>
-          <p className="text-xs text-[#64748B] mt-0.5">Answer technical questions posted by students</p>
+          <h1 className="text-xl font-bold text-[#1E293B]">Reply Doubts</h1>
         </div>
       </div>
 
@@ -91,7 +90,7 @@ const TeacherReplyDoubts = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl border border-[#E2E8F0] space-y-4">
             <h3 className="text-base font-bold text-[#1E293B] border-b border-[#E2E8F0] pb-2">
-              Reply To Doubt (doubts Table)
+              Reply To Doubt
             </h3>
 
             <div className="text-xs space-y-1">

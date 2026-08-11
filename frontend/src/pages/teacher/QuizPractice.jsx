@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { HelpCircle, Plus, Edit, Trash2, CheckCircle2, ListPlus, BookOpen } from "lucide-react";
+import { HelpCircle, Plus, Edit, Trash2, CheckCircle2, ListPlus, BookOpen, X } from "lucide-react";
 import Button from "../../components/common/Button";
 import { mockQuizzes, mockMcqs, mockSubjects } from "../../data/mockData";
 
@@ -147,8 +147,7 @@ const TeacherQuizPractice = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
-          <h1 className="text-xl font-bold text-[#1E293B]">Manage Practice Quizzes & MCQs (quizzes & mcqs)</h1>
-          <p className="text-xs text-[#64748B] mt-0.5">Create practice quizzes, edit details, add MCQ practice questions, and delete modules</p>
+          <h1 className="text-xl font-bold text-[#1E293B]">Quiz Practice</h1>
         </div>
 
         <Button variant="accent" size="sm" icon={Plus} onClick={handleOpenAddModal} className="text-xs">
@@ -305,9 +304,13 @@ const TeacherQuizPractice = () => {
                 <h3 className="text-base font-bold text-[#1E293B]">Manage Practice Questions (MCQs)</h3>
                 <p className="text-xs text-[#64748B]">{activeQuizForMcq.title}</p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setActiveQuizForMcq(null)}>
-                Close
-              </Button>
+              <button
+                onClick={() => setActiveQuizForMcq(null)}
+                className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             {/* Existing Questions List */}

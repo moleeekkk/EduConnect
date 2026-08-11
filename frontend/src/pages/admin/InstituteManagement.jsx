@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Building2, Plus, Edit, Trash2, Eye, CheckCircle2, AlertCircle, Mail, Phone, MapPin, Layers } from "lucide-react";
+import { Building2, Plus, Edit, Trash2, Eye, CheckCircle2, AlertCircle, Mail, Phone, MapPin, Layers, X } from "lucide-react";
 import Button from "../../components/common/Button";
 import { mockInstitutes, mockPrograms } from "../../data/mockData";
 
@@ -77,8 +77,7 @@ const AdminInstituteManagement = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
-          <h1 className="text-xl font-bold text-[#1E293B]">Institute & School Management (institutes Table)</h1>
-          <p className="text-xs text-[#64748B] mt-0.5">Admin control center to view details, add, edit all institute information, and delete records</p>
+          <h1 className="text-xl font-bold text-[#1E293B]">Institute Management</h1>
         </div>
 
         <Button variant="accent" size="sm" icon={Plus} onClick={handleOpenAdd} className="text-xs">
@@ -110,28 +109,30 @@ const AdminInstituteManagement = () => {
                       {inst.is_active ? "Active" : "Inactive"}
                     </span>
                   </td>
-                  <td className="p-3.5 text-right space-x-1.5 shrink-0">
-                    <button
-                      onClick={() => setViewInst(inst)}
-                      className="p-1.5 hover:bg-[#2563EB]/10 rounded-lg text-[#2563EB] transition-colors"
-                      title="View Institute Details"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleOpenEdit(inst)}
-                      className="p-1.5 hover:bg-[#14B8A6]/10 rounded-lg text-[#14B8A6] transition-colors"
-                      title="Edit Full Info"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(inst.institute_id)}
-                      className="p-1.5 hover:bg-[#EF4444]/10 rounded-lg text-[#EF4444] transition-colors"
-                      title="Delete Institute"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <td className="p-3.5 text-right whitespace-nowrap">
+                    <div className="inline-flex items-center justify-end gap-1.5">
+                      <button
+                        onClick={() => setViewInst(inst)}
+                        className="p-1.5 hover:bg-[#2563EB]/10 rounded-lg text-[#2563EB] transition-colors"
+                        title="View Institute Details"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleOpenEdit(inst)}
+                        className="p-1.5 hover:bg-[#14B8A6]/10 rounded-lg text-[#14B8A6] transition-colors"
+                        title="Edit Full Info"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(inst.institute_id)}
+                        className="p-1.5 hover:bg-[#EF4444]/10 rounded-lg text-[#EF4444] transition-colors"
+                        title="Delete Institute"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -148,9 +149,13 @@ const AdminInstituteManagement = () => {
               <h3 className="text-base font-bold text-[#1E293B] flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-[#2563EB]" /> Complete Institute Profile Information
               </h3>
-              <Button variant="outline" size="sm" onClick={() => setViewInst(null)}>
-                Close
-              </Button>
+              <button
+                onClick={() => setViewInst(null)}
+                className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             <div className="space-y-4 text-xs">

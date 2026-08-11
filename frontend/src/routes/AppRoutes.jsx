@@ -51,8 +51,6 @@ import AdminInstituteManagement from "../pages/admin/InstituteManagement";
 import AdminProgramManagement from "../pages/admin/ProgramManagement";
 import AdminSubjectManagement from "../pages/admin/SubjectManagement";
 import AdminReports from "../pages/admin/Reports";
-import AdminAnnouncements from "../pages/admin/Announcements";
-import AdminSystemSettings from "../pages/admin/SystemSettings";
 
 const AppRoutes = () => {
   return (
@@ -118,8 +116,6 @@ const AppRoutes = () => {
         <Route path="courses" element={<AdminProgramManagement />} />
         <Route path="subjects" element={<AdminSubjectManagement />} />
         <Route path="reports" element={<AdminReports />} />
-        <Route path="announcements" element={<AdminAnnouncements />} />
-        <Route path="settings" element={<AdminSystemSettings />} />
       </Route>
 
       {/* Fallback route */}

@@ -36,8 +36,7 @@ const TeacherAttendanceMarker = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
-          <h1 className="text-xl font-bold text-[#1E293B]">Attendance Marker (attendance_sessions & attendance_records)</h1>
-          <p className="text-xs text-[#64748B] mt-0.5">Record lecture sessions and mark student attendance</p>
+          <h1 className="text-xl font-bold text-[#1E293B]">Attendance Marker</h1>
         </div>
 
         <Button variant="accent" size="sm" icon={Save} onClick={handleSaveAttendance} className="text-xs">
@@ -125,7 +124,7 @@ const TeacherAttendanceMarker = () => {
       {/* Student Roster List for Marking */}
       <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs overflow-hidden">
         <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between">
-          <h2 className="text-sm font-bold text-[#1E293B]">Class Student Roster (attendance_records)</h2>
+          <h2 className="text-sm font-bold text-[#1E293B]">Class Student Roster</h2>
           <span className="text-xs text-[#64748B]">Click on any student card to toggle Present / Absent</span>
         </div>
 

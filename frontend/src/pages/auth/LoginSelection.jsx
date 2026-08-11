@@ -66,7 +66,7 @@ const LoginSelection = () => {
             <img
               src={logoImg}
               alt="EduConnect Official Logo"
-              className="h-20 sm:h-24 w-auto object-contain mx-auto"
+              className="h-24 sm:h-28 w-auto object-contain mx-auto transition-all"
             />
           </div>
 

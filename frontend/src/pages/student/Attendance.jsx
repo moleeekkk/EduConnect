@@ -27,8 +27,7 @@ const StudentAttendance = () => {
       {/* Overview Cards */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
-          <h1 className="text-xl font-bold text-[#1E293B]">Attendance Log (attendance_records)</h1>
-          <p className="text-xs text-[#64748B] mt-0.5">Semester 3 • Master of Computer Applications</p>
+          <h1 className="text-xl font-bold text-[#1E293B]">Attendance</h1>
         </div>
 
         <div className="flex items-center gap-3">

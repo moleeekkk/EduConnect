@@ -31,16 +31,7 @@ const TeacherDashboard = () => {
           </p>
         </div>
 
-        <div className="flex gap-2">
-          <Button
-            variant="accent"
-            onClick={() => navigate("/teacher/attendance")}
-            icon={CalendarCheck}
-            className="text-xs"
-          >
-            Mark Class Attendance
-          </Button>
-        </div>
+
       </div>
 
       {/* Metrics Cards */}

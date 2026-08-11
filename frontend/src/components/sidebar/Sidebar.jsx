@@ -9,7 +9,6 @@ import {
   Users,
   School,
   FileSpreadsheet,
-  Megaphone,
   BarChart3,
   LogOut,
   Sparkles,
@@ -70,11 +69,9 @@ const Sidebar = ({ role = "Student" }) => {
       { label: "Student Management", path: "/admin/students", icon: GraduationCap },
       { label: "Teacher Management", path: "/admin/teachers", icon: School },
       { label: "Institute Management", path: "/admin/institutes", icon: Building2 },
-      { label: "Department / Program", path: "/admin/programs", icon: FolderTree },
+      { label: "Department", path: "/admin/programs", icon: FolderTree },
       { label: "Subject Management", path: "/admin/subjects", icon: BookOpen },
       { label: "Reports", path: "/admin/reports", icon: BarChart3 },
-      { label: "Announcements", path: "/admin/announcements", icon: Megaphone },
-      { label: "System Settings", path: "/admin/settings", icon: SlidersHorizontal },
     ],
   };
 
@@ -90,9 +87,9 @@ const Sidebar = ({ role = "Student" }) => {
     <aside className="w-64 bg-white border-r border-[#E2E8F0] min-h-screen flex flex-col justify-between sticky top-0 h-screen z-20">
       <div className="flex flex-col h-full overflow-hidden">
         {/* Brand Header */}
-        <div className="p-5 border-b border-[#E2E8F0] shrink-0">
+        <div className="p-4 border-b border-[#E2E8F0] shrink-0">
           <Link to="/" className="flex items-center gap-3">
-            <img src={logoImg} alt="EduConnect Logo" className="h-10 w-auto object-contain" />
+            <img src={logoImg} alt="EduConnect Logo" className="h-14 sm:h-16 max-h-16 w-auto object-contain transition-all" />
             <div>
               <span className="block text-[10px] tracking-wider uppercase font-extrabold text-[#14B8A6]">
                 {role} Portal
@@ -116,10 +113,9 @@ const Sidebar = ({ role = "Student" }) => {
                   to={item.path}
                   className={`
                     flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200
-                    ${
-                      isActive
-                        ? `${roleAccent[role]} shadow-sm`
-                        : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#1E293B]"
+                    ${isActive
+                      ? `${roleAccent[role]} shadow-sm`
+                      : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#1E293B]"
                     }
                   `}
                 >

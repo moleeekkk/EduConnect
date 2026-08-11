@@ -60,7 +60,7 @@ const TeacherProfile = () => {
       {/* Form matching teachers table fields */}
       <div className="bg-white rounded-xl p-6 border border-[#E2E8F0] shadow-xs space-y-6">
         <h2 className="text-base font-bold text-[#1E293B] border-b border-[#E2E8F0] pb-3">
-          Teacher Profile Information (teachers Table)
+          Teacher Profile Information
         </h2>
 
         <form onSubmit={handleSave} className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">

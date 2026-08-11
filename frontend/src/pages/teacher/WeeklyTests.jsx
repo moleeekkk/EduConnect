@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { CheckSquare, Plus, Eye, Award, CheckCircle2, Clock, Edit, Trash2 } from "lucide-react";
+import { CheckSquare, Plus, Eye, Award, CheckCircle2, Clock, Edit, Trash2, X } from "lucide-react";
 import Button from "../../components/common/Button";
 import { mockWeeklyExams, mockWeeklyExamResults, mockStudents } from "../../data/mockData";
 
@@ -93,8 +93,7 @@ const TeacherWeeklyTests = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
-          <h1 className="text-xl font-bold text-[#1E293B]">Manage Weekly Tests & Evaluation (weekly_exams)</h1>
-          <p className="text-xs text-[#64748B] mt-0.5">Create, edit, delete weekly exams with custom start/end timings and review student scores</p>
+          <h1 className="text-xl font-bold text-[#1E293B]">Weekly Tests</h1>
         </div>
 
         <Button variant="accent" size="sm" icon={Plus} onClick={handleOpenAddModal} className="text-xs">
@@ -165,7 +164,7 @@ const TeacherWeeklyTests = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl border border-[#E2E8F0] space-y-4">
             <h3 className="text-base font-bold text-[#1E293B] border-b border-[#E2E8F0] pb-2">
-              {editingExamId ? "Edit Weekly Test Details" : "Create Weekly Test (weekly_exams)"}
+              {editingExamId ? "Edit Weekly Test Details" : "Create Weekly Test"}
             </h3>
 
             <form onSubmit={handleSaveTest} className="space-y-3 text-xs">
@@ -257,9 +256,18 @@ const TeacherWeeklyTests = () => {
       {viewResultsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
           <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl border border-[#E2E8F0] space-y-4">
-            <h3 className="text-base font-bold text-[#1E293B] border-b border-[#E2E8F0] pb-2">
-              Class Exam Results ({viewResultsModal.title})
-            </h3>
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2">
+              <h3 className="text-base font-bold text-[#1E293B]">
+                Class Exam Results ({viewResultsModal.title})
+              </h3>
+              <button
+                onClick={() => setViewResultsModal(null)}
+                className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
@@ -285,11 +293,7 @@ const TeacherWeeklyTests = () => {
               </table>
             </div>
 
-            <div className="flex justify-end pt-2 border-t border-[#E2E8F0]">
-              <Button variant="outline" size="sm" onClick={() => setViewResultsModal(null)}>
-                Close
-              </Button>
-            </div>
+
           </div>
         </div>
       )}

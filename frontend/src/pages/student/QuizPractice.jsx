@@ -32,8 +32,7 @@ const StudentQuizPractice = () => {
       {/* Header with Learner Category & Subject Selection */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
-          <h1 className="text-xl font-bold text-[#1E293B]">Interactive Quiz Practice (quizzes & mcqs)</h1>
-          <p className="text-xs text-[#64748B] mt-0.5">Customized practice questions by learner category and subject</p>
+          <h1 className="text-xl font-bold text-[#1E293B]">Interactive Quiz Practice</h1>
         </div>
 
         {/* Selection Controls */}
@@ -47,9 +46,8 @@ const StudentQuizPractice = () => {
                   setSelectedLearnerType("Fast");
                   resetQuiz();
                 }}
-                className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
-                  selectedLearnerType === "Fast" ? "bg-[#2563EB] text-white" : "text-[#64748B]"
-                }`}
+                className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${selectedLearnerType === "Fast" ? "bg-[#2563EB] text-white" : "text-[#64748B]"
+                  }`}
               >
                 Fast Learner
               </button>
@@ -58,9 +56,8 @@ const StudentQuizPractice = () => {
                   setSelectedLearnerType("Slow");
                   resetQuiz();
                 }}
-                className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
-                  selectedLearnerType === "Slow" ? "bg-[#14B8A6] text-white" : "text-[#64748B]"
-                }`}
+                className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${selectedLearnerType === "Slow" ? "bg-[#14B8A6] text-white" : "text-[#64748B]"
+                  }`}
               >
                 Slow Learner
               </button>
@@ -95,11 +92,10 @@ const StudentQuizPractice = () => {
             <div>
               <div className="flex items-center gap-2">
                 <span
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                    activeQuiz.learner_type === "Fast"
-                      ? "bg-[#2563EB]/10 text-[#2563EB]"
-                      : "bg-[#14B8A6]/10 text-[#14B8A6]"
-                  }`}
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${activeQuiz.learner_type === "Fast"
+                    ? "bg-[#2563EB]/10 text-[#2563EB]"
+                    : "bg-[#14B8A6]/10 text-[#14B8A6]"
+                    }`}
                 >
                   {activeQuiz.learner_type} Learner Category
                 </span>
@@ -141,9 +137,8 @@ const StudentQuizPractice = () => {
                       </h3>
                       {showExplanations && (
                         <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            isCorrect ? "bg-[#22C55E]/10 text-[#22C55E]" : "bg-[#EF4444]/10 text-[#EF4444]"
-                          }`}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${isCorrect ? "bg-[#22C55E]/10 text-[#22C55E]" : "bg-[#EF4444]/10 text-[#EF4444]"
+                            }`}
                         >
                           {isCorrect ? "Correct" : `Correct Option: ${mcq.correct_answer}`}
                         </span>

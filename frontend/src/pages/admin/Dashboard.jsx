@@ -1,15 +1,33 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { ShieldCheck, Users, School, BookOpen, Activity, UserPlus, Building2, FolderTree, BarChart3, SlidersHorizontal } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Button from "../../components/common/Button";
-import { mockInstitutes, mockPrograms, mockStudents, mockTeachers } from "../../data/mockData";
+import { mockInstitutes, mockPrograms } from "../../data/mockData";
+import { adminApi } from "../../services/api";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
+  const [statsData, setStatsData] = useState({
+    totalStudents: 0,
+    totalFaculty: 0,
+    activeCourses: 0,
+  });
+
+  useEffect(() => {
+    adminApi.getDashboard().then((res) => {
+      if (res) {
+        setStatsData({
+          totalStudents: res.totalStudents || 0,
+          totalFaculty: res.totalFaculty || 0,
+          activeCourses: res.activeCourses || 0,
+        });
+      }
+    }).catch((err) => console.log("Dashboard fetch error:", err));
+  }, []);
 
   const adminStats = [
-    { title: "Total Students", value: `${mockStudents.length} Active`, sub: "Master of Computer Applications", icon: Users, color: "bg-[#2563EB]/10 text-[#2563EB]" },
-    { title: "Faculty Members", value: `${mockTeachers.length} Professors`, sub: "Department of CA", icon: School, color: "bg-[#14B8A6]/10 text-[#14B8A6]" },
+    { title: "Total Students", value: `${statsData.totalStudents} Active`, sub: "Master of Computer Applications", icon: Users, color: "bg-[#2563EB]/10 text-[#2563EB]" },
+    { title: "Faculty Members", value: `${statsData.totalFaculty} Professors`, sub: "Department of CA", icon: School, color: "bg-[#14B8A6]/10 text-[#14B8A6]" },
     { title: "Active Institutes", value: `${mockInstitutes.length} Institutes`, sub: "CA, CS, IT Schools", icon: Building2, color: "bg-[#F59E0B]/10 text-[#F59E0B]" },
     { title: "Academic Programs", value: `${mockPrograms.length} Degree Programs`, sub: "MCA, BCA, B.Tech IT", icon: FolderTree, color: "bg-[#22C55E]/10 text-[#22C55E]" },
   ];
@@ -30,14 +48,7 @@ const AdminDashboard = () => {
           </p>
         </div>
 
-        <div className="flex gap-2">
-          <Button variant="accent" onClick={() => navigate("/admin/students")} icon={UserPlus} className="text-xs">
-            Manage Students
-          </Button>
-          <Button variant="outline" onClick={() => navigate("/admin/teachers")} className="!bg-white/10 !text-white !border-white/30 text-xs">
-            Manage Teachers
-          </Button>
-        </div>
+
       </div>
 
       {/* Metrics Cards */}
