@@ -1,8 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Search, Bell, User, LogOut, ChevronDown, Sparkles, GraduationCap } from "lucide-react";
+import { Search, Bell, User, LogOut, ChevronDown, Sparkles, GraduationCap, Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 
-const Navbar = ({ role = "Student", userName, userDetail }) => {
+const Navbar = ({
+  role = "Student",
+  userName,
+  userDetail,
+  isCollapsed = false,
+  onToggleCollapse = () => {},
+  onToggleMobile = () => {},
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showDropdown, setShowDropdown] = useState(false);
@@ -38,21 +45,42 @@ const Navbar = ({ role = "Student", userName, userDetail }) => {
   };
 
   return (
-    <header className="h-16 bg-white border-b border-[#E2E8F0] px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
-      {/* Left Search Bar */}
-      <div className="flex items-center gap-4 flex-1 max-w-md">
+    <header className="h-16 bg-white border-b border-[#E2E8F0] px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs gap-3">
+      {/* Left Menu Controls & Search */}
+      <div className="flex items-center gap-3 flex-1 max-w-md">
+        {/* Mobile Hamburger Toggle Button */}
+        <button
+          onClick={onToggleMobile}
+          className="lg:hidden p-2 rounded-xl text-[#64748B] hover:text-[#1E293B] hover:bg-[#F8FAFC] border border-[#E2E8F0] transition-colors cursor-pointer shrink-0"
+          title="Open Menu"
+          aria-label="Open Navigation Menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
+        {/* Desktop Sidebar Expand/Collapse Toggle Button */}
+        <button
+          onClick={onToggleCollapse}
+          className="hidden lg:flex p-2 rounded-xl text-[#64748B] hover:text-[#1E293B] hover:bg-[#F8FAFC] border border-[#E2E8F0] transition-colors cursor-pointer shrink-0"
+          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          aria-label="Toggle Sidebar"
+        >
+          {isCollapsed ? <PanelLeftOpen className="w-4 h-4 text-[#2563EB]" /> : <PanelLeftClose className="w-4 h-4 text-[#64748B]" />}
+        </button>
+
+        {/* Search Input Container */}
         <div className="relative w-full">
           <Search className="w-4 h-4 text-[#64748B] absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search courses, subjects, schedules..."
+            placeholder="Search courses, schedules..."
             className="w-full pl-10 pr-4 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs text-[#1E293B] placeholder-[#64748B] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all"
           />
         </div>
       </div>
 
       {/* Right User Actions */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4 shrink-0">
         {/* Role Badge */}
         <span className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold ${roleColors[role] || roleColors.Student}`}>
           <Sparkles className="w-3 h-3" />
@@ -63,9 +91,9 @@ const Navbar = ({ role = "Student", userName, userDetail }) => {
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setShowDropdown(!showDropdown)}
-            className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-[#F8FAFC] transition-colors cursor-pointer border border-transparent hover:border-[#E2E8F0]"
+            className="flex items-center gap-2 sm:gap-3 p-1.5 rounded-xl hover:bg-[#F8FAFC] transition-colors cursor-pointer border border-transparent hover:border-[#E2E8F0]"
           >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#2563EB] to-[#14B8A6] text-white flex items-center justify-center font-bold text-xs shadow-xs">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#2563EB] to-[#14B8A6] text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
               {displayName ? displayName.split(" ").map((n) => n[0]).join("") : "U"}
             </div>
             <div className="hidden md:block text-left">

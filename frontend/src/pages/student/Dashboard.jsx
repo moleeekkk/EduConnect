@@ -6,7 +6,13 @@ import { mockStudents, mockAttendanceSessions, mockAssignments, mockAnnouncement
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
-  const currentStudent = mockStudents[0];
+  const userStr = localStorage.getItem("educonnect_user");
+  const loggedUser = userStr ? JSON.parse(userStr) : null;
+  const currentStudent = {
+    enrollment_no: loggedUser?.identifier || mockStudents[0]?.enrollment_no || "25CI2110016",
+    first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : (mockStudents[0]?.first_name || "Student"),
+    last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : (mockStudents[0]?.last_name || "User"),
+  };
 
   const stats = [
     {

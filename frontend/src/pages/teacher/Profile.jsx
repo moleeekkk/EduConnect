@@ -4,7 +4,26 @@ import Button from "../../components/common/Button";
 import { mockTeachers } from "../../data/mockData";
 
 const TeacherProfile = () => {
-  const [profile, setProfile] = useState(mockTeachers[0]);
+  const userStr = localStorage.getItem("educonnect_user");
+  const loggedUser = userStr ? JSON.parse(userStr) : null;
+  const initialTeacher = mockTeachers[0] || {
+    teacher_id: "teach-001",
+    employee_id: loggedUser?.identifier || "FAC-8092",
+    first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : "Faculty",
+    last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : "Member",
+    email: loggedUser?.identifier || "teacher@educonnect.ac.in",
+    mobile: "+91 98111 22334",
+    gender: "Female",
+    date_of_birth: "1985-04-12",
+    address: "Faculty Quarters Enclave",
+    qualification: "Ph.D. in Computer Science",
+    designation: "Assistant Professor",
+    experience: 5,
+    joining_date: "2018-06-15",
+    profile_photo: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
+    is_active: true,
+  };
+  const [profile, setProfile] = useState(initialTeacher);
   const [isEditing, setIsEditing] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 

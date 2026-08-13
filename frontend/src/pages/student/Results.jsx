@@ -1,21 +1,32 @@
-import React from "react";
-import { Award, ArrowLeft, CheckCircle2, FileText } from "lucide-react";
+import React, { useState } from "react";
+import { Award, ArrowLeft, CheckCircle2, FileText, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import {
+  mockSemesters,
+  mockSemesterResults,
+  mockSemesterResultDetails,
+  mockSubjects,
+} from "../../data/mockData";
 
 const StudentResults = () => {
   const navigate = useNavigate();
+  const [selectedSemId, setSelectedSemId] = useState("sem-003");
 
-  const resultsData = {
-    sgpa: 8.85,
-    cgpa: 8.75,
-    totalCredits: 24,
-    subjects: [
-      { code: "MCA301", name: "Advanced Web Technologies", grade: "A+", points: 9.0, credits: 4 },
-      { code: "MCA302", name: "Cloud Infrastructure & DevOps", grade: "A", points: 8.5, credits: 4 },
-      { code: "MCA303", name: "Database Architecture Practical", grade: "O", points: 10.0, credits: 3 },
-      { code: "MCA304", name: "Software Engineering & Testing", grade: "A", points: 8.0, credits: 4 },
-    ]
-  };
+  const currentResult = mockSemesterResults.find(
+    (res) => res.semester_id === selectedSemId && res.student_id === "stu-001"
+  ) || mockSemesterResults[2];
+
+  const resultDetails = mockSemesterResultDetails
+    .filter((det) => det.semester_result_id === currentResult?.semester_result_id)
+    .map((det) => {
+      const subj = mockSubjects.find((s) => s.subject_id === det.subject_id) || {
+        subject_name: "Core Subject Module",
+        subject_code: "MCA301",
+        credits: 4,
+      };
+      const points = det.grade === "O" ? 10.0 : det.grade === "A+" ? 9.0 : det.grade === "A" ? 8.0 : 7.0;
+      return { ...det, subj, points };
+    });
 
   return (
     <div className="space-y-6">
@@ -28,22 +39,48 @@ const StudentResults = () => {
             <h1 className="text-2xl font-bold text-[#1E293B]">Semester Examination Results</h1>
           </div>
           <p className="text-xs text-[#64748B] mt-1 ml-7">
-            Official Academic Record • Master of Computer Applications (Semester 3)
+            Official Academic Record • Master of Computer Applications
           </p>
         </div>
 
         <div className="flex items-center gap-3">
+          <select
+            value={selectedSemId}
+            onChange={(e) => setSelectedSemId(e.target.value)}
+            className="p-2.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-xs font-bold text-[#1E293B] cursor-pointer outline-none focus:border-[#2563EB]"
+          >
+            {mockSemesters.map((sem) => (
+              <option key={sem.semester_id} value={sem.semester_id}>
+                Semester {sem.semester_number}
+              </option>
+            ))}
+          </select>
           <div className="px-4 py-2 rounded-xl bg-[#2563EB]/10 border border-[#2563EB]/20 text-center">
-            <span className="text-[10px] text-[#64748B] uppercase font-bold block">Current CGPA</span>
-            <span className="text-xl font-extrabold text-[#2563EB]">{resultsData.cgpa} / 10</span>
+            <span className="text-[10px] text-[#64748B] uppercase font-bold block">Cumulative CGPA</span>
+            <span className="text-xl font-extrabold text-[#2563EB]">{currentResult?.cgpa || "8.97"} / 10</span>
           </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-xs text-center">
+          <span className="text-[10px] uppercase font-bold text-[#64748B]">Semester SGPA</span>
+          <p className="text-2xl font-extrabold text-[#2563EB] mt-1">{currentResult?.sgpa || "9.15"} / 10</p>
+        </div>
+        <div className="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-xs text-center">
+          <span className="text-[10px] uppercase font-bold text-[#64748B]">Result Status</span>
+          <p className="text-2xl font-extrabold text-[#22C55E] mt-1">{currentResult?.result_status || "Pass"}</p>
+        </div>
+        <div className="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-xs text-center">
+          <span className="text-[10px] uppercase font-bold text-[#64748B]">Published Date</span>
+          <p className="text-2xl font-extrabold text-[#14B8A6] mt-1">{currentResult?.published_date || "2026-08-01"}</p>
         </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs overflow-hidden">
         <div className="p-5 border-b border-[#E2E8F0] flex items-center justify-between">
-          <h2 className="text-base font-bold text-[#1E293B]">Subject-Wise Marksheet</h2>
-          <span className="text-xs text-[#22C55E] font-bold">SGPA: {resultsData.sgpa}</span>
+          <h2 className="text-base font-bold text-[#1E293B]">Subject-Wise Marksheet Breakdown</h2>
+          <span className="text-xs text-[#22C55E] font-bold">SGPA: {currentResult?.sgpa}</span>
         </div>
 
         <div className="overflow-x-auto">
@@ -53,18 +90,22 @@ const StudentResults = () => {
                 <th className="py-3.5 px-5">Code</th>
                 <th className="py-3.5 px-5">Subject Title</th>
                 <th className="py-3.5 px-5">Credits</th>
+                <th className="py-3.5 px-5">Obtained / Total Marks</th>
                 <th className="py-3.5 px-5">Grade</th>
                 <th className="py-3.5 px-5">Grade Points</th>
+                <th className="py-3.5 px-5">Remarks</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E2E8F0] text-xs text-[#1E293B]">
-              {resultsData.subjects.map((sub) => (
-                <tr key={sub.code} className="hover:bg-[#F8FAFC] transition-colors">
-                  <td className="py-4 px-5 font-bold text-[#2563EB]">{sub.code}</td>
-                  <td className="py-4 px-5 font-medium">{sub.name}</td>
-                  <td className="py-4 px-5 font-mono">{sub.credits}</td>
+              {resultDetails.map((sub) => (
+                <tr key={sub.semester_result_detail_id} className="hover:bg-[#F8FAFC] transition-colors">
+                  <td className="py-4 px-5 font-bold text-[#2563EB]">{sub.subj.subject_code}</td>
+                  <td className="py-4 px-5 font-medium">{sub.subj.subject_name}</td>
+                  <td className="py-4 px-5 font-mono">{sub.subj.credits}</td>
+                  <td className="py-4 px-5 font-bold">{sub.obtained_marks} / {sub.total_marks}</td>
                   <td className="py-4 px-5 font-bold text-[#14B8A6]">{sub.grade}</td>
                   <td className="py-4 px-5 font-bold">{sub.points}</td>
+                  <td className="py-4 px-5 text-[#64748B]">{sub.remarks}</td>
                 </tr>
               ))}
             </tbody>

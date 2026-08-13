@@ -11,7 +11,7 @@ import {
 
 const TeacherParentEmail = () => {
   const [sendMode, setSendMode] = useState("single"); // "single" or "all"
-  const [selectedStudent, setSelectedStudent] = useState(mockStudents[0]);
+  const [selectedStudent, setSelectedStudent] = useState(mockStudents[0] || null);
   const [emailType, setEmailType] = useState("Attendance Report");
   const [customSubject, setCustomSubject] = useState("");
   const [messageBody, setMessageBody] = useState("");

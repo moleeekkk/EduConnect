@@ -6,7 +6,16 @@ import { mockTeachers, mockAttendanceSessions, mockAssignments } from "../../dat
 
 const TeacherDashboard = () => {
   const navigate = useNavigate();
-  const teacher = mockTeachers[0];
+  const userStr = localStorage.getItem("educonnect_user");
+  const loggedUser = userStr ? JSON.parse(userStr) : null;
+  const teacher = {
+    employee_id: loggedUser?.identifier || mockTeachers[0]?.employee_id || "FAC-8092",
+    first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : (mockTeachers[0]?.first_name || "Faculty"),
+    last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : (mockTeachers[0]?.last_name || "Member"),
+    designation: mockTeachers[0]?.designation || "Assistant Professor",
+    qualification: mockTeachers[0]?.qualification || "Ph.D. in Computer Science",
+    experience: mockTeachers[0]?.experience || 5,
+  };
 
   const teacherStats = [
     { title: "Assigned Courses", value: "2 Subjects", sub: "MCA301 & MCA302", icon: BookOpen, color: "bg-[#14B8A6]/10 text-[#14B8A6]" },

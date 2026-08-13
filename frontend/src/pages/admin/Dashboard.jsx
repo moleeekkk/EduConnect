@@ -2,24 +2,24 @@ import React, { useState, useEffect } from "react";
 import { ShieldCheck, Users, School, BookOpen, Activity, UserPlus, Building2, FolderTree, BarChart3, SlidersHorizontal } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Button from "../../components/common/Button";
-import { mockInstitutes, mockPrograms } from "../../data/mockData";
+import { mockInstitutes, mockPrograms, mockStudents, mockTeachers, mockSubjects } from "../../data/mockData";
 import { adminApi } from "../../services/api";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [statsData, setStatsData] = useState({
-    totalStudents: 0,
-    totalFaculty: 0,
-    activeCourses: 0,
+    totalStudents: mockStudents.length || 5,
+    totalFaculty: mockTeachers.length || 3,
+    activeCourses: mockSubjects.length || 4,
   });
 
   useEffect(() => {
     adminApi.getDashboard().then((res) => {
-      if (res) {
+      if (res && (res.totalStudents > 0 || res.totalFaculty > 0)) {
         setStatsData({
-          totalStudents: res.totalStudents || 0,
-          totalFaculty: res.totalFaculty || 0,
-          activeCourses: res.activeCourses || 0,
+          totalStudents: res.totalStudents,
+          totalFaculty: res.totalFaculty,
+          activeCourses: res.activeCourses || mockSubjects.length,
         });
       }
     }).catch((err) => console.log("Dashboard fetch error:", err));

@@ -5,6 +5,8 @@ import Button from "../../components/common/Button";
 import Input from "../../components/common/Input";
 import { adminApi } from "../../services/api";
 
+import { mockSubjects } from "../../data/mockData";
+
 const CourseManagement = () => {
   const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
@@ -16,14 +18,29 @@ const CourseManagement = () => {
     const fetchCourses = async () => {
       try {
         const data = await adminApi.getCourses();
-        setCourses(data);
+        if (Array.isArray(data) && data.length > 0) {
+          setCourses(data);
+        } else {
+          setCourses(
+            mockSubjects.map((s) => ({
+              code: s.subject_code,
+              name: s.subject_name,
+              credits: s.credits,
+              type: s.credits >= 4 ? "Theory & Practical" : "Theory",
+              semester: s.semester_id === "sem-003" ? 3 : s.semester_id === "sem-001" ? 1 : 2,
+            }))
+          );
+        }
       } catch (err) {
-        setCourses([
-          { code: "MCA301", name: "Advanced Web Technologies", credits: 4, type: "Theory & Practical", semester: 3 },
-          { code: "MCA302", name: "Cloud Infrastructure & DevOps", credits: 4, type: "Theory", semester: 3 },
-          { code: "MCA303", name: "Database Architecture Practical", credits: 3, type: "Practical", semester: 3 },
-          { code: "MCA304", name: "Software Engineering & Testing", credits: 4, type: "Theory", semester: 3 },
-        ]);
+        setCourses(
+          mockSubjects.map((s) => ({
+            code: s.subject_code,
+            name: s.subject_name,
+            credits: s.credits,
+            type: s.credits >= 4 ? "Theory & Practical" : "Theory",
+            semester: s.semester_id === "sem-003" ? 3 : s.semester_id === "sem-001" ? 1 : 2,
+          }))
+        );
       }
     };
     fetchCourses();

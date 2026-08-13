@@ -4,7 +4,7 @@ import Button from "../../components/common/Button";
 import { mockStudents, mockAttendanceSessions, mockSubjects } from "../../data/mockData";
 
 const TeacherAttendanceMarker = () => {
-  const [selectedSubject, setSelectedSubject] = useState(mockSubjects[0].subject_id);
+  const [selectedSubject, setSelectedSubject] = useState(mockSubjects[0]?.subject_id || "subj-101");
   const [sessionDate, setSessionDate] = useState("2026-08-08");
   const [lectureNo, setLectureNo] = useState(1);
   const [startTime, setStartTime] = useState("09:30");

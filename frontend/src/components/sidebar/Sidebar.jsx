@@ -26,10 +26,19 @@ import {
   CheckSquare,
   BadgeAlert,
   IdCard,
+  ChevronLeft,
+  ChevronRight,
+  X,
 } from "lucide-react";
 import logoImg from "../../assets/logo/logo.png";
 
-const Sidebar = ({ role = "Student" }) => {
+const Sidebar = ({
+  role = "Student",
+  isCollapsed = false,
+  onToggleCollapse = () => {},
+  isMobileOpen = false,
+  onCloseMobile = () => {},
+}) => {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -65,13 +74,13 @@ const Sidebar = ({ role = "Student" }) => {
     ],
     Admin: [
       { label: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard },
-      { label: "My Profile", path: "/admin/profile", icon: User },
-      { label: "Student Management", path: "/admin/students", icon: GraduationCap },
-      { label: "Teacher Management", path: "/admin/teachers", icon: School },
       { label: "Institute Management", path: "/admin/institutes", icon: Building2 },
-      { label: "Department", path: "/admin/programs", icon: FolderTree },
+      { label: "Department Management", path: "/admin/programs", icon: FolderTree },
+      { label: "Teacher Management", path: "/admin/teachers", icon: School },
+      { label: "Student Management", path: "/admin/students", icon: GraduationCap },
       { label: "Subject Management", path: "/admin/subjects", icon: BookOpen },
       { label: "Reports", path: "/admin/reports", icon: BarChart3 },
+      { label: "My Profile", path: "/admin/profile", icon: User },
     ],
   };
 
@@ -84,68 +93,145 @@ const Sidebar = ({ role = "Student" }) => {
   };
 
   return (
-    <aside className="w-64 bg-white border-r border-[#E2E8F0] min-h-screen flex flex-col justify-between sticky top-0 h-screen z-20">
-      <div className="flex flex-col h-full overflow-hidden">
-        {/* Brand Header */}
-        <div className="p-4 border-b border-[#E2E8F0] shrink-0">
-          <Link to="/" className="flex items-center gap-3">
-            <img src={logoImg} alt="EduConnect Logo" className="h-14 sm:h-16 max-h-16 w-auto object-contain transition-all" />
-            <div>
-              <span className="block text-[10px] tracking-wider uppercase font-extrabold text-[#14B8A6]">
-                {role} Portal
-              </span>
-            </div>
-          </Link>
-        </div>
+    <>
+      {/* Mobile Backdrop Overlay */}
+      {isMobileOpen && (
+        <div
+          onClick={onCloseMobile}
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-40 lg:hidden transition-opacity"
+          aria-hidden="true"
+        />
+      )}
 
-        {/* Navigation List */}
-        <div className="px-4 py-4 overflow-y-auto flex-1 custom-scrollbar">
-          <p className="px-3 text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-2">
-            Portal Activities
-          </p>
-          <nav className="space-y-1">
-            {currentNav.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.path;
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`
-                    flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200
-                    ${isActive
-                      ? `${roleAccent[role]} shadow-sm`
-                      : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#1E293B]"
-                    }
-                  `}
-                >
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-white" : "text-[#64748B]"}`} />
-                  <span className="truncate">{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
+      {/* Main Sidebar Component */}
+      <aside
+        className={`
+          bg-white border-r border-[#E2E8F0] flex flex-col justify-between z-40
+          transition-all duration-300 ease-in-out
+          
+          /* Mobile Drawer (fixed off-canvas) */
+          fixed inset-y-0 left-0 h-full w-64 shadow-2xl lg:shadow-none
+          ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
+          
+          /* Desktop Sidebar (fixed height, stays in place) */
+          lg:translate-x-0 lg:static lg:h-screen lg:shrink-0
+          ${isCollapsed ? "lg:w-20" : "lg:w-64"}
+        `}
+      >
+        <div className="flex flex-col h-full overflow-hidden">
+          {/* Brand Header */}
+          <div className="p-4 border-b border-[#E2E8F0] shrink-0 flex items-center justify-between min-h-[64px]">
+            <Link
+              to="/"
+              onClick={onCloseMobile}
+              className="flex items-center gap-3 overflow-hidden"
+              title="EduConnect"
+            >
+              <img
+                src={logoImg}
+                alt="EduConnect Logo"
+                className={`h-12 w-auto object-contain transition-all shrink-0 ${isCollapsed ? "lg:h-10" : ""}`}
+              />
+              {!isCollapsed && (
+                <div className="hidden lg:block truncate">
+                  <span className="block text-[10px] tracking-wider uppercase font-extrabold text-[#14B8A6]">
+                    {role} Portal
+                  </span>
+                </div>
+              )}
+              {/* Mobile text label */}
+              <div className="lg:hidden truncate">
+                <span className="block text-[10px] tracking-wider uppercase font-extrabold text-[#14B8A6]">
+                  {role} Portal
+                </span>
+              </div>
+            </Link>
 
-        {/* Footer Info & Sign Out */}
-        <div className="p-4 border-t border-[#E2E8F0] space-y-2 shrink-0 bg-white">
-          <div className="p-2.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
-            <div className="flex items-center gap-2 text-xs font-bold text-[#1E293B] mb-0.5">
-              <Sparkles className="w-3.5 h-3.5 text-[#F59E0B]" />
-              Academic Term 2026
-            </div>
-            <p className="text-[11px] text-[#64748B]">Semester 3 • Active</p>
+            {/* Desktop Expand / Collapse Toggle Button */}
+            <button
+              onClick={onToggleCollapse}
+              className="hidden lg:flex p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-[#F8FAFC] border border-[#E2E8F0] transition-colors cursor-pointer"
+              title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            >
+              {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            </button>
+
+            {/* Mobile Close Button */}
+            <button
+              onClick={onCloseMobile}
+              className="lg:hidden p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+              title="Close Menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
-          <button
-            onClick={() => navigate("/")}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs text-[#EF4444] font-semibold rounded-xl hover:bg-[#EF4444]/10 transition-colors cursor-pointer"
-          >
-            <LogOut className="w-4 h-4" /> Sign Out
-          </button>
+          {/* Navigation List */}
+          <div className="px-3 py-4 overflow-y-auto flex-1 custom-scrollbar">
+            {(!isCollapsed || isMobileOpen) && (
+              <p className="px-3 text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-2 transition-opacity">
+                Portal Activities
+              </p>
+            )}
+            <nav className="space-y-1">
+              {currentNav.map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={onCloseMobile}
+                    title={isCollapsed ? item.label : ""}
+                    className={`
+                      flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200
+                      ${isCollapsed ? "lg:justify-center lg:px-2" : ""}
+                      ${isActive
+                        ? `${roleAccent[role]} shadow-sm`
+                        : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#1E293B]"
+                      }
+                    `}
+                  >
+                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-white" : "text-[#64748B]"}`} />
+                    {!isCollapsed && <span className="truncate hidden lg:inline">{item.label}</span>}
+                    <span className="truncate lg:hidden">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Footer Info & Sign Out */}
+          <div className="p-3 border-t border-[#E2E8F0] space-y-2 shrink-0 bg-white">
+            {(!isCollapsed || isMobileOpen) && role === "Student" && (
+              <div className="p-2.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] hidden lg:block">
+                <div className="flex items-center gap-2 text-xs font-bold text-[#1E293B] mb-0.5">
+                  <Sparkles className="w-3.5 h-3.5 text-[#F59E0B]" />
+                  Academic Term 2026
+                </div>
+                <p className="text-[11px] text-[#64748B]">Semester 3 • Active</p>
+              </div>
+            )}
+
+            <button
+              onClick={() => {
+                onCloseMobile();
+                navigate("/");
+              }}
+              title={isCollapsed ? "Sign Out" : ""}
+              className={`
+                w-full flex items-center justify-center gap-2 px-3 py-2 text-xs text-[#EF4444] font-semibold rounded-xl hover:bg-[#EF4444]/10 transition-colors cursor-pointer
+                ${isCollapsed ? "lg:px-2" : ""}
+              `}
+            >
+              <LogOut className="w-4 h-4 shrink-0" />
+              {!isCollapsed && <span className="hidden lg:inline">Sign Out</span>}
+              <span className="lg:hidden">Sign Out</span>
+            </button>
+          </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 };
 
