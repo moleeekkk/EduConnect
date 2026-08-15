@@ -2,23 +2,55 @@ import React, { useState, useEffect } from "react";
 import { GraduationCap, School, Plus, Edit, Trash2, Eye, UserCheck, Calendar, Phone, Mail, MapPin, Award, BookOpen, AtSign, X, Building2, Clock, Search, RotateCcw, Filter } from "lucide-react";
 import Button from "../../components/common/Button";
 import { adminApi } from "../../services/api";
-import { mockStudents, mockTeachers, mockInstitutes, mockSemesters } from "../../data/mockData";
+import { mockStudents, mockTeachers, mockInstitutes, mockPrograms, mockSemesters } from "../../data/mockData";
 
 const AdminUserManagement = ({ initialTab = "students" }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [students, setStudents] = useState(mockStudents);
   const [teachers, setTeachers] = useState(mockTeachers);
 
-  // Department & Optional Semester Filter States for Admin Student Management
+  // Institute, Department & Semester Filter States for Admin Student Management
+  const [selectedInstitute, setSelectedInstitute] = useState("all");
   const [selectedDepartment, setSelectedDepartment] = useState("all");
   const [selectedSemester, setSelectedSemester] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Helper to map institute_id to Department Name
-  const getDepartmentName = (instId) => {
+  // Helper to map institute_id to Institute Name & Code
+  const getInstituteName = (instId) => {
     if (!instId) return "Computer Applications";
     const inst = mockInstitutes.find((i) => i.institute_id === instId);
     return inst ? inst.institute_name : "Computer Applications";
+  };
+
+  const getInstituteCode = (instId) => {
+    if (!instId) return "CA";
+    const inst = mockInstitutes.find((i) => i.institute_id === instId);
+    return inst ? inst.institute_code : "CA";
+  };
+
+  // Helper to map program_id / instId to Department Name & Code
+  const getDepartmentName = (progId, instId) => {
+    if (progId) {
+      const prog = mockPrograms.find((p) => p.program_id === progId);
+      if (prog) return prog.program_name;
+    }
+    if (instId === "inst-002") return "M.Tech Computer Science & Engineering";
+    if (instId === "inst-003") return "B.Tech Information Technology";
+    if (instId === "inst-004") return "B.Sc Data Science & AI";
+    if (instId === "inst-005") return "B.Tech Software Engineering";
+    return "Master of Computer Applications";
+  };
+
+  const getDepartmentCode = (progId, instId) => {
+    if (progId) {
+      const prog = mockPrograms.find((p) => p.program_id === progId);
+      if (prog) return prog.program_code;
+    }
+    if (instId === "inst-002") return "M.Tech CS";
+    if (instId === "inst-003") return "B.Tech IT";
+    if (instId === "inst-004") return "B.Sc DS";
+    if (instId === "inst-005") return "B.Tech SE";
+    return "MCA";
   };
 
   // Helper to map semester_id to Semester Label
@@ -32,15 +64,26 @@ const AdminUserManagement = ({ initialTab = "students" }) => {
     return `Semester ${semId}`;
   };
 
+  // Available departments dropdown list based on selected institute
+  const availableDepartments = selectedInstitute === "all"
+    ? mockPrograms
+    : mockPrograms.filter((p) => p.institute_id === selectedInstitute);
+
   // Filtered Students Array
   const filteredStudents = students.filter((stu) => {
-    // 1. Department Filter
-    if (selectedDepartment !== "all") {
+    // 1. Institute Filter
+    if (selectedInstitute !== "all") {
       const studentInst = stu.institute_id || "inst-001";
-      if (studentInst !== selectedDepartment) return false;
+      if (studentInst !== selectedInstitute) return false;
     }
 
-    // 2. Optional Semester Filter
+    // 2. Department / Program Filter
+    if (selectedDepartment !== "all") {
+      const studentProg = stu.program_id || (stu.institute_id === "inst-001" ? "prog-001" : "prog-003");
+      if (studentProg !== selectedDepartment) return false;
+    }
+
+    // 3. Semester Filter
     if (selectedSemester !== "all") {
       const studentSem = stu.semester_id || "sem-003";
       if (studentSem !== selectedSemester && !studentSem.endsWith(`00${selectedSemester}`)) {
@@ -48,7 +91,7 @@ const AdminUserManagement = ({ initialTab = "students" }) => {
       }
     }
 
-    // 3. Search Query Filter
+    // 4. Search Query Filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       const fullName = `${stu.first_name || ""} ${stu.last_name || ""}`.toLowerCase();
@@ -140,6 +183,7 @@ const AdminUserManagement = ({ initialTab = "students" }) => {
     date_of_birth: "2003-01-01",
     address: "",
     institute_id: "inst-001",
+    program_id: "prog-001",
     semester_id: "sem-003",
     blood_group: "O+",
     parent_name: "",
@@ -182,7 +226,8 @@ const AdminUserManagement = ({ initialTab = "students" }) => {
       gender: "Male",
       date_of_birth: "2003-01-01",
       address: "",
-      institute_id: selectedDepartment !== "all" ? selectedDepartment : "inst-001",
+      institute_id: selectedInstitute !== "all" ? selectedInstitute : "inst-001",
+      program_id: selectedDepartment !== "all" ? selectedDepartment : "prog-001",
       semester_id: selectedSemester !== "all" ? selectedSemester : "sem-003",
       blood_group: "O+",
       parent_name: "",
@@ -207,6 +252,7 @@ const AdminUserManagement = ({ initialTab = "students" }) => {
       date_of_birth: stu.date_of_birth || "2003-01-01",
       address: stu.address || "",
       institute_id: stu.institute_id || "inst-001",
+      program_id: stu.program_id || "prog-001",
       semester_id: stu.semester_id || "sem-003",
       blood_group: stu.blood_group || "O+",
       parent_name: stu.parent_name || "",
@@ -321,11 +367,7 @@ const AdminUserManagement = ({ initialTab = "students" }) => {
           <h1 className="text-xl font-bold text-[#1E293B]">
             {activeTab === "students" ? "Student Management" : "Teacher Management"}
           </h1>
-          {activeTab === "students" && (
-            <p className="text-xs text-[#64748B] mt-0.5">
-              Filter and manage enrolled students across university departments & semesters.
-            </p>
-          )}
+
         </div>
 
         <div className="flex items-center gap-3">
@@ -349,26 +391,49 @@ const AdminUserManagement = ({ initialTab = "students" }) => {
             {/* Filter Inputs */}
             <div className="flex flex-wrap items-center gap-3 flex-1">
 
-              {/* Department Selection Filter */}
-              <div className="flex-1 min-w-[200px]">
-
+              {/* Institute Selection Filter */}
+              <div className="flex-1 min-w-[160px]">
                 <select
-                  value={selectedDepartment}
-                  onChange={(e) => setSelectedDepartment(e.target.value)}
+                  value={selectedInstitute}
+                  onChange={(e) => {
+                    const newInst = e.target.value;
+                    setSelectedInstitute(newInst);
+                    if (newInst !== "all") {
+                      const validProgs = mockPrograms.filter((p) => p.institute_id === newInst);
+                      if (!validProgs.some((p) => p.program_id === selectedDepartment)) {
+                        setSelectedDepartment("all");
+                      }
+                    }
+                  }}
                   className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs font-semibold text-[#1E293B] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all cursor-pointer"
                 >
-                  <option value="all">All Departments ({mockInstitutes.length})</option>
+                  <option value="all">All Institutes ({mockInstitutes.length})</option>
                   {mockInstitutes.map((inst) => (
                     <option key={inst.institute_id} value={inst.institute_id}>
-                      {inst.institute_name} ({inst.institute_code})
+                      {inst.institute_code} - {inst.institute_name}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* Optional Semester Selection Filter */}
-              <div className="w-full sm:w-auto min-w-[160px]">
+              {/* Department Selection Filter */}
+              <div className="flex-1 min-w-[160px]">
+                <select
+                  value={selectedDepartment}
+                  onChange={(e) => setSelectedDepartment(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs font-semibold text-[#1E293B] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all cursor-pointer"
+                >
+                  <option value="all">All Departments</option>
+                  {availableDepartments.map((prog) => (
+                    <option key={prog.program_id} value={prog.program_id}>
+                      {prog.program_code} - {prog.program_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
+              {/* Semester Selection Filter */}
+              <div className="w-full sm:w-auto min-w-[140px]">
                 <select
                   value={selectedSemester}
                   onChange={(e) => setSelectedSemester(e.target.value)}
@@ -385,12 +450,11 @@ const AdminUserManagement = ({ initialTab = "students" }) => {
               </div>
 
               {/* Search Query Input */}
-              <div className="flex-1 min-w-[200px]">
-
+              <div className="flex-1 min-w-[180px]">
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="Search by name, enrollment, email..."
+                    placeholder="Search name, enrollment, email..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full pl-3 pr-8 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs text-[#1E293B] placeholder-[#64748B] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all"
@@ -408,11 +472,12 @@ const AdminUserManagement = ({ initialTab = "students" }) => {
 
             </div>
 
-            {/* Clear Filters & Count */}
-            <div className="flex items-center gap-3 self-end md:self-center shrink-0">
-              {(selectedDepartment !== "all" || selectedSemester !== "all" || searchQuery) && (
+            {/* Clear Filters & Student Count Number */}
+            <div className="flex items-center gap-3 self-end md:self-center shrink-0 pt-2 md:pt-0">
+              {(selectedInstitute !== "all" || selectedDepartment !== "all" || selectedSemester !== "all" || searchQuery) && (
                 <button
                   onClick={() => {
+                    setSelectedInstitute("all");
                     setSelectedDepartment("all");
                     setSelectedSemester("all");
                     setSearchQuery("");
@@ -424,8 +489,8 @@ const AdminUserManagement = ({ initialTab = "students" }) => {
                   Clear Filters
                 </button>
               )}
-              <div className="px-3 py-1.5 bg-[#2563EB]/10 text-[#2563EB] rounded-xl text-xs font-extrabold border border-[#2563EB]/20">
-                Showing {filteredStudents.length} of {students.length} Students
+              <div className="px-3.5 py-2 bg-[#2563EB]/10 text-[#2563EB] rounded-xl text-xs font-extrabold border border-[#2563EB]/20">
+                {filteredStudents.length} Students
               </div>
             </div>
 
@@ -443,9 +508,9 @@ const AdminUserManagement = ({ initialTab = "students" }) => {
                   <th className="p-3.5">Enrollment No</th>
                   <th className="p-3.5">Student Name</th>
                   <th className="p-3.5">Email</th>
+                  <th className="p-3.5">Institute / Department</th>
+                  <th className="p-3.5">Semester</th>
                   <th className="p-3.5">Mobile</th>
-                  <th className="p-3.5">Gender</th>
-                  <th className="p-3.5">Parent Mobile</th>
                   <th className="p-3.5 text-right">Actions</th>
                 </tr>
               </thead>
@@ -453,7 +518,7 @@ const AdminUserManagement = ({ initialTab = "students" }) => {
                 {filteredStudents.length === 0 ? (
                   <tr>
                     <td colSpan="7" className="p-8 text-center text-[#64748B] font-medium">
-                      No student records match the selected department/semester filters. Try clearing filters or click <strong className="text-[#2563EB]">"Add Student"</strong> to create a new record.
+                      No student records match the selected institute/department/semester filters. Try clearing filters or click <strong className="text-[#2563EB]">"Add Student"</strong> to create a new record.
                     </td>
                   </tr>
                 ) : (
@@ -462,9 +527,16 @@ const AdminUserManagement = ({ initialTab = "students" }) => {
                       <td className="p-3.5 font-mono font-bold text-[#2563EB]">{stu.enrollment_no}</td>
                       <td className="p-3.5 font-semibold">{stu.first_name} {stu.last_name}</td>
                       <td className="p-3.5 text-[#64748B]">{stu.email}</td>
+                      <td className="p-3.5">
+                        <span className="font-semibold text-[#1E293B]">{getInstituteCode(stu.institute_id)}</span>
+                        <span className="text-[#64748B] text-[11px] block">{getDepartmentCode(stu.program_id, stu.institute_id)}</span>
+                      </td>
+                      <td className="p-3.5">
+                        <span className="px-2 py-0.5 rounded bg-[#14B8A6]/10 text-[#14B8A6] font-bold text-[11px]">
+                          {getSemesterLabel(stu.semester_id)}
+                        </span>
+                      </td>
                       <td className="p-3.5">{stu.mobile}</td>
-                      <td className="p-3.5">{stu.gender}</td>
-                      <td className="p-3.5 text-[#64748B]">{stu.parent_mobile}</td>
                       <td className="p-3.5 text-right whitespace-nowrap">
                         <div className="inline-flex items-center justify-end gap-1.5">
                           <button
@@ -592,7 +664,9 @@ const AdminUserManagement = ({ initialTab = "students" }) => {
                     {viewStudent.first_name} {viewStudent.last_name}
                   </h4>
                   <p className="font-mono text-[#2563EB] font-bold text-xs">Enrollment No: {viewStudent.enrollment_no}</p>
-                  <p className="text-[11px] font-semibold text-[#64748B]">Department: {getDepartmentName(viewStudent.institute_id)}</p>
+                  <p className="text-[11px] font-semibold text-[#64748B]">
+                    Institute: <span className="text-[#1E293B] font-bold">{getInstituteCode(viewStudent.institute_id)}</span> • Dept: <span className="text-[#2563EB] font-bold">{getDepartmentCode(viewStudent.program_id, viewStudent.institute_id)}</span>
+                  </p>
                   <div className="flex items-center gap-2 pt-1">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${viewStudent.is_active ? "bg-[#22C55E]/10 text-[#22C55E]" : "bg-gray-200 text-gray-600"}`}>
                       {viewStudent.is_active ? "Active Student" : "Inactive Account"}
@@ -607,8 +681,13 @@ const AdminUserManagement = ({ initialTab = "students" }) => {
               {/* Comprehensive Details Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-0.5">
+                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">Assigned Institute</span>
+                  <p className="font-bold text-[#1E293B]">{getInstituteName(viewStudent.institute_id)} ({getInstituteCode(viewStudent.institute_id)})</p>
+                </div>
+
+                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-0.5">
                   <span className="text-[10px] text-[#64748B] font-bold block uppercase">Assigned Department</span>
-                  <p className="font-bold text-[#2563EB]">{getDepartmentName(viewStudent.institute_id)}</p>
+                  <p className="font-bold text-[#2563EB]">{getDepartmentName(viewStudent.program_id, viewStudent.institute_id)} ({getDepartmentCode(viewStudent.program_id, viewStudent.institute_id)})</p>
                 </div>
 
                 <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-0.5">
@@ -747,17 +826,38 @@ const AdminUserManagement = ({ initialTab = "students" }) => {
             </h3>
             <form onSubmit={handleSaveStudent} className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Department / Institute (institute_id)</label>
+                <label className="block text-[#64748B] mb-1 font-semibold">Institute (institute_id)</label>
                 <select
                   value={studentForm.institute_id || "inst-001"}
-                  onChange={(e) => setStudentForm({ ...studentForm, institute_id: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg font-semibold text-[#2563EB]"
+                  onChange={(e) => {
+                    const instId = e.target.value;
+                    const defaultProg = mockPrograms.find((p) => p.institute_id === instId)?.program_id || "prog-001";
+                    setStudentForm({ ...studentForm, institute_id: instId, program_id: defaultProg });
+                  }}
+                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg font-semibold text-[#1E293B]"
                 >
                   {mockInstitutes.map((inst) => (
                     <option key={inst.institute_id} value={inst.institute_id}>
-                      {inst.institute_name} ({inst.institute_code})
+                      {inst.institute_code} - {inst.institute_name}
                     </option>
                   ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[#64748B] mb-1 font-semibold">Department / Program (program_id)</label>
+                <select
+                  value={studentForm.program_id || "prog-001"}
+                  onChange={(e) => setStudentForm({ ...studentForm, program_id: e.target.value })}
+                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg font-semibold text-[#2563EB]"
+                >
+                  {mockPrograms
+                    .filter((p) => !studentForm.institute_id || p.institute_id === studentForm.institute_id)
+                    .map((prog) => (
+                      <option key={prog.program_id} value={prog.program_id}>
+                        {prog.program_code} - {prog.program_name}
+                      </option>
+                    ))}
                 </select>
               </div>
 
