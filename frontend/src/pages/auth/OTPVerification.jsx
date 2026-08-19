@@ -13,7 +13,7 @@ const OTPVerification = () => {
 
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
-  const [timer, setTimer] = useState(30);
+  const [timer, setTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState("");
@@ -69,17 +69,18 @@ const OTPVerification = () => {
   const handleResendOTP = async () => {
     if (!canResend) return;
     setOtp(["", "", "", "", "", ""]);
-    setTimer(30);
+    setTimer(60);
     setCanResend(false);
     setError("");
 
     try {
-      await authApi.sendStudentOtp(enrollmentNo);
-      setResendMessage("A fresh 6-digit OTP code has been dispatched to your email!");
+      const res = await authApi.resendStudentOtp(enrollmentNo);
+      setResendMessage(res.message || "A fresh 6-digit OTP code has been dispatched to your email inbox!");
     } catch (err) {
-      setResendMessage("A fresh OTP code has been sent!");
+      const msg = err.response?.data?.message || "Failed to resend OTP. Please wait before trying again.";
+      setError(msg);
     }
-    setTimeout(() => setResendMessage(""), 4000);
+    setTimeout(() => setResendMessage(""), 5000);
     inputRefs.current[0]?.focus();
   };
 
@@ -100,12 +101,12 @@ const OTPVerification = () => {
       if (res.success) {
         navigate("/student/dashboard");
       } else {
-        setError(res.message || "Invalid OTP verification code");
+        setError(res.message || "Invalid OTP code entered");
       }
     } catch (err) {
       setIsLoading(false);
-      // Fallback redirect for offline demo
-      navigate("/student/dashboard");
+      const errMsg = err.response?.data?.message || "Invalid or expired OTP code. Please check your email inbox.";
+      setError(errMsg);
     }
   };
 

@@ -1,0 +1,220 @@
+================================================================================
+                      EDUCONNECT - ROLES & PERMISSIONS DETAILS
+================================================================================
+Project: EduConnect (Educational Institution Management System)
+Frontend Portal Role Details: Student, Teacher, and Admin
+================================================================================
+
+OVERVIEW:
+EduConnect is a comprehensive web portal designed to connect Students, Teachers, 
+and Administrators within an academic institution. Each user role is provided 
+with a dedicated, secure dashboard and specialized feature set tailored to their 
+daily academic and administrative requirements.
+
+--------------------------------------------------------------------------------
+1. STUDENT ROLE (STUDENT PORTAL)
+--------------------------------------------------------------------------------
+Route Base: /student
+Primary Color Theme: Blue (#2563EB)
+
+DESCRIPTION:
+The Student Portal provides students with access to their personalized academic 
+records, learning resources, attendance logs, schedules, and communication channels 
+with faculty.
+
+KEY MODULES & FEATURES:
+1. Dashboard (/student/dashboard)
+   - Overview of recent campus announcements and notices.
+   - Quick attendance summary and academic status.
+   - Upcoming class timetable summary & pending assignments alerts.
+
+2. My Profile (/student/profile)
+   - View personal information, contact details, parent info, roll number, 
+     department, and enrollment status.
+   - Edit/update contact information and upload profile picture.
+
+3. Attendance (/student/attendance)
+   - Subject-wise and overall attendance percentage breakdown.
+   - Monthly attendance record with present/absent dates.
+   - Visual progress bars and low-attendance warnings (e.g., < 75%).
+
+4. MarkSheet & Results (/student/marksheet, /student/results)
+   - Semester-wise exam performance cards and grade breakdown.
+   - Marks distribution in internal exams, mid-terms, and final exams.
+   - Cumulative GPA (CGPA) and percentage calculation summaries.
+
+5. Timetable (/student/timetable)
+   - Interactive weekly lecture schedule.
+   - Subject details, lecture timing, classroom location, and assigned faculty name.
+
+6. Assignments (/student/assignments)
+   - View pending and completed homework/assignments uploaded by teachers.
+   - Download assignment resource files and guidelines.
+   - Online submission module: upload response documents/code before the deadline.
+   - Track submission status, grades, and teacher feedback.
+
+7. Weekly Tests (/student/weekly-tests)
+   - Weekly test schedules and syllabus coverage info.
+   - Review scores, performance analytics, and topic mastery.
+
+8. Quiz Practice (/student/quiz-practice)
+   - Subject-specific interactive multiple-choice questions (MCQs).
+   - Instant scoring, answer keys, and detailed explanation review.
+
+9. Study Material (/student/study-material)
+   - Access course lecture notes, slides, reference PDFs, and recommended links.
+   - Organized by subject, topic, and semester.
+
+10. Old Question Papers (/student/old-papers)
+    - Library of previous years' university and midterm exam papers.
+    - Downloadable PDFs filtered by semester, year, and subject.
+
+11. Digital ID (/student/digital-id)
+    - Virtual digital student identity card.
+    - Displays Student Photo, Name, Roll Number, Department, Valid Period, and QR code.
+
+12. Leave Request (/student/leave-request)
+    - Apply for student leave (Medical, Personal, etc.).
+    - Specify start/end dates and leave reasons.
+    - Track approval status in real-time (Pending, Approved, Rejected by Teacher).
+
+13. Ask Doubts (/student/doubts)
+    - Submit academic queries and doubts directly to subject teachers.
+    - Attach images/files related to the doubt.
+    - View teacher replies and discussion threads.
+
+
+--------------------------------------------------------------------------------
+2. TEACHER ROLE (TEACHER PORTAL)
+--------------------------------------------------------------------------------
+Route Base: /teacher
+Primary Color Theme: Teal (#14B8A6)
+
+DESCRIPTION:
+The Teacher Portal enables faculty members to efficiently manage classrooms, track 
+student attendance, grade assignments, publish study content, handle student leave 
+applications, and communicate directly with students and parents.
+
+KEY MODULES & FEATURES:
+1. Dashboard (/teacher/dashboard)
+   - Daily class schedule overview and quick actions.
+   - Pending leave applications requiring review.
+   - Unresolved student doubts alerts.
+   - Important faculty notices and announcements.
+
+2. My Profile (/teacher/profile)
+   - View faculty credentials, employee ID, assigned subjects, and qualifications.
+   - Update contact details and profile avatar.
+
+3. Manage Students (/teacher/students)
+   - Complete directory of students in assigned classes/departments.
+   - Search, filter, and view individual student academic & attendance history.
+
+4. Mark Attendance (/teacher/attendance)
+   - Daily/lecture-wise student attendance marking interface.
+   - Mark status: Present, Absent, or Late for individual students.
+   - Batch save attendance records and edit historical entries.
+
+5. Upload Assignment & Grading (/teacher/assignments, /teacher/grades)
+   - Create and publish new assignments with due dates and attachments.
+   - Review student submissions online.
+   - Grade submissions and provide comments/feedback.
+
+6. Weekly Tests (/teacher/weekly-tests)
+   - Schedule weekly tests for assigned classes.
+   - Upload syllabus guidelines and record student test scores.
+
+7. Quiz Practice (/teacher/quiz-practice)
+   - Build MCQ quizzes for practice.
+   - Manage question banks, options, and correct answers per subject.
+
+8. Study Material (/teacher/study-material)
+   - Upload lecture notes, PDF documents, and study resources for students.
+   - Categorize by subject, unit, and batch.
+
+9. Old Question Papers (/teacher/old-papers)
+   - Upload past examination papers for student preparation.
+
+10. Reply Doubts (/teacher/reply-doubts)
+    - View student-submitted academic questions.
+    - Provide text explanations and attach supporting solution files.
+    - Mark doubts as resolved.
+
+11. Leave Management (/teacher/leave-management)
+    - Review leave applications submitted by assigned students.
+    - Check leave reasons and date range.
+    - Action buttons: Approve or Reject with teacher remarks.
+
+12. Parent Email (/teacher/parent-email)
+    - Direct communication channel with parents/guardians.
+    - Send automated or manual emails regarding attendance warnings, academic progress, or misconduct alerts.
+
+
+--------------------------------------------------------------------------------
+3. ADMIN ROLE (ADMIN PORTAL)
+--------------------------------------------------------------------------------
+Route Base: /admin
+Primary Color Theme: Amber/Gold (#F59E0B)
+
+DESCRIPTION:
+The Admin Portal provides institutional administrators with total control over system 
+configuration, user management (students & teachers), academic programs, course 
+structures, subjects, and institutional analytics.
+
+KEY MODULES & FEATURES:
+1. Dashboard (/admin/dashboard)
+   - High-level institutional metrics: Total Students, Total Faculty, Active Courses, 
+     Departments, and Campus count.
+   - System health indicators and platform usage statistics.
+
+2. User Management (/admin/users, /admin/students, /admin/teachers)
+   - Complete CRUD operations (Create, Read, Update, Delete) for Student & Teacher accounts.
+   - Add new students/teachers individually or bulk import via CSV/Excel.
+   - Activate/Deactivate user access, reset passwords, and assign roles.
+
+3. Institute Management (/admin/institutes)
+   - Manage institutional details, campuses, affiliated colleges, and branch locations.
+
+4. Department & Program Management (/admin/programs, /admin/courses)
+   - Create & manage academic departments (e.g., Computer Science, IT).
+   - Configure programs/degrees (e.g., MCA, BCA, B.Tech), program duration, and semester structures.
+
+5. Subject Management (/admin/subjects)
+   - Create and define curriculum subjects.
+   - Set credit hours, subject codes, and semester mapping.
+   - Assign primary and secondary teachers to specific subjects.
+
+6. Reports & Analytics (/admin/reports)
+   - Comprehensive institutional analytical reports:
+     * Campus-wide attendance trends.
+     * Department-wise academic result metrics.
+     * Faculty performance & syllabus progress.
+   - Export reports in PDF and Excel formats.
+
+7. My Profile (/admin/profile)
+   - Administrator profile settings, security credentials, and account details.
+
+
+--------------------------------------------------------------------------------
+4. SUMMARY OF PERMISSIONS MATRIX
+--------------------------------------------------------------------------------
+FEATURE / MODULE                   | STUDENT | TEACHER | ADMIN
+-----------------------------------|---------|---------|-------
+View Personal Profile              |   YES   |   YES   |  YES
+View Timetable & Announcements     |   YES   |   YES   |  YES
+View Personal Attendance & Marks   |   YES   |   NO    |  YES
+Mark Student Attendance            |   NO    |   YES   |  YES
+Submit Assignments                 |   YES   |   NO    |  NO
+Upload Assignments & Grade         |   NO    |   YES   |  YES
+Upload Study Material & Papers    |   NO    |   YES   |  YES
+Ask Academic Doubts                |   YES   |   NO    |  NO
+Reply to Doubts                    |   NO    |   YES   |  YES
+Request Leave                      |   YES   |   NO    |  NO
+Approve / Reject Student Leave     |   NO    |   YES   |  YES
+Send Emails to Parents             |   NO    |   YES   |  YES
+Manage Students / Teachers Users   |   NO    |   NO    |  YES
+Manage Programs, Courses, Subjects |   NO    |   NO    |  YES
+View Institute-wide Analytics      |   NO    |   NO    |  YES
+--------------------------------------------------------------------------------
+File Created: frontend/ROLES_DESCRIPTION.txt
+================================================================================

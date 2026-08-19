@@ -17,81 +17,79 @@ public class StudentService {
 
     public Map<String, Object> getStudentDashboard(String studentIdOrEnrollment) {
         Map<String, Object> data = new HashMap<>();
-        data.put("studentName", "Alex Johnson");
-        data.put("enrollmentNo", studentIdOrEnrollment != null ? studentIdOrEnrollment : "2024MCA001");
-        data.put("program", "Master of Computer Applications");
-        data.put("semester", "Semester 3");
-        data.put("overallAttendance", "88.5%");
-        data.put("cgpa", "8.75 / 10");
+        Optional<Student> studentOpt = Optional.empty();
+        if (studentIdOrEnrollment != null && !studentIdOrEnrollment.isEmpty()) {
+            studentOpt = studentRepository.findByEnrollmentNo(studentIdOrEnrollment.toUpperCase());
+            if (studentOpt.isEmpty()) {
+                studentOpt = studentRepository.findByEmail(studentIdOrEnrollment.toLowerCase());
+            }
+        }
 
-        List<Map<String, String>> todayClasses = Arrays.asList(
-                Map.of("subject", "Advanced Web Technologies", "time", "09:30 AM - 11:00 AM", "room", "Lab 302", "teacher", "Dr. Sarah Jenkins"),
-                Map.of("subject", "Cloud Infrastructure & DevOps", "time", "11:30 AM - 01:00 PM", "room", "Hall B", "teacher", "Prof. Michael Vance"),
-                Map.of("subject", "Database Architecture Practical", "time", "02:00 PM - 04:00 PM", "room", "Lab 105", "teacher", "Er. Rahul Mehta")
-        );
-        data.put("todayClasses", todayClasses);
+        if (studentOpt.isPresent()) {
+            Student s = studentOpt.get();
+            data.put("studentName", s.getFirstName() + " " + s.getLastName());
+            data.put("enrollmentNo", s.getEnrollmentNo());
+        } else {
+            data.put("studentName", "");
+            data.put("enrollmentNo", studentIdOrEnrollment != null ? studentIdOrEnrollment : "");
+        }
+
+        data.put("program", "");
+        data.put("semester", "");
+        data.put("overallAttendance", "0%");
+        data.put("cgpa", "0.0 / 10");
+        data.put("todayClasses", Collections.emptyList());
 
         return data;
     }
 
     public List<Map<String, Object>> getStudentAttendance(String studentIdOrEnrollment) {
-        List<Map<String, Object>> courses = new ArrayList<>();
-        courses.add(Map.of("code", "MCA301", "title", "Advanced Web Technologies", "total", 40, "attended", 36, "percentage", 90.0, "teacher", "Dr. Sarah Jenkins"));
-        courses.add(Map.of("code", "MCA302", "title", "Cloud Infrastructure & DevOps", "total", 38, "attended", 34, "percentage", 89.4, "teacher", "Prof. Michael Vance"));
-        courses.add(Map.of("code", "MCA303", "title", "Database Architecture Practical", "total", 30, "attended", 27, "percentage", 90.0, "teacher", "Er. Rahul Mehta"));
-        courses.add(Map.of("code", "MCA304", "title", "Software Engineering & Testing", "total", 36, "attended", 29, "percentage", 80.5, "teacher", "Dr. Ananya Sharma"));
-        courses.add(Map.of("code", "MCA305", "title", "Cyber Security Fundamentals", "total", 32, "attended", 23, "percentage", 71.8, "teacher", "Prof. David Miller"));
-        return courses;
+        return Collections.emptyList();
     }
 
     public List<Map<String, Object>> getStudentAssignments(String enrollmentNo) {
-        List<Map<String, Object>> assignments = new ArrayList<>();
-        assignments.add(Map.of("id", "ASG-101", "subject", "Advanced Web Technologies", "title", "React 19 Hooks & State Management", "dueDate", "12-AUG-2026", "marks", "50", "status", "Pending"));
-        assignments.add(Map.of("id", "ASG-102", "subject", "Cloud Infrastructure", "title", "Docker Containerization & Kubernetes", "dueDate", "15-AUG-2026", "marks", "100", "status", "Submitted"));
-        assignments.add(Map.of("id", "ASG-103", "subject", "Database Architecture", "title", "PostgreSQL Indexing & Optimization", "dueDate", "05-AUG-2026", "marks", "50", "status", "Graded", "obtainedMarks", 46));
-        return assignments;
+        return Collections.emptyList();
     }
 
     public Map<String, Object> getStudentResults(String enrollmentNo) {
         Map<String, Object> results = new HashMap<>();
-        results.put("sgpa", 8.85);
-        results.put("cgpa", 8.75);
-        results.put("totalCredits", 24);
-
-        List<Map<String, Object>> subjectGrades = Arrays.asList(
-                Map.of("code", "MCA301", "name", "Advanced Web Tech", "grade", "A+", "points", 9.0),
-                Map.of("code", "MCA302", "name", "Cloud DevOps", "grade", "A", "points", 8.5),
-                Map.of("code", "MCA303", "name", "Database Practical", "grade", "O", "points", 10.0),
-                Map.of("code", "MCA304", "name", "Software Testing", "grade", "A", "points", 8.0)
-        );
-        results.put("subjects", subjectGrades);
+        results.put("sgpa", 0.0);
+        results.put("cgpa", 0.0);
+        results.put("totalCredits", 0);
+        results.put("subjects", Collections.emptyList());
         return results;
     }
 
     public Map<String, Object> getStudentProfile(String enrollmentNo) {
-        Optional<Student> studentOpt = studentRepository.findByEnrollmentNo(enrollmentNo != null ? enrollmentNo : "2024MCA001");
-        Map<String, Object> profile = new HashMap<>();
+        Optional<Student> studentOpt = Optional.empty();
+        if (enrollmentNo != null && !enrollmentNo.isEmpty()) {
+            studentOpt = studentRepository.findByEnrollmentNo(enrollmentNo.toUpperCase());
+            if (studentOpt.isEmpty()) {
+                studentOpt = studentRepository.findByEmail(enrollmentNo.toLowerCase());
+            }
+        }
 
+        Map<String, Object> profile = new HashMap<>();
         if (studentOpt.isPresent()) {
             Student s = studentOpt.get();
             profile.put("enrollmentNo", s.getEnrollmentNo());
             profile.put("name", s.getFirstName() + " " + s.getLastName());
-            profile.put("email", s.getEmail());
-            profile.put("mobile", s.getMobile());
-            profile.put("gender", s.getGender());
-            profile.put("dob", s.getDateOfBirth().toString());
-            profile.put("address", s.getAddress());
+            profile.put("email", s.getEmail() != null ? s.getEmail() : "");
+            profile.put("mobile", s.getMobile() != null ? s.getMobile() : "");
+            profile.put("gender", s.getGender() != null ? s.getGender() : "");
+            profile.put("dob", s.getDateOfBirth() != null ? s.getDateOfBirth().toString() : "");
+            profile.put("address", s.getAddress() != null ? s.getAddress() : "");
         } else {
-            profile.put("enrollmentNo", "2024MCA001");
-            profile.put("name", "Alex Johnson");
-            profile.put("email", "alex.johnson@educonnect.ac.in");
-            profile.put("mobile", "+91 9876543210");
-            profile.put("gender", "Male");
-            profile.put("dob", "2002-08-15");
-            profile.put("address", "Student Hostel Block A, EduConnect Campus");
+            profile.put("enrollmentNo", enrollmentNo != null ? enrollmentNo : "");
+            profile.put("name", "");
+            profile.put("email", "");
+            profile.put("mobile", "");
+            profile.put("gender", "");
+            profile.put("dob", "");
+            profile.put("address", "");
         }
-        profile.put("program", "Master of Computer Applications");
-        profile.put("semester", "Semester 3");
+        profile.put("program", "");
+        profile.put("semester", "");
 
         return profile;
     }

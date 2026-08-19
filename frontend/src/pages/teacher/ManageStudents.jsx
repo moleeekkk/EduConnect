@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { Users, Plus, Edit, Trash2, Eye, CheckCircle2, X, GraduationCap } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, X, GraduationCap } from "lucide-react";
 import Button from "../../components/common/Button";
 import { mockStudents } from "../../data/mockData";
 
 const TeacherManageStudents = () => {
-  const [students, setStudents] = useState(mockStudents);
+  const [students, setStudents] = useState(mockStudents || []);
   const [showModal, setShowModal] = useState(false);
   const [editStudent, setEditStudent] = useState(null);
   const [viewStudent, setViewStudent] = useState(null);
@@ -26,18 +26,18 @@ const TeacherManageStudents = () => {
   const handleOpenAdd = () => {
     setEditStudent(null);
     setForm({
-      enrollment_no: `25CI21100${students.length + 18}`,
+      enrollment_no: "",
       first_name: "",
       last_name: "",
       email: "",
       mobile: "",
       gender: "Male",
-      date_of_birth: "2003-01-01",
+      date_of_birth: "",
       address: "",
       blood_group: "O+",
       parent_name: "",
       parent_mobile: "",
-      admission_date: "2025-07-20",
+      admission_date: new Date().toISOString().split("T")[0],
     });
     setShowModal(true);
   };
@@ -60,9 +60,7 @@ const TeacherManageStudents = () => {
       setStudents(students.map((s) => (s.student_id === editStudent.student_id ? { ...s, ...form } : s)));
     } else {
       const created = {
-        student_id: `stu-00${students.length + 1}`,
-        batch_id: "batch-001",
-        semester_id: "sem-003",
+        student_id: `stu-${Date.now()}`,
         profile_photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
         is_active: true,
         created_at: new Date().toISOString(),
@@ -102,59 +100,60 @@ const TeacherManageStudents = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
-              {students.map((stu) => (
-                <tr key={stu.student_id} className="hover:bg-[#F8FAFC] transition-colors">
-                  <td className="p-3.5 font-mono font-bold text-[#2563EB]">{stu.enrollment_no}</td>
-                  <td className="p-3.5 font-bold text-[#1E293B]">
-                    {stu.first_name} {stu.last_name}
-                  </td>
-                  <td className="p-3.5 text-[#64748B]">{stu.email}</td>
-                  <td className="p-3.5 font-mono font-medium">{stu.mobile}</td>
-                  <td className="p-3.5">{stu.gender}</td>
-                  <td className="p-3.5 text-[#64748B]">{stu.parent_name} ({stu.parent_mobile})</td>
-                  <td className="p-3.5 text-right space-x-1 whitespace-nowrap">
-                    <button onClick={() => setViewStudent(stu)} className="p-1.5 hover:bg-[#2563EB]/10 rounded-lg text-[#2563EB] transition-colors" title="View Full Profile">
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => handleOpenEdit(stu)} className="p-1.5 hover:bg-[#14B8A6]/10 rounded-lg text-[#14B8A6] transition-colors" title="Edit Student">
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => handleDelete(stu.student_id)} className="p-1.5 hover:bg-[#EF4444]/10 rounded-lg text-[#EF4444] transition-colors" title="Delete Student">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+              {students && students.length > 0 ? (
+                students.map((stu) => (
+                  <tr key={stu.student_id} className="hover:bg-[#F8FAFC] transition-colors">
+                    <td className="p-3.5 font-mono font-bold text-[#2563EB]">{stu.enrollment_no}</td>
+                    <td className="p-3.5 font-bold text-[#1E293B]">
+                      {stu.first_name} {stu.last_name}
+                    </td>
+                    <td className="p-3.5 text-[#64748B]">{stu.email}</td>
+                    <td className="p-3.5 font-mono font-medium">{stu.mobile}</td>
+                    <td className="p-3.5">{stu.gender}</td>
+                    <td className="p-3.5 text-[#64748B]">{stu.parent_name} ({stu.parent_mobile})</td>
+                    <td className="p-3.5 text-right space-x-1 whitespace-nowrap">
+                      <button onClick={() => setViewStudent(stu)} className="p-1.5 hover:bg-[#2563EB]/10 rounded-lg text-[#2563EB] transition-colors" title="View Full Profile">
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleOpenEdit(stu)} className="p-1.5 hover:bg-[#14B8A6]/10 rounded-lg text-[#14B8A6] transition-colors" title="Edit Student">
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDelete(stu.student_id)} className="p-1.5 hover:bg-[#EF4444]/10 rounded-lg text-[#EF4444] transition-colors" title="Delete Student">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={7} className="p-6 text-center text-xs text-[#64748B]">
+                    No student records found.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Full Student Profile Details Modal */}
+      {/* Details Modal */}
       {viewStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-8 animate-fade-in">
             <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
               <h3 className="text-base font-bold text-[#1E293B] flex items-center gap-2">
-                <GraduationCap className="w-5 h-5 text-[#2563EB]" /> Official Student Profile Details
+                <GraduationCap className="w-5 h-5 text-[#2563EB]" /> Student Profile Details
               </h3>
               <button
                 onClick={() => setViewStudent(null)}
                 className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
-                title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-4 text-xs">
-              {/* Student Header Card */}
               <div className="flex items-center gap-4 p-4 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
-                <img
-                  src={viewStudent.profile_photo || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"}
-                  alt={viewStudent.first_name}
-                  className="w-16 h-16 rounded-xl object-cover border border-[#E2E8F0] shadow-2xs"
-                />
                 <div>
                   <h4 className="text-base font-extrabold text-[#1E293B]">
                     {viewStudent.first_name} {viewStudent.last_name}
@@ -162,43 +161,6 @@ const TeacherManageStudents = () => {
                   <p className="font-mono text-[#2563EB] font-bold text-xs">
                     Enrollment No: {viewStudent.enrollment_no}
                   </p>
-                  <p className="text-xs text-[#64748B] font-medium mt-0.5">
-                    Master of Computer Applications (MCA) • Semester 3 • Active Student
-                  </p>
-                </div>
-              </div>
-
-              {/* Profile Details Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-0.5">
-                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">Email Address</span>
-                  <p className="font-medium text-[#1E293B] truncate">{viewStudent.email}</p>
-                </div>
-
-                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-0.5">
-                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">Mobile Number</span>
-                  <p className="font-mono text-[#1E293B] font-bold">{viewStudent.mobile}</p>
-                </div>
-
-                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-0.5">
-                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">Gender & Date of Birth</span>
-                  <p className="font-medium text-[#1E293B]">{viewStudent.gender} • {viewStudent.date_of_birth}</p>
-                </div>
-
-                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-0.5">
-                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">Blood Group & Admission Date</span>
-                  <p className="font-medium text-[#1E293B]">Blood Group: {viewStudent.blood_group || "O+"} • Adm: {viewStudent.admission_date || "2025-07-15"}</p>
-                </div>
-
-                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-0.5 sm:col-span-2">
-                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">Parent / Guardian Information</span>
-                  <p className="font-bold text-[#1E293B]">{viewStudent.parent_name || "Parent Name"}</p>
-                  <p className="font-mono text-[#14B8A6] font-bold">{viewStudent.parent_mobile} • {viewStudent.parent_email || "parent@gmail.com"}</p>
-                </div>
-
-                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-0.5 sm:col-span-2">
-                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">Residential Address</span>
-                  <p className="font-medium text-[#1E293B]">{viewStudent.address}</p>
                 </div>
               </div>
             </div>
@@ -216,51 +178,31 @@ const TeacherManageStudents = () => {
 
             <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
-                <label className="block text-[#64748B] mb-1">Enrollment No (enrollment_no)</label>
+                <label className="block text-[#64748B] mb-1">Enrollment No</label>
                 <input type="text" required value={form.enrollment_no} onChange={(e) => setForm({ ...form, enrollment_no: e.target.value })} className="w-full p-2 border border-[#E2E8F0] rounded-lg" />
               </div>
               <div>
-                <label className="block text-[#64748B] mb-1">First Name (first_name)</label>
+                <label className="block text-[#64748B] mb-1">First Name</label>
                 <input type="text" required value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} className="w-full p-2 border border-[#E2E8F0] rounded-lg" />
               </div>
               <div>
-                <label className="block text-[#64748B] mb-1">Last Name (last_name)</label>
+                <label className="block text-[#64748B] mb-1">Last Name</label>
                 <input type="text" required value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} className="w-full p-2 border border-[#E2E8F0] rounded-lg" />
               </div>
               <div>
-                <label className="block text-[#64748B] mb-1">Email (email)</label>
+                <label className="block text-[#64748B] mb-1">Email</label>
                 <input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full p-2 border border-[#E2E8F0] rounded-lg" />
               </div>
               <div>
-                <label className="block text-[#64748B] mb-1">Mobile (mobile)</label>
+                <label className="block text-[#64748B] mb-1">Mobile</label>
                 <input type="text" required value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} className="w-full p-2 border border-[#E2E8F0] rounded-lg" />
               </div>
               <div>
-                <label className="block text-[#64748B] mb-1">Gender (gender)</label>
+                <label className="block text-[#64748B] mb-1">Gender</label>
                 <select value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })} className="w-full p-2 border border-[#E2E8F0] rounded-lg">
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
                 </select>
-              </div>
-              <div>
-                <label className="block text-[#64748B] mb-1">Date of Birth (date_of_birth)</label>
-                <input type="date" required value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} className="w-full p-2 border border-[#E2E8F0] rounded-lg" />
-              </div>
-              <div>
-                <label className="block text-[#64748B] mb-1">Blood Group (blood_group)</label>
-                <input type="text" value={form.blood_group} onChange={(e) => setForm({ ...form, blood_group: e.target.value })} className="w-full p-2 border border-[#E2E8F0] rounded-lg" />
-              </div>
-              <div>
-                <label className="block text-[#64748B] mb-1">Parent Name (parent_name)</label>
-                <input type="text" required value={form.parent_name} onChange={(e) => setForm({ ...form, parent_name: e.target.value })} className="w-full p-2 border border-[#E2E8F0] rounded-lg" />
-              </div>
-              <div>
-                <label className="block text-[#64748B] mb-1">Parent Mobile (parent_mobile)</label>
-                <input type="text" required value={form.parent_mobile} onChange={(e) => setForm({ ...form, parent_mobile: e.target.value })} className="w-full p-2 border border-[#E2E8F0] rounded-lg" />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block text-[#64748B] mb-1">Address (address)</label>
-                <textarea rows={2} required value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full p-2 border border-[#E2E8F0] rounded-lg" />
               </div>
 
               <div className="sm:col-span-2 flex justify-end gap-2 pt-2 border-t border-[#E2E8F0]">

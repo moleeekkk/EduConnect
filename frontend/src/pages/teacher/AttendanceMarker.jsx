@@ -1,28 +1,24 @@
 import React, { useState } from "react";
-import { CalendarCheck, Save, CheckCircle2, UserCheck, UserX } from "lucide-react";
+import { Save, CheckCircle2, UserCheck, UserX } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockStudents, mockAttendanceSessions, mockSubjects } from "../../data/mockData";
+import { mockStudents, mockSubjects } from "../../data/mockData";
 
 const TeacherAttendanceMarker = () => {
-  const [selectedSubject, setSelectedSubject] = useState(mockSubjects[0]?.subject_id || "subj-101");
-  const [sessionDate, setSessionDate] = useState("2026-08-08");
+  const [selectedSubject, setSelectedSubject] = useState(mockSubjects[0]?.subject_id || "");
+  const [sessionDate, setSessionDate] = useState(new Date().toISOString().split("T")[0]);
   const [lectureNo, setLectureNo] = useState(1);
   const [startTime, setStartTime] = useState("09:30");
   const [endTime, setEndTime] = useState("11:00");
-  const [topic, setTopic] = useState("State Management & Custom Hooks Architecture");
+  const [topic, setTopic] = useState("");
 
-  const [studentStatus, setStudentStatus] = useState({
-    "stu-001": "Present",
-    "stu-002": "Present",
-    "stu-003": "Absent",
-  });
+  const [studentStatus, setStudentStatus] = useState({});
 
   const [saveMsg, setSaveMsg] = useState(false);
 
   const toggleStatus = (id) => {
     setStudentStatus((prev) => ({
       ...prev,
-      [id]: prev[id] === "Present" ? "Absent" : "Present",
+      [id]: prev[id] === "Absent" ? "Present" : "Absent",
     }));
   };
 
@@ -61,16 +57,20 @@ const TeacherAttendanceMarker = () => {
               onChange={(e) => setSelectedSubject(e.target.value)}
               className="w-full p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
             >
-              {mockSubjects.map((s) => (
-                <option key={s.subject_id} value={s.subject_id}>
-                  {s.subject_name} ({s.subject_code})
-                </option>
-              ))}
+              {mockSubjects && mockSubjects.length > 0 ? (
+                mockSubjects.map((s) => (
+                  <option key={s.subject_id} value={s.subject_id}>
+                    {s.subject_name} ({s.subject_code})
+                  </option>
+                ))
+              ) : (
+                <option value="">No Subjects</option>
+              )}
             </select>
           </div>
 
           <div>
-            <label className="block text-[#64748B] mb-1">Lecture Date (session_date)</label>
+            <label className="block text-[#64748B] mb-1">Lecture Date</label>
             <input
               type="date"
               value={sessionDate}
@@ -80,7 +80,7 @@ const TeacherAttendanceMarker = () => {
           </div>
 
           <div>
-            <label className="block text-[#64748B] mb-1">Lecture No (lecture_no)</label>
+            <label className="block text-[#64748B] mb-1">Lecture No</label>
             <input
               type="number"
               value={lectureNo}
@@ -90,7 +90,7 @@ const TeacherAttendanceMarker = () => {
           </div>
 
           <div>
-            <label className="block text-[#64748B] mb-1">Start Time (start_time)</label>
+            <label className="block text-[#64748B] mb-1">Start Time</label>
             <input
               type="time"
               value={startTime}
@@ -100,7 +100,7 @@ const TeacherAttendanceMarker = () => {
           </div>
 
           <div>
-            <label className="block text-[#64748B] mb-1">End Time (end_time)</label>
+            <label className="block text-[#64748B] mb-1">End Time</label>
             <input
               type="time"
               value={endTime}
@@ -111,10 +111,11 @@ const TeacherAttendanceMarker = () => {
         </div>
 
         <div>
-          <label className="block text-[#64748B] mb-1">Lecture Topic Covered (topic)</label>
+          <label className="block text-[#64748B] mb-1">Lecture Topic Covered</label>
           <input
             type="text"
             value={topic}
+            placeholder="e.g. Topic description..."
             onChange={(e) => setTopic(e.target.value)}
             className="w-full p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
           />
@@ -125,43 +126,47 @@ const TeacherAttendanceMarker = () => {
       <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs overflow-hidden">
         <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between">
           <h2 className="text-sm font-bold text-[#1E293B]">Class Student Roster</h2>
-          <span className="text-xs text-[#64748B]">Click on any student card to toggle Present / Absent</span>
         </div>
 
-        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {mockStudents.map((stu) => {
-            const status = studentStatus[stu.student_id] || "Present";
-            const isPresent = status === "Present";
-            return (
-              <div
-                key={stu.student_id}
-                onClick={() => toggleStatus(stu.student_id)}
-                className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
-                  isPresent
-                    ? "bg-[#22C55E]/5 border-[#22C55E]/30"
-                    : "bg-[#EF4444]/5 border-[#EF4444]/30"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <img src={stu.profile_photo} alt="" className="w-9 h-9 rounded-full object-cover" />
-                  <div>
-                    <h4 className="text-xs font-bold text-[#1E293B]">{stu.first_name} {stu.last_name}</h4>
-                    <p className="text-[10px] text-[#64748B] font-mono">{stu.enrollment_no}</p>
-                  </div>
-                </div>
-
-                <span
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                    isPresent ? "bg-[#22C55E] text-white" : "bg-[#EF4444] text-white"
+        {mockStudents && mockStudents.length > 0 ? (
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {mockStudents.map((stu) => {
+              const status = studentStatus[stu.student_id] || "Present";
+              const isPresent = status === "Present";
+              return (
+                <div
+                  key={stu.student_id}
+                  onClick={() => toggleStatus(stu.student_id)}
+                  className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                    isPresent
+                      ? "bg-[#22C55E]/5 border-[#22C55E]/30"
+                      : "bg-[#EF4444]/5 border-[#EF4444]/30"
                   }`}
                 >
-                  {isPresent ? <UserCheck className="w-3 h-3" /> : <UserX className="w-3 h-3" />}
-                  {status}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <h4 className="text-xs font-bold text-[#1E293B]">{stu.first_name} {stu.last_name}</h4>
+                      <p className="text-[10px] text-[#64748B] font-mono">{stu.enrollment_no}</p>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                      isPresent ? "bg-[#22C55E] text-white" : "bg-[#EF4444] text-white"
+                    }`}
+                  >
+                    {isPresent ? <UserCheck className="w-3 h-3" /> : <UserX className="w-3 h-3" />}
+                    {status}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="p-8 text-center text-xs text-[#64748B]">
+            No students found in class roster.
+          </div>
+        )}
       </div>
     </div>
   );

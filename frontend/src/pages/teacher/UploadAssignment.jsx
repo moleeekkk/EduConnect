@@ -1,93 +1,18 @@
 import React, { useState } from "react";
 import { 
-  BookOpenCheck, Plus, CheckCircle2, FileText, Check, X, Edit, Trash2, 
-  Paperclip, Upload, Clock, AlertTriangle, UserCheck, Mail, Send, Eye, Users
+  BookOpenCheck, Plus, CheckCircle2, FileText, X, Edit, Trash2, 
+  Paperclip, Clock, AlertTriangle, Mail, Eye
 } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockAssignments, mockStudents } from "../../data/mockData";
-
-const defaultSubmissions = [
-  {
-    submission_id: "sub-001",
-    assignment_id: "asgn-001",
-    student_id: "stu-001",
-    student_name: "Maulik Dabhi",
-    enrollment_no: "25CI2110016",
-    submission_date: "2026-08-10 14:30",
-    attachment: "maulik_asgn1_final.zip",
-    obtained_marks: 46,
-    feedback: "Excellent architecture and well-documented component layout.",
-    submission_status: "Timely",
-  },
-  {
-    submission_id: "sub-002",
-    assignment_id: "asgn-001",
-    student_id: "stu-002",
-    student_name: "Aanya Sharma",
-    enrollment_no: "25CI2110017",
-    submission_date: "2026-08-11 09:15",
-    attachment: "aanya_microservices_v2.pdf",
-    obtained_marks: 42,
-    feedback: "Good work, try to submit before the deadline next time.",
-    submission_status: "Late",
-  },
-  {
-    submission_id: "sub-003",
-    assignment_id: "asgn-001",
-    student_id: "stu-003",
-    student_name: "Rohan Verma",
-    enrollment_no: "25CI2110018",
-    submission_date: "-",
-    attachment: null,
-    obtained_marks: null,
-    feedback: null,
-    submission_status: "Missed",
-  },
-  {
-    submission_id: "sub-004",
-    assignment_id: "asgn-002",
-    student_id: "stu-001",
-    student_name: "Maulik Dabhi",
-    enrollment_no: "25CI2110016",
-    submission_date: "2026-08-14 11:00",
-    attachment: "maulik_devops_docker.zip",
-    obtained_marks: 48,
-    feedback: "Outstanding Docker pipeline setup.",
-    submission_status: "Timely",
-  },
-  {
-    submission_id: "sub-005",
-    assignment_id: "asgn-002",
-    student_id: "stu-002",
-    student_name: "Aanya Sharma",
-    enrollment_no: "25CI2110017",
-    submission_date: "2026-08-16 18:45",
-    attachment: "aanya_devops_doc.pdf",
-    obtained_marks: 38,
-    feedback: "Submitted past due date.",
-    submission_status: "Late",
-  },
-  {
-    submission_id: "sub-006",
-    assignment_id: "asgn-002",
-    student_id: "stu-003",
-    student_name: "Rohan Verma",
-    enrollment_no: "25CI2110018",
-    submission_date: "-",
-    attachment: null,
-    obtained_marks: null,
-    feedback: null,
-    submission_status: "Missed",
-  },
-];
+import { mockAssignments } from "../../data/mockData";
 
 const TeacherUploadAssignment = () => {
-  const [assignments, setAssignments] = useState(mockAssignments);
-  const [submissions, setSubmissions] = useState(defaultSubmissions);
+  const [assignments, setAssignments] = useState(mockAssignments || []);
+  const [submissions, setSubmissions] = useState([]);
 
   // Submissions Pop-up Modal State
   const [viewSubmissionsAssignment, setViewSubmissionsAssignment] = useState(null);
-  const [modalTab, setModalTab] = useState("timely"); // "timely", "late", "missed"
+  const [modalTab, setModalTab] = useState("timely");
   const [viewFileModal, setViewFileModal] = useState(null);
 
   // Add / Edit Modal States
@@ -96,14 +21,14 @@ const TeacherUploadAssignment = () => {
 
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
-  const [newDueDate, setNewDueDate] = useState("2026-08-25");
+  const [newDueDate, setNewDueDate] = useState("");
   const [newMarks, setNewMarks] = useState(50);
   const [refFileName, setRefFileName] = useState("");
 
   // Grade Modal State
   const [selectedSub, setSelectedSub] = useState(null);
-  const [gradeMarks, setGradeMarks] = useState(45);
-  const [gradeFeedback, setGradeFeedback] = useState("Good work");
+  const [gradeMarks, setGradeMarks] = useState(0);
+  const [gradeFeedback, setGradeFeedback] = useState("");
   const [reminderSentId, setReminderSentId] = useState(null);
 
   const handleFileChange = (e) => {
@@ -117,7 +42,7 @@ const TeacherUploadAssignment = () => {
     setEditingAssignmentId(null);
     setNewTitle("");
     setNewDesc("");
-    setNewDueDate("2026-08-25");
+    setNewDueDate("");
     setNewMarks(50);
     setRefFileName("");
     setShowAddModal(true);
@@ -165,10 +90,9 @@ const TeacherUploadAssignment = () => {
         )
       );
     } else {
-      const newAsgnId = `asgn-00${assignments.length + 1}`;
+      const newAsgnId = `asgn-${Date.now()}`;
       const created = {
         assignment_id: newAsgnId,
-        teacher_subject_id: "ts-001",
         title: newTitle,
         description: newDesc,
         due_date: newDueDate,
@@ -178,21 +102,6 @@ const TeacherUploadAssignment = () => {
         updated_at: new Date().toISOString(),
       };
       setAssignments([created, ...assignments]);
-
-      // Seed submissions for students
-      const seededSubs = mockStudents.map((stu, idx) => ({
-        submission_id: `sub-new-${Date.now()}-${idx}`,
-        assignment_id: newAsgnId,
-        student_id: stu.student_id,
-        student_name: `${stu.first_name} ${stu.last_name}`,
-        enrollment_no: stu.enrollment_no,
-        submission_date: "-",
-        attachment: null,
-        obtained_marks: null,
-        feedback: null,
-        submission_status: "Missed",
-      }));
-      setSubmissions([...seededSubs, ...submissions]);
     }
 
     setShowAddModal(false);
@@ -216,7 +125,6 @@ const TeacherUploadAssignment = () => {
     setTimeout(() => setReminderSentId(null), 3000);
   };
 
-  // Helper to compute stats per assignment
   const getAssignmentStats = (asgnId) => {
     const asgnSubs = submissions.filter((s) => s.assignment_id === asgnId);
     const timely = asgnSubs.filter((s) => s.submission_status === "Timely").length;
@@ -225,13 +133,11 @@ const TeacherUploadAssignment = () => {
     return { timely, late, missed, total: asgnSubs.length };
   };
 
-  // Open Submissions Pop-up Modal for a specific assignment
   const handleOpenSubmissionsModal = (asgn, initialTab = "timely") => {
     setViewSubmissionsAssignment(asgn);
     setModalTab(initialTab);
   };
 
-  // Filtered submissions inside modal
   const modalSubmissions = viewSubmissionsAssignment
     ? submissions.filter(
         (s) =>
@@ -244,7 +150,7 @@ const TeacherUploadAssignment = () => {
 
   return (
     <div className="space-y-6">
-      {/* Module Top Header */}
+      {/* Module Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
           <h1 className="text-xl font-bold text-[#1E293B]">Upload Assignment</h1>
@@ -255,7 +161,7 @@ const TeacherUploadAssignment = () => {
         </Button>
       </div>
 
-      {/* Published Class Assignments List */}
+      {/* Published Assignments List */}
       <div className="space-y-4">
         <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-[#E2E8F0] shadow-xs">
           <div className="flex items-center gap-2">
@@ -267,301 +173,149 @@ const TeacherUploadAssignment = () => {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {assignments.map((asgn) => {
-            const stats = getAssignmentStats(asgn.assignment_id);
-            return (
-              <div
-                key={asgn.assignment_id}
-                className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all duration-200"
-              >
-                <div className="space-y-3">
-                  {/* Card Header: Title, Marks, Due Date & Actions */}
-                  <div className="flex items-start justify-between gap-3 border-b border-[#E2E8F0] pb-3">
-                    <div className="space-y-1">
-                      <h3 className="text-base font-extrabold text-[#1E293B] leading-snug">{asgn.title}</h3>
-                      <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                        <span className="px-2.5 py-0.5 rounded-full bg-[#2563EB]/10 text-[#2563EB] font-bold">
-                          Max Marks: {asgn.total_marks}
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-[#64748B] font-mono font-semibold">
-                          Due: {asgn.due_date}
-                        </span>
+        {assignments && assignments.length > 0 ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {assignments.map((asgn) => {
+              const stats = getAssignmentStats(asgn.assignment_id);
+              return (
+                <div
+                  key={asgn.assignment_id}
+                  className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all duration-200"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-3 border-b border-[#E2E8F0] pb-3">
+                      <div className="space-y-1">
+                        <h3 className="text-base font-extrabold text-[#1E293B] leading-snug">{asgn.title}</h3>
+                        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                          <span className="px-2.5 py-0.5 rounded-full bg-[#2563EB]/10 text-[#2563EB] font-bold">
+                            Max Marks: {asgn.total_marks}
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-[#64748B] font-mono font-semibold">
+                            Due: {asgn.due_date}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => handleOpenEditModal(asgn)}
+                          className="p-1.5 rounded-lg text-[#14B8A6] hover:bg-[#14B8A6]/10 transition-colors cursor-pointer"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteAssignment(asgn.assignment_id)}
+                          className="p-1.5 rounded-lg text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
 
-                    {/* Action Buttons: Edit & Delete */}
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={() => handleOpenEditModal(asgn)}
-                        className="p-1.5 rounded-lg text-[#14B8A6] hover:bg-[#14B8A6]/10 transition-colors cursor-pointer"
-                        title="Edit Assignment"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteAssignment(asgn.assignment_id)}
-                        className="p-1.5 rounded-lg text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors cursor-pointer"
-                        title="Delete Assignment"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                    <p className="text-xs text-[#64748B] leading-relaxed line-clamp-3">{asgn.description}</p>
+
+                    {asgn.attachment && (
+                      <div className="pt-1">
+                        <button
+                          onClick={() =>
+                            setViewFileModal({
+                              attachment: asgn.attachment,
+                              student_name: "Faculty Published Reference File",
+                            })
+                          }
+                          className="inline-flex items-center gap-1.5 font-mono font-bold text-xs text-[#14B8A6] bg-[#14B8A6]/10 hover:bg-[#14B8A6] hover:text-white px-3 py-1 rounded-lg border border-[#14B8A6]/20 transition-all cursor-pointer"
+                        >
+                          <Paperclip className="w-3.5 h-3.5" /> Ref File: {asgn.attachment}
+                        </button>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Instructions / Description */}
-                  <p className="text-xs text-[#64748B] leading-relaxed line-clamp-3">{asgn.description}</p>
-
-                  {/* Ref File Attachment Pill - Clickable Teacher Attachment */}
-                  {asgn.attachment && (
-                    <div className="pt-1">
-                      <button
-                        onClick={() =>
-                          setViewFileModal({
-                            attachment: asgn.attachment,
-                            student_name: "Faculty Published Reference File",
-                            enrollment_no: "Class Spec Doc",
-                            submission_date: `Due Date: ${asgn.due_date}`,
-                            submission_status: "Published Reference Document",
-                          })
-                        }
-                        className="inline-flex items-center gap-1.5 font-mono font-bold text-xs text-[#14B8A6] bg-[#14B8A6]/10 hover:bg-[#14B8A6] hover:text-white px-3 py-1 rounded-lg border border-[#14B8A6]/20 transition-all cursor-pointer"
-                        title="Click to view reference document"
-                      >
-                        <Paperclip className="w-3.5 h-3.5" /> Ref File: {asgn.attachment}
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Submission Breakdown Interactive Badges Grid */}
-                  <div className="pt-2">
-                    <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider block mb-2">
-                      Submissions Breakdown (Click to view student list)
-                    </span>
-                    <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                      <button
-                        onClick={() => handleOpenSubmissionsModal(asgn, "timely")}
-                        className="p-2 rounded-lg bg-[#22C55E]/10 border border-[#22C55E]/20 text-[#22C55E] hover:bg-[#22C55E] hover:text-white transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5"
-                        title="View Timely Submitted Students"
-                      >
-                        <span className="font-extrabold text-sm">{stats.timely}</span>
-                        <span className="text-[10px] font-bold uppercase">Timely</span>
-                      </button>
-
-                      <button
-                        onClick={() => handleOpenSubmissionsModal(asgn, "late")}
-                        className="p-2 rounded-lg bg-[#F97316]/10 border border-[#F97316]/20 text-[#F97316] hover:bg-[#F97316] hover:text-white transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5"
-                        title="View Late Submitted Students"
-                      >
-                        <span className="font-extrabold text-sm">{stats.late}</span>
-                        <span className="text-[10px] font-bold uppercase">Late</span>
-                      </button>
-
-                      <button
-                        onClick={() => handleOpenSubmissionsModal(asgn, "missed")}
-                        className="p-2 rounded-lg bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] hover:bg-[#EF4444] hover:text-white transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5"
-                        title="View Missed / Pending Students"
-                      >
-                        <span className="font-extrabold text-sm">{stats.missed}</span>
-                        <span className="text-[10px] font-bold uppercase">Missed</span>
-                      </button>
-                    </div>
+                  <div className="pt-3 border-t border-[#E2E8F0]">
+                    <Button
+                      variant="accent"
+                      size="sm"
+                      icon={Eye}
+                      onClick={() => handleOpenSubmissionsModal(asgn, "timely")}
+                      className="w-full text-xs"
+                    >
+                      View Student Submissions
+                    </Button>
                   </div>
                 </div>
-
-                {/* Primary Card Button */}
-                <div className="pt-3 border-t border-[#E2E8F0]">
-                  <Button
-                    variant="accent"
-                    size="sm"
-                    icon={Eye}
-                    onClick={() => handleOpenSubmissionsModal(asgn, "timely")}
-                    className="w-full text-xs"
-                  >
-                    View Student Submissions Pop-up
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="p-8 text-center text-xs text-[#64748B] bg-white rounded-xl border border-[#E2E8F0] shadow-xs">
+            No class assignments published yet.
+          </div>
+        )}
       </div>
 
-      {/* POP-UP MODAL FOR ASSIGNMENT STUDENT SUBMISSIONS */}
+      {/* Submissions Modal */}
       {viewSubmissionsAssignment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-8 animate-fade-in">
-            {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
               <div>
                 <h3 className="text-base font-extrabold text-[#1E293B]">
                   {viewSubmissionsAssignment.title}
                 </h3>
-                <p className="text-xs text-[#64748B]">
-                  Student Submissions Overview • Due Date: {viewSubmissionsAssignment.due_date}
-                </p>
               </div>
               <button
                 onClick={() => setViewSubmissionsAssignment(null)}
                 className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
-                title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Modal Navigation Bar / Filter Tabs */}
             <div className="bg-[#F8FAFC] p-2 rounded-xl border border-[#E2E8F0] flex items-center gap-2">
               <button
                 onClick={() => setModalTab("timely")}
                 className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  modalTab === "timely"
-                    ? "bg-[#22C55E] text-white shadow-xs"
-                    : "text-[#64748B] hover:text-[#1E293B] hover:bg-white"
+                  modalTab === "timely" ? "bg-[#22C55E] text-white" : "text-[#64748B]"
                 }`}
               >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Submitted Timely ({getAssignmentStats(viewSubmissionsAssignment.assignment_id).timely})
+                <CheckCircle2 className="w-3.5 h-3.5" /> Timely
               </button>
-
               <button
                 onClick={() => setModalTab("late")}
                 className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  modalTab === "late"
-                    ? "bg-[#F97316] text-white shadow-xs"
-                    : "text-[#64748B] hover:text-[#1E293B] hover:bg-white"
+                  modalTab === "late" ? "bg-[#F97316] text-white" : "text-[#64748B]"
                 }`}
               >
-                <Clock className="w-3.5 h-3.5" />
-                Submitted Late ({getAssignmentStats(viewSubmissionsAssignment.assignment_id).late})
+                <Clock className="w-3.5 h-3.5" /> Late
               </button>
-
               <button
                 onClick={() => setModalTab("missed")}
                 className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  modalTab === "missed"
-                    ? "bg-[#EF4444] text-white shadow-xs"
-                    : "text-[#64748B] hover:text-[#1E293B] hover:bg-white"
+                  modalTab === "missed" ? "bg-[#EF4444] text-white" : "text-[#64748B]"
                 }`}
               >
-                <AlertTriangle className="w-3.5 h-3.5" />
-                Missed / Pending ({getAssignmentStats(viewSubmissionsAssignment.assignment_id).missed})
+                <AlertTriangle className="w-3.5 h-3.5" /> Missed
               </button>
             </div>
 
-            {/* Modal Body: Student Cards Grid */}
             {modalSubmissions.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto p-1 custom-scrollbar">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto p-1">
                 {modalSubmissions.map((sub) => (
-                  <div
-                    key={sub.submission_id}
-                    className="bg-white rounded-xl border border-[#E2E8F0] p-4 shadow-xs flex flex-col justify-between space-y-3 hover:border-[#2563EB]/30 transition-all"
-                  >
-                    {/* Card Header: Student Avatar & Info */}
-                    <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-[#2563EB]/10 text-[#2563EB] font-bold text-xs flex items-center justify-center border border-[#2563EB]/20">
-                          {sub.student_name.split(" ").map((n) => n[0]).join("")}
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-extrabold text-[#1E293B]">{sub.student_name}</h4>
-                          <span className="font-mono text-[10px] text-[#2563EB] font-bold">
-                            {sub.enrollment_no}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Status Badge */}
-                      {sub.submission_status === "Timely" && (
-                        <span className="px-2 py-0.5 rounded-full bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20 text-[10px] font-bold">
-                          Timely
-                        </span>
-                      )}
-                      {sub.submission_status === "Late" && (
-                        <span className="px-2 py-0.5 rounded-full bg-[#F97316]/10 text-[#F97316] border border-[#F97316]/20 text-[10px] font-bold">
-                          Late
-                        </span>
-                      )}
-                      {sub.submission_status === "Missed" && (
-                        <span className="px-2 py-0.5 rounded-full bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/20 text-[10px] font-bold">
-                          Missed
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Submission Info Box */}
-                    <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-1.5 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-[#64748B] font-semibold">File Attached:</span>
-                        {sub.attachment ? (
-                          <button
-                            onClick={() => setViewFileModal(sub)}
-                            className="inline-flex items-center gap-1 font-mono font-bold text-[#2563EB] bg-[#2563EB]/10 hover:bg-[#2563EB] hover:text-white px-2.5 py-1 rounded transition-all cursor-pointer text-[11px]"
-                            title="Click file name to open document"
-                          >
-                            <Paperclip className="w-3 h-3" /> {sub.attachment}
-                          </button>
-                        ) : (
-                          <span className="text-[#EF4444] font-semibold text-[10px]">No File Uploaded</span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-[#64748B] font-semibold">Submission Time:</span>
-                        <span className="font-mono text-[#1E293B] font-medium">{sub.submission_date}</span>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-1 border-t border-[#E2E8F0]">
-                        <span className="text-[10px] text-[#64748B] font-bold">Evaluation Score:</span>
-                        <span className="font-extrabold text-[#1E293B]">
-                          {sub.obtained_marks !== null
-                            ? `${sub.obtained_marks} / ${viewSubmissionsAssignment.total_marks}`
-                            : "Not Graded"}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Card Footer Actions */}
-                    <div className="pt-2 border-t border-[#E2E8F0]">
-                      {sub.submission_status !== "Missed" ? (
-                        <Button
-                          variant="accent"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedSub(sub);
-                            setGradeMarks(sub.obtained_marks || 45);
-                            setGradeFeedback(sub.feedback || "Good work");
-                          }}
-                          className="text-xs w-full"
-                        >
-                          Grade / Review Submission
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          icon={Mail}
-                          onClick={() => sendReminder(sub.submission_id)}
-                          className="text-xs w-full text-[#EF4444] border-[#EF4444]/30 hover:bg-[#EF4444]/10"
-                        >
-                          {reminderSentId === sub.submission_id ? "Reminder Sent! ✓" : "Send Email Reminder"}
-                        </Button>
-                      )}
-                    </div>
+                  <div key={sub.submission_id} className="bg-white rounded-xl border border-[#E2E8F0] p-4 shadow-xs space-y-3">
+                    <h4 className="text-xs font-extrabold text-[#1E293B]">{sub.student_name}</h4>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="p-8 text-center bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] text-xs text-[#64748B] space-y-2">
-                <CheckCircle2 className="w-8 h-8 text-[#22C55E] mx-auto" />
-                <p className="font-bold text-[#1E293B]">No student records found under this status tab.</p>
+              <div className="p-8 text-center bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] text-xs text-[#64748B]">
+                No student submissions under this category.
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* Create / Edit Assignment Modal */}
+      {/* Create / Edit Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-[#E2E8F0] space-y-4 my-8 animate-fade-in">
@@ -572,7 +326,6 @@ const TeacherUploadAssignment = () => {
               <button
                 onClick={() => setShowAddModal(false)}
                 className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
-                title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -586,7 +339,7 @@ const TeacherUploadAssignment = () => {
                   required
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="e.g. Assignment 3: Cloud Microservices"
+                  placeholder="e.g. Assignment title..."
                   className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
                 />
               </div>
@@ -598,7 +351,7 @@ const TeacherUploadAssignment = () => {
                   required
                   value={newDesc}
                   onChange={(e) => setNewDesc(e.target.value)}
-                  placeholder="Enter detailed assignment instructions..."
+                  placeholder="Instructions..."
                   className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
                 />
               </div>
@@ -626,23 +379,6 @@ const TeacherUploadAssignment = () => {
                 </div>
               </div>
 
-              {/* Optional Reference Document Upload */}
-              <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-1.5">
-                <label className="block text-[#1E293B] font-bold flex items-center gap-1.5">
-                  <Paperclip className="w-3.5 h-3.5 text-[#2563EB]" /> Reference Document Attachment
-                </label>
-                <input
-                  type="file"
-                  onChange={handleFileChange}
-                  className="w-full text-xs text-[#64748B] file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#2563EB]/10 file:text-[#2563EB] cursor-pointer"
-                />
-                {refFileName && (
-                  <p className="text-[11px] text-[#14B8A6] font-semibold font-mono">
-                    Selected Document: {refFileName}
-                  </p>
-                )}
-              </div>
-
               <div className="flex justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
                 <Button variant="outline" size="sm" type="button" onClick={() => setShowAddModal(false)}>
                   Cancel
@@ -652,144 +388,6 @@ const TeacherUploadAssignment = () => {
                 </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Grade Modal */}
-      {selectedSub && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-[#E2E8F0] space-y-4 animate-fade-in">
-            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-              <h3 className="text-base font-bold text-[#1E293B]">
-                Grade Submission ({selectedSub.student_name})
-              </h3>
-              <button
-                onClick={() => setSelectedSub(null)}
-                className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
-                title="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              {/* Submitted File Attachment Box */}
-              <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-bold text-[#64748B] uppercase block">Submitted File Attachment</span>
-                  {selectedSub.attachment ? (
-                    <button
-                      onClick={() => setViewFileModal(selectedSub)}
-                      className="font-mono font-bold text-[#2563EB] text-xs hover:underline cursor-pointer flex items-center gap-1 mt-0.5"
-                      title="Click file name to view document"
-                    >
-                      <Paperclip className="w-3.5 h-3.5" /> {selectedSub.attachment}
-                    </button>
-                  ) : (
-                    <span className="text-gray-400 text-xs italic">No file uploaded</span>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Awarded Marks</label>
-                <input
-                  type="number"
-                  value={gradeMarks}
-                  onChange={(e) => setGradeMarks(e.target.value)}
-                  className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Faculty Feedback</label>
-                <textarea
-                  rows={3}
-                  value={gradeFeedback}
-                  onChange={(e) => setGradeFeedback(e.target.value)}
-                  className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
-                <Button variant="accent" size="sm" onClick={handleGradeSubmission}>
-                  Save Grade & Feedback
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Student Uploaded File Viewer Modal */}
-      {viewFileModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-8 animate-fade-in">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-              <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-[#2563EB]" />
-                <h3 className="text-base font-extrabold text-[#1E293B]">
-                  Student Submitted Assignment File
-                </h3>
-              </div>
-              <button
-                onClick={() => setViewFileModal(null)}
-                className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
-                title="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Student & File Details Card */}
-            <div className="space-y-4 text-xs">
-              <div className="p-4 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-[#64748B] font-bold uppercase">Submitted By</span>
-                  <span className="font-mono text-[11px] font-bold text-[#2563EB]">
-                    {viewFileModal.enrollment_no}
-                  </span>
-                </div>
-                <p className="text-sm font-extrabold text-[#1E293B]">{viewFileModal.student_name}</p>
-                <p className="text-[#64748B]">Submission Time: <span className="font-mono font-semibold text-[#1E293B]">{viewFileModal.submission_date}</span></p>
-              </div>
-
-              {/* Document File Card Preview Container */}
-              <div className="p-6 bg-[#2563EB]/5 rounded-xl border border-[#2563EB]/20 text-center space-y-3">
-                <Paperclip className="w-10 h-10 text-[#2563EB] mx-auto animate-bounce" />
-                <div>
-                  <h4 className="text-sm font-extrabold text-[#1E293B] font-mono truncate max-w-xs mx-auto">
-                    {viewFileModal.attachment || "assignment_document.zip"}
-                  </h4>
-                  <p className="text-[11px] text-[#64748B] mt-0.5">
-                    Official Student Document • Submitted for Evaluation
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-                  <Button
-                    variant="accent"
-                    size="sm"
-                    icon={Paperclip}
-                    onClick={() => alert(`Downloading student file: ${viewFileModal.attachment}...`)}
-                    className="text-xs"
-                  >
-                    Download Attachment
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon={Eye}
-                    onClick={() => alert(`Opening ${viewFileModal.attachment} in full screen viewer...`)}
-                    className="text-xs"
-                  >
-                    Open Document Preview
-                  </Button>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       )}

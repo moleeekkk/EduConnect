@@ -35,6 +35,7 @@ const StudentLogin = () => {
         state: {
           enrollmentNo: cleanNo,
           maskedPhone: res.maskedPhone || "+91 98*** **421",
+          maskedEmail: res.maskedEmail || "mau***al@gmail.com",
         },
       });
     } catch (err) {
@@ -44,6 +45,7 @@ const StudentLogin = () => {
         state: {
           enrollmentNo: cleanNo,
           maskedPhone: "+91 98*** **421",
+          maskedEmail: "mau***al@gmail.com",
         },
       });
     }

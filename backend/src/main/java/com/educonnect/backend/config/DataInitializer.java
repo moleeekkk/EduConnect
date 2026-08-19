@@ -12,6 +12,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -62,22 +63,51 @@ public class DataInitializer implements CommandLineRunner {
                 log.info("Demo Teacher Created: teacher@educonnect.ac.in / teacher123");
             }
 
-            // Seed Student if not exists
-            if (studentRepository.count() == 0) {
-                Student student = Student.builder()
+            // Seed or Update Student email in database only if missing
+            Optional<Student> s2Opt = studentRepository.findByEnrollmentNo("25CI2110016");
+            if (s2Opt.isPresent()) {
+                Student s2 = s2Opt.get();
+                if (s2.getEmail() == null || s2.getEmail().trim().isEmpty()) {
+                    s2.setEmail("maulik.svgu.16@gmail.com");
+                    studentRepository.save(s2);
+                }
+            } else {
+                Student student2 = Student.builder()
+                        .enrollmentNo("25CI2110016")
+                        .firstName("Maulik")
+                        .lastName("Student")
+                        .email("maulik.svgu.16@gmail.com")
+                        .mobile("+91 9876543216")
+                        .gender("Male")
+                        .dateOfBirth(LocalDate.of(2003, 1, 1))
+                        .address("EduConnect Campus")
+                        .isActive(true)
+                        .build();
+                studentRepository.save(student2);
+            }
+
+            Optional<Student> s1Opt = studentRepository.findByEnrollmentNo("2024MCA001");
+            if (s1Opt.isPresent()) {
+                Student s1 = s1Opt.get();
+                if (s1.getEmail() == null || s1.getEmail().trim().isEmpty()) {
+                    s1.setEmail("maulik.svgu.16@gmail.com");
+                    studentRepository.save(s1);
+                }
+            } else {
+                Student student1 = Student.builder()
                         .enrollmentNo("2024MCA001")
                         .firstName("Alex")
                         .lastName("Johnson")
-                        .email("alex.johnson@educonnect.ac.in")
+                        .email("maulik.svgu.16@gmail.com")
                         .mobile("+91 9876543212")
                         .gender("Male")
                         .dateOfBirth(LocalDate.of(2002, 8, 15))
                         .address("Student Hostel Block A")
                         .isActive(true)
                         .build();
-                studentRepository.save(student);
-                log.info("Demo Student Created: Enrollment 2024MCA001");
+                studentRepository.save(student1);
             }
+            log.info("Student records initialized/verified in database.");
 
         } catch (Exception e) {
             log.warn("Seed data initialization note: {}", e.getMessage());

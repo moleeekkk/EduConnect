@@ -1,28 +1,28 @@
 import React, { useState } from "react";
-import { User, Save, Edit, Check } from "lucide-react";
+import { Save, Edit, Check } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockTeachers } from "../../data/mockData";
 
 const TeacherProfile = () => {
   const userStr = localStorage.getItem("educonnect_user");
   const loggedUser = userStr ? JSON.parse(userStr) : null;
-  const initialTeacher = mockTeachers[0] || {
-    teacher_id: "teach-001",
-    employee_id: loggedUser?.identifier || "FAC-8092",
+  const initialTeacher = {
+    teacher_id: loggedUser?.userId || "",
+    employee_id: loggedUser?.identifier || "",
     first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : "Faculty",
-    last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : "Member",
-    email: loggedUser?.identifier || "teacher@educonnect.ac.in",
-    mobile: "+91 98111 22334",
-    gender: "Female",
-    date_of_birth: "1985-04-12",
-    address: "Faculty Quarters Enclave",
-    qualification: "Ph.D. in Computer Science",
-    designation: "Assistant Professor",
-    experience: 5,
-    joining_date: "2018-06-15",
+    last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : "",
+    email: loggedUser?.identifier && loggedUser.identifier.includes("@") ? loggedUser.identifier : "",
+    mobile: "",
+    gender: "",
+    date_of_birth: "",
+    address: "",
+    qualification: "",
+    designation: "Faculty Member",
+    experience: 0,
+    joining_date: "",
     profile_photo: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
     is_active: true,
   };
+
   const [profile, setProfile] = useState(initialTeacher);
   const [isEditing, setIsEditing] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -52,7 +52,7 @@ const TeacherProfile = () => {
               {profile.first_name} {profile.last_name}
             </h1>
             <p className="text-xs text-[#64748B] mt-0.5">
-              Employee ID: <strong className="text-[#14B8A6]">{profile.employee_id}</strong> • {profile.designation}
+              Employee ID: <strong className="text-[#14B8A6]">{profile.employee_id || "N/A"}</strong> • {profile.designation}
             </p>
           </div>
         </div>
@@ -84,57 +84,57 @@ const TeacherProfile = () => {
 
         <form onSubmit={handleSave} className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Teacher ID (UUID)</label>
+            <label className="block font-medium text-[#64748B] mb-1">Teacher ID</label>
             <input type="text" value={profile.teacher_id} disabled className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-mono text-[#64748B]" />
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Employee ID (employee_id)</label>
+            <label className="block font-medium text-[#64748B] mb-1">Employee ID</label>
             <input type="text" value={profile.employee_id} disabled className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-semibold text-[#1E293B]" />
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">First Name (first_name)</label>
+            <label className="block font-medium text-[#64748B] mb-1">First Name</label>
             <input type="text" value={profile.first_name} disabled={!isEditing} onChange={(e) => handleChange("first_name", e.target.value)} className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#14B8A6]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`} />
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Last Name (last_name)</label>
+            <label className="block font-medium text-[#64748B] mb-1">Last Name</label>
             <input type="text" value={profile.last_name} disabled={!isEditing} onChange={(e) => handleChange("last_name", e.target.value)} className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#14B8A6]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`} />
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Email Address (email)</label>
+            <label className="block font-medium text-[#64748B] mb-1">Email Address</label>
             <input type="email" value={profile.email} disabled={!isEditing} onChange={(e) => handleChange("email", e.target.value)} className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#14B8A6]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`} />
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Mobile Number (mobile)</label>
+            <label className="block font-medium text-[#64748B] mb-1">Mobile Number</label>
             <input type="text" value={profile.mobile} disabled={!isEditing} onChange={(e) => handleChange("mobile", e.target.value)} className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#14B8A6]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`} />
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Designation (designation)</label>
+            <label className="block font-medium text-[#64748B] mb-1">Designation</label>
             <input type="text" value={profile.designation} disabled={!isEditing} onChange={(e) => handleChange("designation", e.target.value)} className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#14B8A6]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`} />
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Qualification (qualification)</label>
+            <label className="block font-medium text-[#64748B] mb-1">Qualification</label>
             <input type="text" value={profile.qualification} disabled={!isEditing} onChange={(e) => handleChange("qualification", e.target.value)} className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#14B8A6]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`} />
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Teaching Experience (experience in years)</label>
+            <label className="block font-medium text-[#64748B] mb-1">Teaching Experience (Years)</label>
             <input type="number" value={profile.experience} disabled={!isEditing} onChange={(e) => handleChange("experience", e.target.value)} className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#14B8A6]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`} />
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Joining Date (joining_date)</label>
+            <label className="block font-medium text-[#64748B] mb-1">Joining Date</label>
             <input type="date" value={profile.joining_date} disabled className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]" />
           </div>
 
           <div className="sm:col-span-2">
-            <label className="block font-medium text-[#64748B] mb-1">Address (address)</label>
+            <label className="block font-medium text-[#64748B] mb-1">Address</label>
             <textarea rows={2} value={profile.address} disabled={!isEditing} onChange={(e) => handleChange("address", e.target.value)} className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#14B8A6]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`} />
           </div>
         </form>

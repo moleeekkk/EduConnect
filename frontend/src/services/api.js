@@ -28,6 +28,10 @@ export const authApi = {
     const response = await api.post("/auth/student/send-otp", { enrollmentNo });
     return response.data;
   },
+  resendStudentOtp: async (enrollmentNo) => {
+    const response = await api.post("/auth/student/resend-otp", { enrollmentNo });
+    return response.data;
+  },
   verifyStudentOtp: async (enrollmentNo, otp) => {
     const response = await api.post("/auth/student/verify-otp", { enrollmentNo, otp });
     if (response.data.token) {
@@ -57,23 +61,23 @@ export const authApi = {
 // Student Endpoints
 export const studentApi = {
   getDashboard: async (enrollmentNo) => {
-    const response = await api.get(`/student/dashboard?enrollmentNo=${enrollmentNo || "2024MCA001"}`);
+    const response = await api.get(`/student/dashboard?enrollmentNo=${enrollmentNo || ""}`);
     return response.data;
   },
   getAttendance: async (enrollmentNo) => {
-    const response = await api.get(`/student/attendance?enrollmentNo=${enrollmentNo || "2024MCA001"}`);
+    const response = await api.get(`/student/attendance?enrollmentNo=${enrollmentNo || ""}`);
     return response.data;
   },
   getAssignments: async (enrollmentNo) => {
-    const response = await api.get(`/student/assignments?enrollmentNo=${enrollmentNo || "2024MCA001"}`);
+    const response = await api.get(`/student/assignments?enrollmentNo=${enrollmentNo || ""}`);
     return response.data;
   },
   getResults: async (enrollmentNo) => {
-    const response = await api.get(`/student/results?enrollmentNo=${enrollmentNo || "2024MCA001"}`);
+    const response = await api.get(`/student/results?enrollmentNo=${enrollmentNo || ""}`);
     return response.data;
   },
   getProfile: async (enrollmentNo) => {
-    const response = await api.get(`/student/profile?enrollmentNo=${enrollmentNo || "2024MCA001"}`);
+    const response = await api.get(`/student/profile?enrollmentNo=${enrollmentNo || ""}`);
     return response.data;
   },
 };
@@ -81,7 +85,7 @@ export const studentApi = {
 // Teacher Endpoints
 export const teacherApi = {
   getDashboard: async (teacherId) => {
-    const response = await api.get(`/teacher/dashboard?teacherId=${teacherId || "teach-demo-id"}`);
+    const response = await api.get(`/teacher/dashboard?teacherId=${teacherId || ""}`);
     return response.data;
   },
   markAttendance: async (attendanceData) => {
@@ -89,7 +93,7 @@ export const teacherApi = {
     return response.data;
   },
   getPendingGrades: async (teacherId) => {
-    const response = await api.get(`/teacher/grades?teacherId=${teacherId || "teach-demo-id"}`);
+    const response = await api.get(`/teacher/grades?teacherId=${teacherId || ""}`);
     return response.data;
   },
 };

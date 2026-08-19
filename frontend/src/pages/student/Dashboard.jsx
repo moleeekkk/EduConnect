@@ -1,42 +1,42 @@
 import React from "react";
-import { CalendarCheck, BookOpen, Award, Clock, ArrowRight, User, FileText, Sparkles, CheckSquare } from "lucide-react";
+import { CalendarCheck, BookOpen, Award, Clock, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Button from "../../components/common/Button";
-import { mockStudents, mockAttendanceSessions, mockAssignments, mockAnnouncements } from "../../data/mockData";
+import { mockAttendanceSessions, mockAnnouncements } from "../../data/mockData";
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
   const userStr = localStorage.getItem("educonnect_user");
   const loggedUser = userStr ? JSON.parse(userStr) : null;
   const currentStudent = {
-    enrollment_no: loggedUser?.identifier || mockStudents[0]?.enrollment_no || "25CI2110016",
-    first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : (mockStudents[0]?.first_name || "Student"),
-    last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : (mockStudents[0]?.last_name || "User"),
+    enrollment_no: loggedUser?.identifier || "N/A",
+    first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : "Student",
+    last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : "",
   };
 
   const stats = [
     {
       title: "Overall Attendance",
-      value: "88.5%",
-      subtext: "Semester 3 Attendance Record",
-      status: "Good",
-      statusColor: "bg-[#22C55E]/10 text-[#22C55E]",
+      value: "N/A",
+      subtext: "Attendance Record",
+      status: "Neutral",
+      statusColor: "bg-slate-100 text-[#64748B]",
       icon: CalendarCheck,
       iconBg: "bg-[#14B8A6]/10 text-[#14B8A6]",
     },
     {
       title: "Current CGPA",
-      value: "8.89 / 10.0",
-      subtext: "SGPA Sem 2: 8.92",
-      status: "Excellent",
-      statusColor: "bg-[#2563EB]/10 text-[#2563EB]",
+      value: "N/A",
+      subtext: "Academic Performance",
+      status: "Neutral",
+      statusColor: "bg-slate-100 text-[#64748B]",
       icon: Award,
       iconBg: "bg-[#2563EB]/10 text-[#2563EB]",
     },
     {
       title: "Enrolled Courses",
-      value: "4 Subjects",
-      subtext: "15 Semester Credits",
+      value: "0 Subjects",
+      subtext: "0 Semester Credits",
       status: "Active",
       statusColor: "bg-[#F59E0B]/10 text-[#F59E0B]",
       icon: BookOpen,
@@ -44,10 +44,10 @@ const StudentDashboard = () => {
     },
     {
       title: "Pending Tasks",
-      value: "2 Assignments",
-      subtext: "Due this week",
-      status: "Pending",
-      statusColor: "bg-[#F97316]/10 text-[#F97316]",
+      value: "0 Assignments",
+      subtext: "No tasks due",
+      status: "Completed",
+      statusColor: "bg-[#22C55E]/10 text-[#22C55E]",
       icon: Clock,
       iconBg: "bg-[#F97316]/10 text-[#F97316]",
     },
@@ -58,14 +58,16 @@ const StudentDashboard = () => {
       {/* Student Welcome Banner */}
       <div className="bg-gradient-to-r from-[#2563EB] to-[#14B8A6] rounded-2xl p-6 text-white shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-white/20 text-xs font-semibold mb-2">
-            Enrollment: {currentStudent.enrollment_no}
-          </span>
+          {currentStudent.enrollment_no && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-white/20 text-xs font-semibold mb-2">
+              Enrollment: {currentStudent.enrollment_no}
+            </span>
+          )}
           <h1 className="text-2xl font-bold tracking-tight">
             Welcome, {currentStudent.first_name} {currentStudent.last_name}!
           </h1>
           <p className="text-white/80 text-xs mt-1">
-            Master of Computer Applications • Semester 3 • Batch 2025-2027
+            Student Portal Control Center
           </p>
         </div>
       </div>
@@ -109,20 +111,26 @@ const StudentDashboard = () => {
           </div>
 
           <div className="space-y-3">
-            {mockAttendanceSessions.map((session, idx) => (
-              <div key={session.session_id} className="p-3.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-[#1E293B]">Lecture #{session.lecture_no}</span>
-                    <span className="text-[#64748B]">• {session.start_time} - {session.end_time}</span>
+            {mockAttendanceSessions && mockAttendanceSessions.length > 0 ? (
+              mockAttendanceSessions.map((session) => (
+                <div key={session.session_id} className="p-3.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-[#1E293B]">Lecture #{session.lecture_no}</span>
+                      <span className="text-[#64748B]">• {session.start_time} - {session.end_time}</span>
+                    </div>
+                    <p className="text-xs font-medium text-[#2563EB] mt-0.5">{session.topic}</p>
                   </div>
-                  <p className="text-xs font-medium text-[#2563EB] mt-0.5">{session.topic}</p>
+                  <span className="px-2.5 py-1 rounded-full bg-[#22C55E]/10 text-[#22C55E] text-[10px] font-bold self-start sm:self-auto">
+                    Scheduled
+                  </span>
                 </div>
-                <span className="px-2.5 py-1 rounded-full bg-[#22C55E]/10 text-[#22C55E] text-[10px] font-bold self-start sm:self-auto">
-                  Scheduled
-                </span>
+              ))
+            ) : (
+              <div className="p-6 text-center text-xs text-[#64748B] bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                No academic sessions scheduled today.
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -130,14 +138,20 @@ const StudentDashboard = () => {
         <div className="bg-white rounded-xl p-5 border border-[#E2E8F0] shadow-xs space-y-4">
           <h2 className="text-base font-bold text-[#1E293B] border-b border-[#E2E8F0] pb-3">Latest Announcements</h2>
           <div className="space-y-3">
-            {mockAnnouncements.map((notice) => (
-              <div key={notice.id} className="p-3 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
-                <span className="text-[10px] font-bold text-[#2563EB] uppercase">{notice.target_role}</span>
-                <h4 className="text-xs font-bold text-[#1E293B]">{notice.title}</h4>
-                <p className="text-[11px] text-[#64748B] line-clamp-2">{notice.description}</p>
-                <p className="text-[10px] text-[#64748B]">{notice.date}</p>
+            {mockAnnouncements && mockAnnouncements.length > 0 ? (
+              mockAnnouncements.map((notice) => (
+                <div key={notice.id} className="p-3 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
+                  <span className="text-[10px] font-bold text-[#2563EB] uppercase">{notice.target_role}</span>
+                  <h4 className="text-xs font-bold text-[#1E293B]">{notice.title}</h4>
+                  <p className="text-[11px] text-[#64748B] line-clamp-2">{notice.description}</p>
+                  <p className="text-[10px] text-[#64748B]">{notice.date}</p>
+                </div>
+              ))
+            ) : (
+              <div className="p-6 text-center text-xs text-[#64748B] bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                No announcements available.
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>

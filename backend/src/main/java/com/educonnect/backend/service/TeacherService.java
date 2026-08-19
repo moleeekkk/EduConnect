@@ -21,19 +21,13 @@ public class TeacherService {
 
     public Map<String, Object> getTeacherDashboard(String teacherId) {
         Map<String, Object> data = new HashMap<>();
-        data.put("teacherName", "Dr. Sarah Jenkins");
-        data.put("department", "Department of Computer Science");
-        data.put("assignedCoursesCount", 4);
-        data.put("totalStudents", 142);
-        data.put("pendingGradingCount", 12);
-        data.put("attendanceRate", "96.2%");
-
-        List<Map<String, Object>> todayClasses = Arrays.asList(
-                Map.of("id", 1, "course", "MCA301: Advanced Web Technologies", "room", "Lab 302", "time", "09:30 AM - 11:00 AM", "totalStudents", 42, "status", "Attendance Marked"),
-                Map.of("id", 2, "course", "MCA303: Database Architecture Practical", "room", "Lab 105", "time", "02:00 PM - 04:00 PM", "totalStudents", 38, "status", "Pending Attendance"),
-                Map.of("id", 3, "course", "MCA102: Data Structures & Algorithms", "room", "Hall A", "time", "04:30 PM - 05:30 PM", "totalStudents", 62, "status", "Upcoming")
-        );
-        data.put("todayClasses", todayClasses);
+        data.put("teacherName", "");
+        data.put("department", "");
+        data.put("assignedCoursesCount", 0);
+        data.put("totalStudents", 0);
+        data.put("pendingGradingCount", 0);
+        data.put("attendanceRate", "0%");
+        data.put("todayClasses", Collections.emptyList());
 
         return data;
     }
@@ -85,10 +79,6 @@ public class TeacherService {
     }
 
     public List<Map<String, Object>> getPendingGrades(String teacherId) {
-        List<Map<String, Object>> submissions = new ArrayList<>();
-        submissions.add(Map.of("id", "SUB-801", "studentName", "Alex Johnson", "enrollmentNo", "2024MCA001", "assignmentTitle", "Docker Containerization", "totalMarks", 100, "status", "Pending", "submittedDate", "06-AUG-2026"));
-        submissions.add(Map.of("id", "SUB-802", "studentName", "Beatrix Kiddo", "enrollmentNo", "2024MCA002", "assignmentTitle", "Docker Containerization", "totalMarks", 100, "status", "Pending", "submittedDate", "06-AUG-2026"));
-        submissions.add(Map.of("id", "SUB-803", "studentName", "Charles Xavier", "enrollmentNo", "2024MCA003", "assignmentTitle", "React 19 Hooks", "totalMarks", 50, "status", "Graded", "obtainedMarks", 48));
-        return submissions;
+        return Collections.emptyList();
     }
 }

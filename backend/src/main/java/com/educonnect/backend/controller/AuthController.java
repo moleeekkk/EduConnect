@@ -21,6 +21,15 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/student/resend-otp")
+    public ResponseEntity<AuthResponse> resendStudentOtp(@Valid @RequestBody StudentOtpRequest request) {
+        AuthResponse response = authService.resendStudentOtp(request);
+        if (!response.isSuccess()) {
+            return ResponseEntity.badRequest().body(response);
+        }
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/student/verify-otp")
     public ResponseEntity<AuthResponse> verifyStudentOtp(@Valid @RequestBody StudentOtpVerifyRequest request) {
         AuthResponse response = authService.verifyStudentOtp(request);

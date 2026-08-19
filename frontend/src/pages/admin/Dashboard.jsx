@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ShieldCheck, Users, School, BookOpen, Activity, UserPlus, Building2, FolderTree, BarChart3, SlidersHorizontal } from "lucide-react";
+import { ShieldCheck, Users, School, Building2, FolderTree, BarChart3 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Button from "../../components/common/Button";
 import { mockInstitutes, mockPrograms, mockStudents, mockTeachers, mockSubjects } from "../../data/mockData";
@@ -8,28 +8,31 @@ import { adminApi } from "../../services/api";
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [statsData, setStatsData] = useState({
-    totalStudents: mockStudents.length || 5,
-    totalFaculty: mockTeachers.length || 3,
-    activeCourses: mockSubjects.length || 4,
+    totalStudents: (mockStudents || []).length,
+    totalFaculty: (mockTeachers || []).length,
+    activeCourses: (mockSubjects || []).length,
   });
 
   useEffect(() => {
-    adminApi.getDashboard().then((res) => {
-      if (res && (res.totalStudents > 0 || res.totalFaculty > 0)) {
-        setStatsData({
-          totalStudents: res.totalStudents,
-          totalFaculty: res.totalFaculty,
-          activeCourses: res.activeCourses || mockSubjects.length,
-        });
-      }
-    }).catch((err) => console.log("Dashboard fetch error:", err));
+    adminApi
+      .getDashboard()
+      .then((res) => {
+        if (res) {
+          setStatsData({
+            totalStudents: res.totalStudents || 0,
+            totalFaculty: res.totalFaculty || 0,
+            activeCourses: res.activeCourses || 0,
+          });
+        }
+      })
+      .catch((err) => console.log("Dashboard fetch error:", err));
   }, []);
 
   const adminStats = [
-    { title: "Total Students", value: `${statsData.totalStudents} Active`, sub: "Master of Computer Applications", icon: Users, color: "bg-[#2563EB]/10 text-[#2563EB]" },
-    { title: "Faculty Members", value: `${statsData.totalFaculty} Professors`, sub: "Department of CA", icon: School, color: "bg-[#14B8A6]/10 text-[#14B8A6]" },
-    { title: "Active Institutes", value: `${mockInstitutes.length} Institutes`, sub: "CA, CS, IT Schools", icon: Building2, color: "bg-[#F59E0B]/10 text-[#F59E0B]" },
-    { title: "Academic Programs", value: `${mockPrograms.length} Degree Programs`, sub: "MCA, BCA, B.Tech IT", icon: FolderTree, color: "bg-[#22C55E]/10 text-[#22C55E]" },
+    { title: "Total Students", value: `${statsData.totalStudents} Enrolled`, sub: "Student Records", icon: Users, color: "bg-[#2563EB]/10 text-[#2563EB]" },
+    { title: "Faculty Members", value: `${statsData.totalFaculty} Teachers`, sub: "Teaching Staff", icon: School, color: "bg-[#14B8A6]/10 text-[#14B8A6]" },
+    { title: "Active Institutes", value: `${(mockInstitutes || []).length} Institutes`, sub: "Academic Institutes", icon: Building2, color: "bg-[#F59E0B]/10 text-[#F59E0B]" },
+    { title: "Academic Programs", value: `${(mockPrograms || []).length} Programs`, sub: "Degree Programs", icon: FolderTree, color: "bg-[#22C55E]/10 text-[#22C55E]" },
   ];
 
   return (
@@ -47,8 +50,6 @@ const AdminDashboard = () => {
             Global Administration • Department Operations • Database Governance
           </p>
         </div>
-
-
       </div>
 
       {/* Metrics Cards */}
@@ -79,7 +80,7 @@ const AdminDashboard = () => {
             </div>
             <div>
               <h3 className="text-sm font-bold text-[#1E293B]">Institutes & Departments</h3>
-              <p className="text-xs text-[#64748B]">Manage CA, CS, IT schools</p>
+              <p className="text-xs text-[#64748B]">Manage institutes</p>
             </div>
           </div>
           <Button variant="outline" fullWidth size="sm" onClick={() => navigate("/admin/institutes")} className="text-xs">
@@ -94,7 +95,7 @@ const AdminDashboard = () => {
             </div>
             <div>
               <h3 className="text-sm font-bold text-[#1E293B]">Degree Programs & Batches</h3>
-              <p className="text-xs text-[#64748B]">Manage MCA, BCA, Terms</p>
+              <p className="text-xs text-[#64748B]">Manage programs</p>
             </div>
           </div>
           <Button variant="outline" fullWidth size="sm" onClick={() => navigate("/admin/programs")} className="text-xs">
@@ -109,7 +110,7 @@ const AdminDashboard = () => {
             </div>
             <div>
               <h3 className="text-sm font-bold text-[#1E293B]">Institutional Reports</h3>
-              <p className="text-xs text-[#64748B]">Generate attendance & marks</p>
+              <p className="text-xs text-[#64748B]">Generate reports</p>
             </div>
           </div>
           <Button variant="outline" fullWidth size="sm" onClick={() => navigate("/admin/reports")} className="text-xs">
