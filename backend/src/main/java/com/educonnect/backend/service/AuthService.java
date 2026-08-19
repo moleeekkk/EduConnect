@@ -9,6 +9,7 @@ import com.educonnect.backend.repository.AdminRepository;
 import com.educonnect.backend.repository.StudentOtpRepository;
 import com.educonnect.backend.repository.StudentRepository;
 import com.educonnect.backend.repository.TeacherRepository;
+import com.educonnect.backend.util.JwtUtils;
 import com.educonnect.backend.util.OtpUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +31,7 @@ public class AuthService {
     private final AdminRepository adminRepository;
     private final StudentOtpRepository studentOtpRepository;
     private final EmailService emailService;
+    private final JwtUtils jwtUtils;
 
     @Value("${app.otp.expiration-minutes:5}")
     private int otpExpirationMinutes;
@@ -43,24 +45,22 @@ public class AuthService {
     @Value("${spring.mail.username:maulik.svgu.16@gmail.com}")
     private String defaultMailUsername;
 
-    /**
-     * Generates a cryptographically secure 6-digit OTP, stores its SHA-256 hash in PostgreSQL,
-     * and dispatches a real OTP email via SMTP.
-     */
     @Transactional
     public AuthResponse sendStudentOtp(StudentOtpRequest request) {
-        String input = request.getEnrollmentNo() != null ? request.getEnrollmentNo().trim() : "";
-        if (input.isEmpty()) {
+        String rawInput = request.getEnrollmentNo() != null ? request.getEnrollmentNo().trim() : "";
+        if (rawInput.isEmpty()) {
             return AuthResponse.builder()
                     .success(false)
                     .message("Enrollment Number or Email is required")
                     .build();
         }
 
+        log.info("OTP request received for student input: {}", rawInput);
+
         // Find student by enrollmentNo or email
-        Optional<Student> studentOpt = studentRepository.findByEnrollmentNo(input.toUpperCase());
+        Optional<Student> studentOpt = studentRepository.findByEnrollmentNo(rawInput.toUpperCase());
         if (studentOpt.isEmpty()) {
-            studentOpt = studentRepository.findByEmail(input.toLowerCase());
+            studentOpt = studentRepository.findByEmail(rawInput.toLowerCase());
         }
 
         String recipientEmail;
@@ -71,31 +71,36 @@ public class AuthService {
         if (studentOpt.isPresent()) {
             Student student = studentOpt.get();
             enrollmentNo = student.getEnrollmentNo();
-            // Use real email from database if present and valid
             if (student.getEmail() != null && student.getEmail().contains("@")) {
                 recipientEmail = student.getEmail();
-            } else if (input.contains("@")) {
-                recipientEmail = input.toLowerCase();
+            } else if (rawInput.contains("@")) {
+                recipientEmail = rawInput.toLowerCase();
             } else {
                 recipientEmail = defaultMailUsername;
             }
             studentName = student.getFirstName() + " " + student.getLastName();
             mobile = student.getMobile();
+            log.info("Student found in DB: enrollmentNo={}, email={}", enrollmentNo, recipientEmail);
         } else {
-            // Fallback for generic response if student not found in DB
-            enrollmentNo = input.toUpperCase();
-            recipientEmail = input.contains("@") ? input.toLowerCase() : defaultMailUsername;
+            enrollmentNo = rawInput.toUpperCase();
+            recipientEmail = rawInput.contains("@") ? rawInput.toLowerCase() : defaultMailUsername;
             studentName = "Student";
             mobile = "+91 9876543210";
+            log.info("Student not found in DB, using fallback lookup: enrollmentNo={}, email={}", enrollmentNo, recipientEmail);
         }
 
-        // Check resend rate-limiting cooldown (60 seconds)
+        // Check resend rate-limiting cooldown (60 seconds) for any active unused OTP
         Optional<StudentOtp> existingOtpOpt = studentOtpRepository.findTopByEnrollmentNoAndPurposeAndUsedFalseOrderByCreatedAtDesc(enrollmentNo, "LOGIN");
+        if (existingOtpOpt.isEmpty()) {
+            existingOtpOpt = studentOtpRepository.findTopByEmailAndPurposeAndUsedFalseOrderByCreatedAtDesc(recipientEmail, "LOGIN");
+        }
+
         if (existingOtpOpt.isPresent()) {
             StudentOtp existingOtp = existingOtpOpt.get();
             long secondsSinceLastSent = Duration.between(existingOtp.getLastSentAt(), LocalDateTime.now()).getSeconds();
             if (secondsSinceLastSent < otpResendCooldownSeconds) {
                 long remainingWait = otpResendCooldownSeconds - secondsSinceLastSent;
+                log.warn("OTP resend cooldown active for {}. Remaining wait: {}s", enrollmentNo, remainingWait);
                 return AuthResponse.builder()
                         .success(false)
                         .message("Please wait " + remainingWait + " seconds before requesting a new OTP.")
@@ -104,14 +109,15 @@ public class AuthService {
                         .maskedPhone(maskPhoneNumber(mobile))
                         .build();
             }
-            // Mark old OTP as replaced/used
+            // Mark old unused OTP as replaced
             existingOtp.setUsed(true);
             studentOtpRepository.save(existingOtp);
         }
 
-        // Generate secure 6-digit OTP and its SHA-256 hash
+        // Generate secure 6-digit OTP and SHA-256 hash
         String rawOtp = OtpUtils.generateSecureOtp();
         String otpHash = OtpUtils.hashOtp(rawOtp);
+        log.info("New OTP generated for student enrollmentNo={}", enrollmentNo);
 
         // Save new OTP record in PostgreSQL
         StudentOtp newOtp = StudentOtp.builder()
@@ -127,8 +133,15 @@ public class AuthService {
                 .build();
         studentOtpRepository.save(newOtp);
 
-        // Send REAL OTP email via SMTP (raw OTP is NOT logged or returned in JSON)
+        // Send REAL OTP email via SMTP
+        log.info("Attempting email delivery via SMTP to {}", recipientEmail);
         boolean emailSent = emailService.sendStudentLoginOtp(recipientEmail, studentName, rawOtp, otpExpirationMinutes);
+
+        if (emailSent) {
+            log.info("Email sent successfully to {}", recipientEmail);
+        } else {
+            log.error("Failed to send OTP email via SMTP to {}", recipientEmail);
+        }
 
         return AuthResponse.builder()
                 .success(emailSent)
@@ -143,22 +156,16 @@ public class AuthService {
                 .build();
     }
 
-    /**
-     * Resends OTP to student with 60-second cooldown rate limiting.
-     */
     @Transactional
     public AuthResponse resendStudentOtp(StudentOtpRequest request) {
         return sendStudentOtp(request);
     }
 
-    /**
-     * Verifies the 6-digit OTP entered by the student.
-     * Enforces expiration (5 mins), max attempts (5), single-use invalidation, and SHA-256 hash match.
-     */
     @Transactional
     public AuthResponse verifyStudentOtp(StudentOtpVerifyRequest request) {
-        String enrollmentNo = request.getEnrollmentNo().trim().toUpperCase();
-        String inputOtp = request.getOtp().trim();
+        String rawInput = request.getEnrollmentNo() != null ? request.getEnrollmentNo().trim() : "";
+        String enrollmentNo = rawInput.toUpperCase();
+        String inputOtp = request.getOtp() != null ? request.getOtp().trim() : "";
 
         if (inputOtp.length() != 6 || !inputOtp.matches("\\d+")) {
             return AuthResponse.builder()
@@ -167,9 +174,14 @@ public class AuthService {
                     .build();
         }
 
+        // Try lookup by enrollmentNo or email
         Optional<StudentOtp> otpOpt = studentOtpRepository.findTopByEnrollmentNoAndPurposeAndUsedFalseOrderByCreatedAtDesc(enrollmentNo, "LOGIN");
+        if (otpOpt.isEmpty()) {
+            otpOpt = studentOtpRepository.findTopByEmailAndPurposeAndUsedFalseOrderByCreatedAtDesc(rawInput.toLowerCase(), "LOGIN");
+        }
 
         if (otpOpt.isEmpty()) {
+            log.warn("No active OTP record found for input: {}", rawInput);
             return AuthResponse.builder()
                     .success(false)
                     .message("No active OTP request found. Please request a new OTP.")
@@ -182,6 +194,7 @@ public class AuthService {
         if (LocalDateTime.now().isAfter(otpRecord.getExpiresAt())) {
             otpRecord.setUsed(true);
             studentOtpRepository.save(otpRecord);
+            log.warn("OTP expired for enrollmentNo: {}", otpRecord.getEnrollmentNo());
             return AuthResponse.builder()
                     .success(false)
                     .message("OTP has expired. Please request a new OTP.")
@@ -192,6 +205,7 @@ public class AuthService {
         if (otpRecord.getAttemptCount() >= otpMaxAttempts) {
             otpRecord.setUsed(true);
             studentOtpRepository.save(otpRecord);
+            log.warn("Max OTP attempts exceeded for enrollmentNo: {}", otpRecord.getEnrollmentNo());
             return AuthResponse.builder()
                     .success(false)
                     .message("Maximum OTP verification attempts exceeded. Please request a new OTP.")
@@ -213,6 +227,8 @@ public class AuthService {
                     ? "Invalid OTP code entered. You have " + remaining + " remaining attempts."
                     : "Maximum OTP verification attempts exceeded. Please request a new OTP.";
 
+            log.warn("Invalid OTP entered for {}. Attempt {}/{}", otpRecord.getEnrollmentNo(), newAttempts, otpMaxAttempts);
+
             return AuthResponse.builder()
                     .success(false)
                     .message(attemptMsg)
@@ -224,15 +240,17 @@ public class AuthService {
         otpRecord.setVerifiedAt(LocalDateTime.now());
         studentOtpRepository.save(otpRecord);
 
-        // Fetch student details for JWT payload
-        Optional<Student> studentOpt = studentRepository.findByEnrollmentNo(enrollmentNo);
+        // Resolve canonical enrollmentNo
+        String canonicalEnrollmentNo = otpRecord.getEnrollmentNo() != null ? otpRecord.getEnrollmentNo() : enrollmentNo;
+
+        Optional<Student> studentOpt = studentRepository.findByEnrollmentNo(canonicalEnrollmentNo);
         String studentId = studentOpt.map(s -> s.getStudentId().toString()).orElse("stu-demo-id");
         String studentName = studentOpt.map(s -> s.getFirstName() + " " + s.getLastName()).orElse("Student User");
 
-        // Generate JWT token for authenticated student
-        String jwtToken = "jwt-student-token-" + System.currentTimeMillis();
+        // Signed JWT token with ROLE_STUDENT
+        String jwtToken = jwtUtils.generateToken(canonicalEnrollmentNo, "STUDENT", studentId, studentName);
 
-        log.info("Student authentication successful for enrollmentNo: {}", enrollmentNo);
+        log.info("Student OTP verification SUCCESSFUL for enrollmentNo: {}", canonicalEnrollmentNo);
 
         return AuthResponse.builder()
                 .success(true)
@@ -241,7 +259,7 @@ public class AuthService {
                 .role("Student")
                 .userId(studentId)
                 .name(studentName)
-                .identifier(enrollmentNo)
+                .identifier(canonicalEnrollmentNo)
                 .build();
     }
 
@@ -254,13 +272,17 @@ public class AuthService {
         if (teacherOpt.isPresent()) {
             Teacher teacher = teacherOpt.get();
             if (password.equals(teacher.getPassword()) || "teacher123".equals(password)) {
+                String teacherIdStr = teacher.getTeacherId().toString();
+                String teacherName = teacher.getFirstName() + " " + teacher.getLastName();
+                String jwtToken = jwtUtils.generateToken(teacher.getEmail(), "TEACHER", teacherIdStr, teacherName);
+
                 return AuthResponse.builder()
                         .success(true)
                         .message("Teacher login successful")
-                        .token("jwt-teacher-token-" + System.currentTimeMillis())
+                        .token(jwtToken)
                         .role("Teacher")
-                        .userId(teacher.getTeacherId().toString())
-                        .name(teacher.getFirstName() + " " + teacher.getLastName())
+                        .userId(teacherIdStr)
+                        .name(teacherName)
                         .identifier(teacher.getEmail())
                         .build();
             }
@@ -281,13 +303,17 @@ public class AuthService {
         if (adminOpt.isPresent()) {
             Admin admin = adminOpt.get();
             if (password.equals(admin.getPassword()) || "admin123".equals(password)) {
+                String adminIdStr = admin.getAdminId().toString();
+                String adminName = admin.getFirstName() + " " + admin.getLastName();
+                String jwtToken = jwtUtils.generateToken(admin.getEmail(), "ADMIN", adminIdStr, adminName);
+
                 return AuthResponse.builder()
                         .success(true)
                         .message("Admin login successful")
-                        .token("jwt-admin-token-" + System.currentTimeMillis())
+                        .token(jwtToken)
                         .role("Admin")
-                        .userId(admin.getAdminId().toString())
-                        .name(admin.getFirstName() + " " + admin.getLastName())
+                        .userId(adminIdStr)
+                        .name(adminName)
                         .identifier(admin.getEmail())
                         .build();
             }

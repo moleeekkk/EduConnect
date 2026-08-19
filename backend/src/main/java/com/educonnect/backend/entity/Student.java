@@ -47,6 +47,22 @@ public class Student {
     @Column(name = "profile_photo")
     private String profilePhoto;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "institute_id")
+    private Institute institute;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "program_id")
+    private Program program;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "semester_id")
+    private Semester semester;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "division_id")
+    private Division division;
+
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private Boolean isActive = true;

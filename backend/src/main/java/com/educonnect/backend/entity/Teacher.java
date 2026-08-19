@@ -50,6 +50,10 @@ public class Teacher {
     @Column(name = "profile_photo")
     private String profilePhoto;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "institute_id")
+    private Institute institute;
+
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private Boolean isActive = true;

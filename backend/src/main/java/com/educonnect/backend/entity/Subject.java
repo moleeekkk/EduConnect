@@ -19,7 +19,15 @@ public class Subject {
     @Column(name = "subject_id")
     private UUID subjectId;
 
-    @Column(name = "program_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "program_id_ref")
+    private Program program;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "semester_id_ref")
+    private Semester semester;
+
+    @Column(name = "program_id")
     private UUID programId;
 
     @Column(name = "subject_name", nullable = false, length = 100)
