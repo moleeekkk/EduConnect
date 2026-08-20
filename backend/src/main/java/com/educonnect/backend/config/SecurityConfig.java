@@ -4,12 +4,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -42,11 +42,15 @@ public class SecurityConfig {
                 })
             )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/v1/auth/**").permitAll()
-                .requestMatchers("/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
-                .requestMatchers("/api/v1/admin/**").hasAuthority("ROLE_ADMIN")
-                .requestMatchers("/api/v1/teacher/**").hasAuthority("ROLE_TEACHER")
-                .requestMatchers("/api/v1/student/**").hasAuthority("ROLE_STUDENT")
+                .requestMatchers(new AntPathRequestMatcher("/**/auth/**")).permitAll()
+                .requestMatchers(new AntPathRequestMatcher("/v3/api-docs/**")).permitAll()
+                .requestMatchers(new AntPathRequestMatcher("/swagger-ui.html")).permitAll()
+                .requestMatchers(new AntPathRequestMatcher("/swagger-ui/**")).permitAll()
+
+                .requestMatchers(new AntPathRequestMatcher("/**/admin/**")).hasAnyAuthority("ROLE_ADMIN", "ADMIN")
+                .requestMatchers(new AntPathRequestMatcher("/**/teacher/**")).hasAnyAuthority("ROLE_TEACHER", "TEACHER")
+                .requestMatchers(new AntPathRequestMatcher("/**/student/**")).hasAnyAuthority("ROLE_STUDENT", "STUDENT")
+
                 .anyRequest().authenticated()
             );
 

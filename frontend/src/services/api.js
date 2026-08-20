@@ -7,7 +7,7 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 10000,
+  timeout: 30000,
 });
 
 // Interceptor to add Authorization token if present
@@ -25,11 +25,11 @@ api.interceptors.request.use(
 // Auth Endpoints
 export const authApi = {
   sendStudentOtp: async (enrollmentNo) => {
-    const response = await api.post("/auth/student/send-otp", { enrollmentNo });
+    const response = await api.post("/auth/student/send-otp", { enrollmentNo }, { timeout: 30000 });
     return response.data;
   },
   resendStudentOtp: async (enrollmentNo) => {
-    const response = await api.post("/auth/student/resend-otp", { enrollmentNo });
+    const response = await api.post("/auth/student/resend-otp", { enrollmentNo }, { timeout: 30000 });
     return response.data;
   },
   verifyStudentOtp: async (enrollmentNo, otp) => {

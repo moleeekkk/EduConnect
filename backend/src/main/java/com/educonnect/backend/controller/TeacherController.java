@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/v1/teacher")
+@RequestMapping({"/api/v1/teacher", "/api/teacher"})
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class TeacherController {
