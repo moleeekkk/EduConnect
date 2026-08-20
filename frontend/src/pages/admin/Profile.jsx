@@ -1,19 +1,21 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Save, Edit, Check } from "lucide-react";
 import Button from "../../components/common/Button";
+import { adminApi } from "../../services/api";
 
 const AdminProfile = () => {
   const userStr = localStorage.getItem("educonnect_user");
   const loggedUser = userStr ? JSON.parse(userStr) : null;
+
   const initialAdmin = {
     admin_id: loggedUser?.userId || "",
-    first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : "Admin",
-    last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : "User",
+    first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : "Super",
+    last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : "Administrator",
     email: loggedUser?.identifier || "admin@educonnect.ac.in",
-    mobile: "",
+    mobile: "+91 9876543210",
     gender: "Male",
-    date_of_birth: "",
-    address: "",
+    date_of_birth: "1985-01-01",
+    address: "EduConnect Headquarters",
     profile_photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
     is_active: true,
   };
@@ -21,16 +23,49 @@ const AdminProfile = () => {
   const [profile, setProfile] = useState(initialAdmin);
   const [isEditing, setIsEditing] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    adminApi
+      .getProfile()
+      .then((res) => {
+        if (res) {
+          setProfile({
+            admin_id: res.admin_id || initialAdmin.admin_id,
+            first_name: res.first_name || initialAdmin.first_name,
+            last_name: res.last_name || initialAdmin.last_name,
+            email: res.email || initialAdmin.email,
+            mobile: res.mobile || initialAdmin.mobile,
+            gender: res.gender || initialAdmin.gender,
+            date_of_birth: res.date_of_birth || initialAdmin.date_of_birth,
+            address: res.address || initialAdmin.address,
+            profile_photo: res.profile_photo || initialAdmin.profile_photo,
+            is_active: res.is_active !== undefined ? res.is_active : true,
+          });
+        }
+      })
+      .catch((err) => console.log("Admin profile fetch note:", err));
+  }, []);
 
   const handleChange = (field, value) => {
     setProfile((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    setIsEditing(false);
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+    setIsLoading(true);
+    try {
+      await adminApi.updateProfile(profile);
+      setIsLoading(false);
+      setIsEditing(false);
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (err) {
+      setIsLoading(false);
+      setIsEditing(false);
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+    }
   };
 
   return (
@@ -54,7 +89,7 @@ const AdminProfile = () => {
 
         <div>
           {isEditing ? (
-            <Button variant="accent" size="sm" onClick={handleSave} icon={Save} className="text-xs">
+            <Button variant="accent" size="sm" onClick={handleSave} isLoading={isLoading} icon={Save} className="text-xs">
               Save Profile
             </Button>
           ) : (

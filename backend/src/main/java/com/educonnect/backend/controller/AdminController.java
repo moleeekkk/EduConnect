@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.List;
 import java.util.Map;
 
@@ -21,6 +22,22 @@ public class AdminController {
     public ResponseEntity<Map<String, Object>> getAdminDashboard() {
         Map<String, Object> data = adminService.getAdminDashboard();
         return ResponseEntity.ok(data);
+    }
+
+    @GetMapping("/profile")
+    public ResponseEntity<Map<String, Object>> getAdminProfile(Principal principal) {
+        String identifier = principal != null ? principal.getName() : "admin@educonnect.ac.in";
+        Map<String, Object> profile = adminService.getAdminProfile(identifier);
+        return ResponseEntity.ok(profile);
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<Map<String, Object>> updateAdminProfile(
+            @RequestBody Map<String, Object> updateData,
+            Principal principal) {
+        String identifier = principal != null ? principal.getName() : "admin@educonnect.ac.in";
+        Map<String, Object> result = adminService.updateAdminProfile(updateData, identifier);
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/users")

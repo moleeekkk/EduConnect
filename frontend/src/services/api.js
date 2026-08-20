@@ -104,6 +104,14 @@ export const adminApi = {
     const response = await api.get("/admin/dashboard");
     return response.data;
   },
+  getProfile: async () => {
+    const response = await api.get("/admin/profile");
+    return response.data;
+  },
+  updateProfile: async (profileData) => {
+    const response = await api.put("/admin/profile", profileData);
+    return response.data;
+  },
   getUsers: async () => {
     const response = await api.get("/admin/users");
     return response.data;
