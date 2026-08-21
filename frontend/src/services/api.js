@@ -113,6 +113,33 @@ export const adminApi = {
     return response.data;
   },
 
+  // Students Management
+  getStudents: async (params) => {
+    const query = new URLSearchParams(params || {}).toString();
+    const response = await api.get(`/admin/students${query ? "?" + query : ""}`);
+    return response.data;
+  },
+  getStudentById: async (id) => {
+    const response = await api.get(`/admin/students/${id}`);
+    return response.data;
+  },
+  createStudent: async (studentData) => {
+    const response = await api.post("/admin/students", studentData);
+    return response.data;
+  },
+  updateStudent: async (id, studentData) => {
+    const response = await api.put(`/admin/students/${id}`, studentData);
+    return response.data;
+  },
+  patchStudentStatus: async (id, isActive) => {
+    const response = await api.patch(`/admin/students/${id}/status`, { is_active: isActive });
+    return response.data;
+  },
+  deleteStudent: async (id) => {
+    const response = await api.delete(`/admin/students/${id}`);
+    return response.data;
+  },
+
   // Institutes
   getInstitutes: async () => {
     const response = await api.get("/admin/institutes");

@@ -116,6 +116,300 @@ public class AdminService {
         return res;
     }
 
+    // --- STUDENTS MANAGEMENT CRUD ---
+    public List<Map<String, Object>> getAllStudents(String search, String instituteIdStr, String programIdStr, String semesterIdStr, Boolean activeOnly) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        List<Student> students = studentRepository.findAll();
+
+        for (Student s : students) {
+            if (activeOnly != null && activeOnly && (s.getIsActive() == null || !s.getIsActive())) {
+                continue;
+            }
+
+            if (instituteIdStr != null && !instituteIdStr.isBlank() && !"all".equalsIgnoreCase(instituteIdStr)) {
+                if (s.getInstitute() == null || !s.getInstitute().getInstituteId().toString().equals(instituteIdStr)) {
+                    continue;
+                }
+            }
+
+            if (programIdStr != null && !programIdStr.isBlank() && !"all".equalsIgnoreCase(programIdStr)) {
+                if (s.getProgram() == null || !s.getProgram().getProgramId().toString().equals(programIdStr)) {
+                    continue;
+                }
+            }
+
+            if (semesterIdStr != null && !semesterIdStr.isBlank() && !"all".equalsIgnoreCase(semesterIdStr)) {
+                if (s.getSemester() == null || !s.getSemester().getSemesterId().toString().equals(semesterIdStr)) {
+                    continue;
+                }
+            }
+
+            if (search != null && !search.isBlank()) {
+                String q = search.trim().toLowerCase();
+                String fullName = ((s.getFirstName() != null ? s.getFirstName() : "") + " " + (s.getLastName() != null ? s.getLastName() : "")).toLowerCase();
+                String enroll = s.getEnrollmentNo() != null ? s.getEnrollmentNo().toLowerCase() : "";
+                String email = s.getEmail() != null ? s.getEmail().toLowerCase() : "";
+                if (!fullName.contains(q) && !enroll.contains(q) && !email.contains(q)) {
+                    continue;
+                }
+            }
+
+            result.add(mapStudentToMap(s));
+        }
+
+        return result;
+    }
+
+    public Map<String, Object> getStudentById(String idStr) {
+        Student s = findStudentByIdOrEnrollment(idStr);
+        return mapStudentToMap(s);
+    }
+
+    public Map<String, Object> createStudent(Map<String, Object> body) {
+        String enroll = (String) body.get("enrollment_no");
+        if (enroll == null || enroll.isBlank()) enroll = (String) body.get("enrollmentNo");
+        if (enroll == null || enroll.isBlank()) enroll = (String) body.get("identifier");
+
+        String firstName = (String) body.get("first_name");
+        if (firstName == null || firstName.isBlank()) firstName = (String) body.get("firstName");
+
+        String lastName = (String) body.get("last_name");
+        if (lastName == null || lastName.isBlank()) lastName = (String) body.get("lastName");
+
+        if ((firstName == null || firstName.isBlank()) && body.containsKey("name")) {
+            String full = (String) body.get("name");
+            if (full != null && !full.isBlank()) {
+                String[] parts = full.trim().split(" ");
+                firstName = parts[0];
+                lastName = parts.length > 1 ? parts[1] : "Student";
+            }
+        }
+
+        String email = (String) body.get("email");
+
+        if (enroll == null || enroll.isBlank() || firstName == null || firstName.isBlank() || email == null || email.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Enrollment number, student name, and email are required");
+        }
+
+        String cleanEnroll = enroll.trim().toUpperCase();
+        String cleanEmail = email.trim().toLowerCase();
+
+        if (studentRepository.existsByEnrollmentNo(cleanEnroll)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Student with enrollment number '" + cleanEnroll + "' already exists");
+        }
+
+        if (studentRepository.existsByEmail(cleanEmail)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Student with email '" + cleanEmail + "' already exists");
+        }
+
+        Institute inst = resolveInstitute(body);
+        Program prog = resolveProgram(body);
+        Semester sem = resolveSemester(body);
+
+        Object mobileObj = body.get("mobile");
+        String mobile = mobileObj != null ? mobileObj.toString() : "+91 9876543210";
+
+        Object genderObj = body.get("gender");
+        String gender = genderObj != null ? genderObj.toString() : "Male";
+
+        Object dobObj = body.get("date_of_birth");
+        if (dobObj == null) dobObj = body.get("dateOfBirth");
+        LocalDate dob = LocalDate.of(2002, 1, 1);
+        if (dobObj != null && !dobObj.toString().isBlank()) {
+            try {
+                dob = LocalDate.parse(dobObj.toString());
+            } catch (Exception ignored) {}
+        }
+
+        Object activeObj = body.get("is_active");
+        if (activeObj == null) activeObj = body.get("isActive");
+        boolean active = activeObj != null ? (Boolean) activeObj : true;
+
+        Student s = Student.builder()
+                .enrollmentNo(cleanEnroll)
+                .firstName(firstName.trim())
+                .lastName(lastName != null ? lastName.trim() : "Student")
+                .email(cleanEmail)
+                .mobile(mobile)
+                .gender(gender)
+                .dateOfBirth(dob)
+                .address((String) body.getOrDefault("address", "Institutional Campus"))
+                .institute(inst)
+                .program(prog)
+                .semester(sem)
+                .isActive(active)
+                .build();
+
+        Student saved = studentRepository.save(s);
+        return mapStudentToMap(saved);
+    }
+
+    public Map<String, Object> updateStudent(String idStr, Map<String, Object> body) {
+        Student s = findStudentByIdOrEnrollment(idStr);
+
+        if (body.containsKey("first_name")) s.setFirstName((String) body.get("first_name"));
+        if (body.containsKey("firstName")) s.setFirstName((String) body.get("firstName"));
+
+        if (body.containsKey("last_name")) s.setLastName((String) body.get("last_name"));
+        if (body.containsKey("lastName")) s.setLastName((String) body.get("lastName"));
+
+        if (body.containsKey("mobile")) s.setMobile((String) body.get("mobile"));
+        if (body.containsKey("gender")) s.setGender((String) body.get("gender"));
+        if (body.containsKey("address")) s.setAddress((String) body.get("address"));
+
+        if (body.containsKey("email")) {
+            String newEmail = ((String) body.get("email")).trim().toLowerCase();
+            if (!newEmail.equalsIgnoreCase(s.getEmail())) {
+                if (studentRepository.existsByEmail(newEmail)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Student with email '" + newEmail + "' already exists");
+                }
+                s.setEmail(newEmail);
+            }
+        }
+
+        if (body.containsKey("is_active")) s.setIsActive((Boolean) body.get("is_active"));
+        if (body.containsKey("isActive")) s.setIsActive((Boolean) body.get("isActive"));
+
+        Institute inst = resolveInstitute(body);
+        if (inst != null) s.setInstitute(inst);
+
+        Program prog = resolveProgram(body);
+        if (prog != null) s.setProgram(prog);
+
+        Semester sem = resolveSemester(body);
+        if (sem != null) s.setSemester(sem);
+
+        Student updated = studentRepository.save(s);
+        return mapStudentToMap(updated);
+    }
+
+    public Map<String, Object> patchStudentStatus(String idStr, Map<String, Object> body) {
+        Student s = findStudentByIdOrEnrollment(idStr);
+        Object activeObj = body.get("is_active");
+        if (activeObj == null) activeObj = body.get("isActive");
+        if (activeObj == null) activeObj = body.get("status");
+
+        if (activeObj != null) {
+            if (activeObj instanceof Boolean) {
+                s.setIsActive((Boolean) activeObj);
+            } else if ("Active".equalsIgnoreCase(activeObj.toString())) {
+                s.setIsActive(true);
+            } else if ("Inactive".equalsIgnoreCase(activeObj.toString())) {
+                s.setIsActive(false);
+            }
+        }
+        Student updated = studentRepository.save(s);
+        return mapStudentToMap(updated);
+    }
+
+    public void deleteStudent(String idStr) {
+        Student s = findStudentByIdOrEnrollment(idStr);
+        studentRepository.delete(s);
+    }
+
+    private Student findStudentByIdOrEnrollment(String idStr) {
+        if (idStr == null || idStr.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Student ID or Enrollment Number is required");
+        }
+        try {
+            UUID id = UUID.fromString(idStr);
+            return studentRepository.findById(id)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found with ID: " + idStr));
+        } catch (IllegalArgumentException e) {
+            return studentRepository.findByEnrollmentNo(idStr.trim().toUpperCase())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found with Enrollment No: " + idStr));
+        }
+    }
+
+    private Institute resolveInstitute(Map<String, Object> body) {
+        Object instObj = body.get("institute_id");
+        if (instObj == null) instObj = body.get("instituteId");
+        if (instObj != null && !instObj.toString().isBlank() && !"all".equalsIgnoreCase(instObj.toString())) {
+            try {
+                return instituteRepository.findById(UUID.fromString(instObj.toString()))
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Referenced Institute not found"));
+            } catch (IllegalArgumentException e) {
+                return instituteRepository.findByInstituteCode(instObj.toString().toUpperCase()).orElse(null);
+            }
+        }
+        return instituteRepository.findAll().stream().findFirst().orElse(null);
+    }
+
+    private Program resolveProgram(Map<String, Object> body) {
+        Object progObj = body.get("program_id");
+        if (progObj == null) progObj = body.get("programId");
+        if (progObj != null && !progObj.toString().isBlank() && !"all".equalsIgnoreCase(progObj.toString())) {
+            try {
+                return programRepository.findById(UUID.fromString(progObj.toString()))
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Referenced Program not found"));
+            } catch (IllegalArgumentException e) {
+                return programRepository.findByProgramCode(progObj.toString().toUpperCase()).orElse(null);
+            }
+        }
+        return programRepository.findAll().stream().findFirst().orElse(null);
+    }
+
+    private Semester resolveSemester(Map<String, Object> body) {
+        Object semObj = body.get("semester_id");
+        if (semObj == null) semObj = body.get("semesterId");
+        if (semObj != null && !semObj.toString().isBlank() && !"all".equalsIgnoreCase(semObj.toString())) {
+            try {
+                return semesterRepository.findById(UUID.fromString(semObj.toString()))
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Referenced Semester not found"));
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
+
+    private Map<String, Object> mapStudentToMap(Student s) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("student_id", s.getStudentId().toString());
+        m.put("studentId", s.getStudentId().toString());
+        m.put("id", s.getStudentId().toString());
+
+        m.put("enrollment_no", s.getEnrollmentNo());
+        m.put("enrollmentNo", s.getEnrollmentNo());
+        m.put("identifier", s.getEnrollmentNo());
+
+        m.put("first_name", s.getFirstName());
+        m.put("firstName", s.getFirstName());
+
+        m.put("last_name", s.getLastName());
+        m.put("lastName", s.getLastName());
+
+        m.put("name", s.getFirstName() + " " + s.getLastName());
+        m.put("email", s.getEmail());
+        m.put("mobile", s.getMobile() != null ? s.getMobile() : "");
+        m.put("gender", s.getGender() != null ? s.getGender() : "Male");
+        m.put("date_of_birth", s.getDateOfBirth() != null ? s.getDateOfBirth().toString() : "");
+        m.put("dateOfBirth", s.getDateOfBirth() != null ? s.getDateOfBirth().toString() : "");
+        m.put("address", s.getAddress() != null ? s.getAddress() : "");
+        m.put("profile_photo", s.getProfilePhoto() != null ? s.getProfilePhoto() : "");
+        m.put("profilePhoto", s.getProfilePhoto() != null ? s.getProfilePhoto() : "");
+
+        m.put("institute_id", s.getInstitute() != null ? s.getInstitute().getInstituteId().toString() : "inst-001");
+        m.put("instituteId", s.getInstitute() != null ? s.getInstitute().getInstituteId().toString() : "inst-001");
+        m.put("institute_name", s.getInstitute() != null ? s.getInstitute().getInstituteName() : "Computer Applications");
+        m.put("instituteName", s.getInstitute() != null ? s.getInstitute().getInstituteName() : "Computer Applications");
+
+        m.put("program_id", s.getProgram() != null ? s.getProgram().getProgramId().toString() : "prog-001");
+        m.put("programId", s.getProgram() != null ? s.getProgram().getProgramId().toString() : "prog-001");
+        m.put("program_name", s.getProgram() != null ? s.getProgram().getProgramName() : "Master of Computer Applications");
+        m.put("programName", s.getProgram() != null ? s.getProgram().getProgramName() : "Master of Computer Applications");
+        m.put("department", s.getProgram() != null ? s.getProgram().getProgramName() : "Master of Computer Applications");
+
+        m.put("semester_id", s.getSemester() != null ? s.getSemester().getSemesterId().toString() : "sem-001");
+        m.put("semesterId", s.getSemester() != null ? s.getSemester().getSemesterId().toString() : "sem-001");
+        m.put("semester_name", s.getSemester() != null ? s.getSemester().getSemesterName() : "Semester 1");
+        m.put("semesterName", s.getSemester() != null ? s.getSemester().getSemesterName() : "Semester 1");
+
+        m.put("is_active", s.getIsActive() != null ? s.getIsActive() : true);
+        m.put("isActive", s.getIsActive() != null ? s.getIsActive() : true);
+        m.put("status", (s.getIsActive() != null && s.getIsActive()) ? "Active" : "Inactive");
+        m.put("role", "Student");
+        return m;
+    }
+
     // --- INSTITUTES CRUD ---
     public List<Map<String, Object>> getAllInstitutes() {
         List<Map<String, Object>> list = new ArrayList<>();

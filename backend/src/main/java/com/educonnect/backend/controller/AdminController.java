@@ -42,6 +42,48 @@ public class AdminController {
         return ResponseEntity.ok(result);
     }
 
+    // --- STUDENTS MANAGEMENT CRUD ---
+    @GetMapping("/students")
+    public ResponseEntity<List<Map<String, Object>>> getAllStudents(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String instituteId,
+            @RequestParam(required = false) String programId,
+            @RequestParam(required = false) String semesterId,
+            @RequestParam(required = false) Boolean activeOnly) {
+        List<Map<String, Object>> list = adminService.getAllStudents(search, instituteId, programId, semesterId, activeOnly);
+        return ResponseEntity.ok(list);
+    }
+
+    @GetMapping("/students/{id}")
+    public ResponseEntity<Map<String, Object>> getStudentById(@PathVariable String id) {
+        Map<String, Object> student = adminService.getStudentById(id);
+        return ResponseEntity.ok(student);
+    }
+
+    @PostMapping("/students")
+    public ResponseEntity<Map<String, Object>> createStudent(@RequestBody Map<String, Object> body) {
+        Map<String, Object> created = adminService.createStudent(body);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @PutMapping("/students/{id}")
+    public ResponseEntity<Map<String, Object>> updateStudent(@PathVariable String id, @RequestBody Map<String, Object> body) {
+        Map<String, Object> updated = adminService.updateStudent(id, body);
+        return ResponseEntity.ok(updated);
+    }
+
+    @PatchMapping("/students/{id}/status")
+    public ResponseEntity<Map<String, Object>> patchStudentStatus(@PathVariable String id, @RequestBody Map<String, Object> body) {
+        Map<String, Object> updated = adminService.patchStudentStatus(id, body);
+        return ResponseEntity.ok(updated);
+    }
+
+    @DeleteMapping("/students/{id}")
+    public ResponseEntity<Map<String, Object>> deleteStudent(@PathVariable String id) {
+        adminService.deleteStudent(id);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Student record deleted successfully"));
+    }
+
     // --- INSTITUTES CRUD ---
     @GetMapping("/institutes")
     public ResponseEntity<List<Map<String, Object>>> getAllInstitutes() {
