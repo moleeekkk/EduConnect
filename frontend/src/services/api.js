@@ -112,20 +112,82 @@ export const adminApi = {
     const response = await api.put("/admin/profile", profileData);
     return response.data;
   },
-  getUsers: async () => {
-    const response = await api.get("/admin/users");
+
+  // Institutes
+  getInstitutes: async () => {
+    const response = await api.get("/admin/institutes");
     return response.data;
   },
-  createUser: async (userData) => {
-    const response = await api.post("/admin/users", userData);
+  createInstitute: async (data) => {
+    const response = await api.post("/admin/institutes", data);
     return response.data;
   },
+  updateInstitute: async (id, data) => {
+    const response = await api.put(`/admin/institutes/${id}`, data);
+    return response.data;
+  },
+  deleteInstitute: async (id) => {
+    const response = await api.delete(`/admin/institutes/${id}`);
+    return response.data;
+  },
+
+  // Programs / Departments
+  getPrograms: async () => {
+    const response = await api.get("/admin/programs");
+    return response.data;
+  },
+  createProgram: async (data) => {
+    const response = await api.post("/admin/programs", data);
+    return response.data;
+  },
+  updateProgram: async (id, data) => {
+    const response = await api.put(`/admin/programs/${id}`, data);
+    return response.data;
+  },
+  deleteProgram: async (id) => {
+    const response = await api.delete(`/admin/programs/${id}`);
+    return response.data;
+  },
+
+  // Semesters
+  getSemesters: async (programId) => {
+    const response = await api.get(`/admin/semesters?programId=${programId}`);
+    return response.data;
+  },
+  createSemester: async (data) => {
+    const response = await api.post("/admin/semesters", data);
+    return response.data;
+  },
+  deleteSemester: async (id) => {
+    const response = await api.delete(`/admin/semesters/${id}`);
+    return response.data;
+  },
+
+  // Courses / Subjects
   getCourses: async () => {
     const response = await api.get("/admin/courses");
     return response.data;
   },
   createCourse: async (courseData) => {
     const response = await api.post("/admin/courses", courseData);
+    return response.data;
+  },
+  updateCourse: async (id, courseData) => {
+    const response = await api.put(`/admin/courses/${id}`, courseData);
+    return response.data;
+  },
+  deleteCourse: async (id) => {
+    const response = await api.delete(`/admin/courses/${id}`);
+    return response.data;
+  },
+
+  // Users
+  getUsers: async () => {
+    const response = await api.get("/admin/users");
+    return response.data;
+  },
+  createUser: async (userData) => {
+    const response = await api.post("/admin/users", userData);
     return response.data;
   },
 };

@@ -46,6 +46,7 @@ public class SecurityConfig {
                 .requestMatchers(new AntPathRequestMatcher("/v3/api-docs/**")).permitAll()
                 .requestMatchers(new AntPathRequestMatcher("/swagger-ui.html")).permitAll()
                 .requestMatchers(new AntPathRequestMatcher("/swagger-ui/**")).permitAll()
+                .requestMatchers(new AntPathRequestMatcher("/error")).permitAll()
 
                 .requestMatchers(new AntPathRequestMatcher("/**/admin/**")).hasAnyAuthority("ROLE_ADMIN", "ADMIN")
                 .requestMatchers(new AntPathRequestMatcher("/**/teacher/**")).hasAnyAuthority("ROLE_TEACHER", "TEACHER")

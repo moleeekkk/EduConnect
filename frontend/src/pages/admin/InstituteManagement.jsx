@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Building2, Plus, Edit, Trash2, Eye, X } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockInstitutes, mockPrograms } from "../../data/mockData";
+import { adminApi } from "../../services/api";
 
 const AdminInstituteManagement = () => {
-  const [institutes, setInstitutes] = useState(mockInstitutes || []);
+  const [institutes, setInstitutes] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [viewInst, setViewInst] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -18,6 +19,23 @@ const AdminInstituteManagement = () => {
     campus_location: "",
     is_active: true,
   });
+
+  const loadInstitutes = async () => {
+    try {
+      setLoading(true);
+      const data = await adminApi.getInstitutes();
+      setInstitutes(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.log("Fetch institutes error:", err);
+      setInstitutes([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadInstitutes();
+  }, []);
 
   const handleOpenAdd = () => {
     setEditInst(null);
@@ -39,28 +57,30 @@ const AdminInstituteManagement = () => {
     setShowModal(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this institute?")) {
-      setInstitutes(institutes.filter((i) => i.institute_id !== id));
+      try {
+        await adminApi.deleteInstitute(id);
+        loadInstitutes();
+      } catch (err) {
+        alert(err.response?.data?.message || "Failed to delete institute");
+      }
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editInst) {
-      setInstitutes(
-        institutes.map((i) => (i.institute_id === editInst.institute_id ? { ...i, ...form, updated_at: new Date().toISOString() } : i))
-      );
-    } else {
-      const created = {
-        institute_id: `inst-${Date.now()}`,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        ...form,
-      };
-      setInstitutes([...institutes, created]);
+    try {
+      if (editInst) {
+        await adminApi.updateInstitute(editInst.institute_id, form);
+      } else {
+        await adminApi.createInstitute(form);
+      }
+      setShowModal(false);
+      loadInstitutes();
+    } catch (err) {
+      alert(err.response?.data?.message || "Operation failed");
     }
-    setShowModal(false);
   };
 
   return (
@@ -90,7 +110,13 @@ const AdminInstituteManagement = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
-              {institutes && institutes.length > 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="p-6 text-center text-xs text-[#64748B]">
+                    Loading institute records from database...
+                  </td>
+                </tr>
+              ) : institutes && institutes.length > 0 ? (
                 institutes.map((inst) => (
                   <tr key={inst.institute_id} className="hover:bg-[#F8FAFC]">
                     <td className="p-3.5 font-mono font-bold text-[#2563EB]">{inst.institute_code}</td>
@@ -157,6 +183,7 @@ const AdminInstituteManagement = () => {
               <div className="p-4 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
                 <h4 className="text-lg font-extrabold text-[#1E293B]">{viewInst.institute_name}</h4>
                 <p className="text-xs text-[#64748B] font-mono">Code: {viewInst.institute_code}</p>
+                <p className="text-xs text-[#64748B] pt-2">{viewInst.description}</p>
               </div>
             </div>
           </div>
@@ -178,6 +205,7 @@ const AdminInstituteManagement = () => {
                   <input
                     type="text"
                     required
+                    disabled={!!editInst}
                     value={form.institute_code}
                     onChange={(e) => setForm({ ...form, institute_code: e.target.value })}
                     placeholder="e.g. Code..."
