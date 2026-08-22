@@ -113,6 +113,33 @@ export const adminApi = {
     return response.data;
   },
 
+  // Teacher Management
+  getTeachers: async (params) => {
+    const query = new URLSearchParams(params || {}).toString();
+    const response = await api.get(`/admin/teachers${query ? "?" + query : ""}`);
+    return response.data;
+  },
+  getTeacherById: async (id) => {
+    const response = await api.get(`/admin/teachers/${id}`);
+    return response.data;
+  },
+  createTeacher: async (teacherData) => {
+    const response = await api.post("/admin/teachers", teacherData);
+    return response.data;
+  },
+  updateTeacher: async (id, teacherData) => {
+    const response = await api.put(`/admin/teachers/${id}`, teacherData);
+    return response.data;
+  },
+  patchTeacherStatus: async (id, isActive) => {
+    const response = await api.patch(`/admin/teachers/${id}/status`, { is_active: isActive });
+    return response.data;
+  },
+  deleteTeacher: async (id) => {
+    const response = await api.delete(`/admin/teachers/${id}`);
+    return response.data;
+  },
+
   // Students Management
   getStudents: async (params) => {
     const query = new URLSearchParams(params || {}).toString();
