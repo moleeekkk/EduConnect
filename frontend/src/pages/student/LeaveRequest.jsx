@@ -1,11 +1,25 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { BadgeAlert, Plus, CheckCircle2, Clock, XCircle, Send, Calendar, X } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockLeaveRequests } from "../../data/mockData";
+import { studentApi } from "../../services/api";
 
 const StudentLeaveRequest = () => {
-  const [requests, setRequests] = useState(mockLeaveRequests);
+  const [requests, setRequests] = useState([]);
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    const fetchLeaves = async () => {
+      try {
+        const data = await studentApi.getLeaveRequests();
+        if (Array.isArray(data)) {
+          setRequests(data);
+        }
+      } catch (err) {
+        console.error("Leave requests load error:", err);
+      }
+    };
+    fetchLeaves();
+  }, []);
 
   const todayStr = new Date().toISOString().split("T")[0];
 

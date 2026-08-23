@@ -1,12 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { User, Save, Edit, Check } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockTeachers } from "../../data/mockData";
+import { teacherApi } from "../../services/api";
 
 const TeacherProfile = () => {
   const userStr = localStorage.getItem("educonnect_user");
   const loggedUser = userStr ? JSON.parse(userStr) : null;
-  const initialTeacher = mockTeachers[0] || {
+
+  const [profile, setProfile] = useState({
     teacher_id: "teach-001",
     employee_id: loggedUser?.identifier || "FAC-8092",
     first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : "Faculty",
@@ -22,10 +23,23 @@ const TeacherProfile = () => {
     joining_date: "2018-06-15",
     profile_photo: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
     is_active: true,
-  };
-  const [profile, setProfile] = useState(initialTeacher);
+  });
   const [isEditing, setIsEditing] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const data = await teacherApi.getProfile(profile.employee_id);
+        if (data && data.employee_id) {
+          setProfile((prev) => ({ ...prev, ...data }));
+        }
+      } catch (err) {
+        console.error("Teacher profile load error:", err);
+      }
+    };
+    fetchProfile();
+  }, [profile.employee_id]);
 
   const handleChange = (field, value) => {
     setProfile((prev) => ({ ...prev, [field]: value }));

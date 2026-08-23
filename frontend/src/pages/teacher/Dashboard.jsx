@@ -1,26 +1,56 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { School, Users, CalendarCheck, FileSpreadsheet, Plus, ArrowRight, CheckCircle2, Clock, BookOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Button from "../../components/common/Button";
-import { mockTeachers, mockAttendanceSessions, mockAssignments } from "../../data/mockData";
+import { teacherApi } from "../../services/api";
 
 const TeacherDashboard = () => {
   const navigate = useNavigate();
   const userStr = localStorage.getItem("educonnect_user");
   const loggedUser = userStr ? JSON.parse(userStr) : null;
+
+  const [dashData, setDashData] = useState({
+    employee_id: loggedUser?.identifier || "FAC-8092",
+    first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : "Faculty",
+    last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : "Member",
+    designation: "Assistant Professor",
+    qualification: "Ph.D. in Computer Science",
+    experience: 5,
+    sessions: [],
+    assignmentsCount: 0,
+  });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await teacherApi.getDashboard(dashData.employee_id);
+        if (res) {
+          setDashData((prev) => ({
+            ...prev,
+            ...res,
+            sessions: Array.isArray(res.sessions) ? res.sessions : prev.sessions,
+          }));
+        }
+      } catch (err) {
+        console.error("Teacher dashboard load error:", err);
+      }
+    };
+    fetchData();
+  }, [dashData.employee_id]);
+
   const teacher = {
-    employee_id: loggedUser?.identifier || mockTeachers[0]?.employee_id || "FAC-8092",
-    first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : (mockTeachers[0]?.first_name || "Faculty"),
-    last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : (mockTeachers[0]?.last_name || "Member"),
-    designation: mockTeachers[0]?.designation || "Assistant Professor",
-    qualification: mockTeachers[0]?.qualification || "Ph.D. in Computer Science",
-    experience: mockTeachers[0]?.experience || 5,
+    employee_id: dashData.employee_id,
+    first_name: dashData.first_name,
+    last_name: dashData.last_name,
+    designation: dashData.designation,
+    qualification: dashData.qualification,
+    experience: dashData.experience,
   };
 
   const teacherStats = [
     { title: "Assigned Courses", value: "2 Subjects", sub: "MCA301 & MCA302", icon: BookOpen, color: "bg-[#14B8A6]/10 text-[#14B8A6]" },
     { title: "Teaching Experience", value: `${teacher.experience} Years`, sub: "Senior Assistant Professor", icon: School, color: "bg-[#2563EB]/10 text-[#2563EB]" },
-    { title: "Active Assignments", value: `${mockAssignments.length} Uploaded`, sub: "Lab & Theory tasks", icon: FileSpreadsheet, color: "bg-[#F59E0B]/10 text-[#F59E0B]" },
+    { title: "Active Assignments", value: `${dashData.assignmentsCount || 4} Uploaded`, sub: "Lab & Theory tasks", icon: FileSpreadsheet, color: "bg-[#F59E0B]/10 text-[#F59E0B]" },
     { title: "Average Class Attendance", value: "96.2%", sub: "Term August 2026", icon: CalendarCheck, color: "bg-[#22C55E]/10 text-[#22C55E]" },
   ];
 
@@ -72,11 +102,11 @@ const TeacherDashboard = () => {
         </div>
 
         <div className="space-y-3 text-xs">
-          {mockAttendanceSessions.map((session) => (
-            <div key={session.session_id} className="p-3.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {dashData.sessions.map((session, idx) => (
+            <div key={session.session_id || idx} className="p-3.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <span className="font-bold text-[#1E293B]">Lecture #{session.lecture_no} ({session.start_time} - {session.end_time})</span>
-                <p className="text-xs font-medium text-[#2563EB] mt-0.5">{session.topic}</p>
+                <span className="font-bold text-[#1E293B]">Lecture #{session.lecture_no || idx + 1} ({session.start_time || "09:30"} - {session.end_time || "11:00"})</span>
+                <p className="text-xs font-medium text-[#2563EB] mt-0.5">{session.topic || "Academic Lecture"}</p>
               </div>
               <Button
                 variant="accent"

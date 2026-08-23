@@ -1,13 +1,38 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { CheckSquare, Plus, Eye, Award, CheckCircle2, Clock, Edit, Trash2, X } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockWeeklyExams, mockWeeklyExamResults, mockStudents } from "../../data/mockData";
+import { teacherApi } from "../../services/api";
 
 const TeacherWeeklyTests = () => {
-  const [exams, setExams] = useState(mockWeeklyExams);
+  const [exams, setExams] = useState([]);
+  const [results, setResults] = useState([]);
+  const [students, setStudents] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingExamId, setEditingExamId] = useState(null);
   const [viewResultsModal, setViewResultsModal] = useState(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [testsData, stuData] = await Promise.all([
+          teacherApi.getWeeklyTests(),
+          teacherApi.getStudents(),
+        ]);
+        if (Array.isArray(testsData)) {
+          setExams(testsData);
+        } else if (testsData && Array.isArray(testsData.exams)) {
+          setExams(testsData.exams);
+          if (Array.isArray(testsData.results)) setResults(testsData.results);
+        }
+        if (Array.isArray(stuData)) {
+          setStudents(stuData);
+        }
+      } catch (err) {
+        console.error("Teacher weekly tests load error:", err);
+      }
+    };
+    fetchData();
+  }, []);
 
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
@@ -279,11 +304,11 @@ const TeacherWeeklyTests = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E2E8F0]">
-                  {mockWeeklyExamResults.map((r) => {
-                    const stu = mockStudents.find((s) => s.student_id === r.student_id);
+                  {results.map((r) => {
+                    const stu = students.find((s) => s.student_id === r.student_id || s.id === r.student_id);
                     return (
-                      <tr key={r.weekly_exam_result_id}>
-                        <td className="p-2 font-bold">{stu ? `${stu.first_name} ${stu.last_name}` : "Student"}</td>
+                      <tr key={r.weekly_exam_result_id || r.id}>
+                        <td className="p-2 font-bold">{stu ? `${stu.first_name || ""} ${stu.last_name || ""}` : "Student"}</td>
                         <td className="p-2 font-bold text-[#2563EB]">{r.obtained_marks} / {viewResultsModal.total_marks}</td>
                         <td className="p-2 font-extrabold text-[#22C55E]">{r.grade}</td>
                       </tr>

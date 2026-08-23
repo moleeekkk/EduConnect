@@ -1,25 +1,26 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { CalendarCheck, CheckCircle2, XCircle, Clock, Filter } from "lucide-react";
-import { mockAttendanceSessions, mockAttendanceRecords, mockSubjects } from "../../data/mockData";
+import { studentApi } from "../../services/api";
 
 const StudentAttendance = () => {
-  const studentId = "stu-001";
-  
-  // Map records with session details
-  const attendanceHistory = mockAttendanceRecords
-    .filter((rec) => rec.student_id === studentId)
-    .map((rec) => {
-      const session = mockAttendanceSessions.find((s) => s.session_id === rec.session_id);
-      const subject = mockSubjects[0]; // Advanced Web Tech
-      return {
-        ...rec,
-        session,
-        subject,
-      };
-    });
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
 
-  const presentCount = attendanceHistory.filter((r) => r.attendance_status === "Present").length;
-  const totalCount = attendanceHistory.length || 1;
+  useEffect(() => {
+    const fetchAttendance = async () => {
+      try {
+        const data = await studentApi.getAttendance();
+        if (Array.isArray(data)) {
+          setAttendanceRecords(data);
+        }
+      } catch (err) {
+        console.error("Attendance load error:", err);
+      }
+    };
+    fetchAttendance();
+  }, []);
+
+  const presentCount = attendanceRecords.filter((r) => r.attendance_status === "Present" || r.status === "Present").length;
+  const totalCount = attendanceRecords.length || 1;
   const attendancePct = ((presentCount / totalCount) * 100).toFixed(1);
 
   return (
@@ -62,27 +63,27 @@ const StudentAttendance = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
-              {attendanceHistory.map((item) => (
-                <tr key={item.attendance_id} className="hover:bg-[#F8FAFC] transition-colors">
-                  <td className="p-3.5 font-mono">{item.session?.session_date}</td>
-                  <td className="p-3.5 font-bold text-[#2563EB]">{item.subject?.subject_name}</td>
-                  <td className="p-3.5">Lecture #{item.session?.lecture_no}</td>
-                  <td className="p-3.5 font-mono">{item.session?.start_time} - {item.session?.end_time}</td>
-                  <td className="p-3.5">{item.session?.topic}</td>
+              {attendanceRecords.map((item, idx) => (
+                <tr key={item.attendance_id || item.id || idx} className="hover:bg-[#F8FAFC] transition-colors">
+                  <td className="p-3.5 font-mono">{item.session?.session_date || item.session_date || item.date}</td>
+                  <td className="p-3.5 font-bold text-[#2563EB]">{item.subject?.subject_name || item.subject_name || item.subject || "Subject"}</td>
+                  <td className="p-3.5">Lecture #{item.session?.lecture_no || item.lecture_no || idx + 1}</td>
+                  <td className="p-3.5 font-mono">{item.session?.start_time || item.start_time || "09:00"} - {item.session?.end_time || item.end_time || "10:00"}</td>
+                  <td className="p-3.5">{item.session?.topic || item.topic || "Regular Lecture"}</td>
                   <td className="p-3.5">
                     <span
                       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                        item.attendance_status === "Present"
+                        (item.attendance_status || item.status) === "Present"
                           ? "bg-[#22C55E]/10 text-[#22C55E]"
                           : "bg-[#EF4444]/10 text-[#EF4444]"
                       }`}
                     >
-                      {item.attendance_status === "Present" ? (
+                      {(item.attendance_status || item.status) === "Present" ? (
                         <CheckCircle2 className="w-3 h-3" />
                       ) : (
                         <XCircle className="w-3 h-3" />
                       )}
-                      {item.attendance_status}
+                      {item.attendance_status || item.status || "Absent"}
                     </span>
                   </td>
                   <td className="p-3.5 text-[#64748B]">{item.remarks || "-"}</td>

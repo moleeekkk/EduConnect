@@ -1,12 +1,29 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Send, CheckCircle2, MessageSquare, Clock } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockDoubts, mockStudents } from "../../data/mockData";
+import { teacherApi } from "../../services/api";
 
 const TeacherReplyDoubts = () => {
-  const [doubts, setDoubts] = useState(mockDoubts);
+  const [doubts, setDoubts] = useState([]);
+  const [students, setStudents] = useState([]);
   const [selectedDoubt, setSelectedDoubt] = useState(null);
   const [replyText, setReplyText] = useState("");
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [doubtsData, stuData] = await Promise.all([
+          teacherApi.getDoubts(),
+          teacherApi.getStudents(),
+        ]);
+        setDoubts(Array.isArray(doubtsData) ? doubtsData : []);
+        setStudents(Array.isArray(stuData) ? stuData : []);
+      } catch (err) {
+        console.error("Reply doubts load error:", err);
+      }
+    };
+    fetchData();
+  }, []);
 
   const handleSendReply = (e) => {
     e.preventDefault();
@@ -33,7 +50,7 @@ const TeacherReplyDoubts = () => {
 
       <div className="space-y-4">
         {doubts.map((doubt) => {
-          const student = mockStudents.find((s) => s.student_id === doubt.student_id);
+          const student = students.find((s) => s.student_id === doubt.student_id || s.id === doubt.student_id);
           return (
             <div key={doubt.doubt_id} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs space-y-3">
               <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2 text-xs">

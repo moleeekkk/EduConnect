@@ -1,20 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   BarChart3, Download, Printer, CheckCircle2, Users, GraduationCap, 
   Award, AlertTriangle, TrendingUp, BookOpen, Search, FileText, CheckCircle, 
   ChevronDown, ChevronUp, Eye, UserCheck, XCircle, User, X
 } from "lucide-react";
 import Button from "../../components/common/Button";
-import { 
-  mockStudents, 
-  mockSemesterResults, 
-  mockSemesterResultDetails, 
-  mockWeeklyExams, 
-  mockWeeklyExamResults, 
-  mockSubjects, 
-  mockPrograms, 
-  mockSemesters 
-} from "../../data/mockData";
+import { adminApi, studentApi } from "../../services/api";
 
 const AdminReports = () => {
   const [activeTab, setActiveTab] = useState("attendance");
@@ -25,13 +16,50 @@ const AdminReports = () => {
   const [expandedResultId, setExpandedResultId] = useState(null);
   const [selectedStudentForProfile, setSelectedStudentForProfile] = useState(null);
 
+  const [students, setStudents] = useState([]);
+  const [semesterResults, setSemesterResults] = useState([]);
+  const [semesterResultDetails, setSemesterResultDetails] = useState([]);
+  const [weeklyExams, setWeeklyExams] = useState([]);
+  const [weeklyExamResults, setWeeklyExamResults] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [programs, setPrograms] = useState([]);
+  const [semesters, setSemesters] = useState([]);
+
+  useEffect(() => {
+    const fetchReportData = async () => {
+      try {
+        const [usersRes, progsRes, semsRes, subsRes, reportsRes] = await Promise.all([
+          adminApi.getUsers(),
+          adminApi.getPrograms(),
+          adminApi.getSemesters(),
+          adminApi.getSubjects(),
+          adminApi.getReports(),
+        ]);
+        const stuList = Array.isArray(usersRes) ? usersRes.filter((u) => u.role?.toLowerCase() === "student" || u.enrollmentNo || u.enrollment_no) : [];
+        setStudents(stuList);
+        setPrograms(Array.isArray(progsRes) ? progsRes : []);
+        setSemesters(Array.isArray(semsRes) ? semsRes : []);
+        setSubjects(Array.isArray(subsRes) ? subsRes : []);
+        if (reportsRes) {
+          setSemesterResults(reportsRes.semesterResults || []);
+          setSemesterResultDetails(reportsRes.semesterResultDetails || []);
+          setWeeklyExams(reportsRes.weeklyExams || []);
+          setWeeklyExamResults(reportsRes.weeklyExamResults || []);
+        }
+      } catch (err) {
+        console.error("Reports load error:", err);
+      }
+    };
+    fetchReportData();
+  }, []);
+
   const handleExport = (format) => {
     setExportMsg(`Overall ${activeTab.replace("_", " ").toUpperCase()} Report exported as ${format} successfully!`);
     setTimeout(() => setExportMsg(false), 3500);
   };
 
-  // Mock Attendance calculation for all students
-  const attendanceData = mockStudents.map((stu, index) => {
+  // Attendance calculation for all students
+  const attendanceData = students.map((stu, index) => {
     const totalSessions = 40;
     const attendedSessions = index === 0 ? 37 : index === 1 ? 34 : index === 2 ? 28 : 36;
     const percentage = Number(((attendedSessions / totalSessions) * 100).toFixed(1));
@@ -47,68 +75,67 @@ const AdminReports = () => {
   });
 
   // Calculate overall institutional attendance summary
-  const totalStudentsCount = attendanceData.length;
+  const totalStudentsCount = attendanceData.length || 1;
   const overallAvgAttendance = (attendanceData.reduce((acc, curr) => acc + curr.percentage, 0) / totalStudentsCount).toFixed(1);
   const atRiskStudentsCount = attendanceData.filter(s => s.status === "At-Risk").length;
 
   // Calculate overall exam results summary
-  const totalExamResults = mockSemesterResults.length;
-  const passedExamCount = mockSemesterResults.filter(r => r.result_status.toLowerCase() === "pass").length;
+  const totalExamResults = semesterResults.length || 1;
+  const passedExamCount = semesterResults.filter(r => (r.result_status || "").toLowerCase() === "pass").length;
   const passPercentage = ((passedExamCount / totalExamResults) * 100).toFixed(1);
-  const avgSGPA = (mockSemesterResults.reduce((acc, curr) => acc + curr.sgpa, 0) / totalExamResults).toFixed(2);
-  const avgCGPA = (mockSemesterResults.reduce((acc, curr) => acc + curr.cgpa, 0) / totalExamResults).toFixed(2);
+  const avgSGPA = (semesterResults.reduce((acc, curr) => acc + (curr.sgpa || 0), 0) / totalExamResults).toFixed(2);
+  const avgCGPA = (semesterResults.reduce((acc, curr) => acc + (curr.cgpa || 0), 0) / totalExamResults).toFixed(2);
 
   // Filter students based on search and selected program/semester
   const filteredAttendance = attendanceData.filter((stu) => {
     const query = searchQuery.trim().toLowerCase();
-    const matchesSearch = query === "" || 
-      stu.enrollment_no.toLowerCase().includes(query) ||
-      `${stu.first_name} ${stu.last_name}`.toLowerCase().includes(query);
+    const enrollment = (stu.enrollment_no || stu.enrollmentNo || "").toLowerCase();
+    const fullName = `${stu.first_name || stu.name || ""} ${stu.last_name || ""}`.toLowerCase();
+    const matchesSearch = query === "" || enrollment.includes(query) || fullName.includes(query);
     return matchesSearch;
   });
 
   // Filter semester results
-  const filteredSemesterResults = mockSemesterResults.filter((res) => {
-    const stu = mockStudents.find((s) => s.student_id === res.student_id);
+  const filteredSemesterResults = semesterResults.filter((res) => {
+    const stu = students.find((s) => s.student_id === res.student_id);
     const query = searchQuery.trim().toLowerCase();
-    const matchesSearch = query === "" || (stu && (
-      stu.enrollment_no.toLowerCase().includes(query) ||
-      `${stu.first_name} ${stu.last_name}`.toLowerCase().includes(query)
-    ));
+    const enrollment = (stu?.enrollment_no || stu?.enrollmentNo || "").toLowerCase();
+    const fullName = `${stu?.first_name || stu?.name || ""} ${stu?.last_name || ""}`.toLowerCase();
+    const matchesSearch = query === "" || (stu && (enrollment.includes(query) || fullName.includes(query)));
     const semMatch = selectedSemester === "all" || res.semester_id === selectedSemester;
     return matchesSearch && semMatch;
   });
 
   // Filter weekly test results
-  const filteredWeeklyResults = mockWeeklyExamResults.filter((wer) => {
-    const stu = mockStudents.find((s) => s.student_id === wer.student_id);
+  const filteredWeeklyResults = weeklyExamResults.filter((wer) => {
+    const stu = students.find((s) => s.student_id === wer.student_id);
     const query = searchQuery.trim().toLowerCase();
-    const matchesSearch = query === "" || (stu && (
-      stu.enrollment_no.toLowerCase().includes(query) ||
-      `${stu.first_name} ${stu.last_name}`.toLowerCase().includes(query)
-    ));
+    const enrollment = (stu?.enrollment_no || stu?.enrollmentNo || "").toLowerCase();
+    const fullName = `${stu?.first_name || stu?.name || ""} ${stu?.last_name || ""}`.toLowerCase();
+    const matchesSearch = query === "" || (stu && (enrollment.includes(query) || fullName.includes(query)));
     return matchesSearch;
   });
 
   // Particular Student Match logic if user searches enrollment number / name
   const isSearchActive = searchQuery.trim().length > 0;
   const particularStudent = isSearchActive 
-    ? mockStudents.find(s => 
-        s.enrollment_no.toLowerCase() === searchQuery.trim().toLowerCase() ||
-        `${s.first_name} ${s.last_name}`.toLowerCase().includes(searchQuery.trim().toLowerCase())
-      ) || (filteredAttendance.length === 1 ? filteredAttendance[0] : null)
+    ? students.find(s => {
+        const enrollment = (s.enrollment_no || s.enrollmentNo || "").toLowerCase();
+        const fullName = `${s.first_name || s.name || ""} ${s.last_name || ""}`.toLowerCase();
+        return enrollment === searchQuery.trim().toLowerCase() || fullName.includes(searchQuery.trim().toLowerCase());
+      }) || (filteredAttendance.length === 1 ? filteredAttendance[0] : null)
     : null;
 
   const particularStudentAttendance = particularStudent 
-    ? attendanceData.find(a => a.student_id === particularStudent.student_id)
+    ? attendanceData.find(a => a.student_id === particularStudent.student_id || a.id === particularStudent.id)
     : null;
 
   const particularStudentResult = particularStudent
-    ? mockSemesterResults.find(r => r.student_id === particularStudent.student_id)
+    ? semesterResults.find(r => r.student_id === particularStudent.student_id || r.student_id === particularStudent.id)
     : null;
 
   const particularStudentTest = particularStudent
-    ? mockWeeklyExamResults.find(w => w.student_id === particularStudent.student_id)
+    ? weeklyExamResults.find(w => w.student_id === particularStudent.student_id || w.student_id === particularStudent.id)
     : null;
 
   return (
@@ -261,9 +288,9 @@ const AdminReports = () => {
               className="px-3 py-2 rounded-lg border border-[#E2E8F0] bg-white text-xs font-semibold text-[#1E293B] focus:outline-hidden focus:border-[#2563EB] shadow-2xs"
             >
               <option value="all">All Programs</option>
-              {mockPrograms.map((prog) => (
-                <option key={prog.program_id} value={prog.program_id}>
-                  {prog.program_name} ({prog.program_code})
+              {programs.map((prog) => (
+                <option key={prog.program_id || prog.id} value={prog.program_id || prog.id}>
+                  {prog.program_name || prog.name} ({prog.program_code || prog.code})
                 </option>
               ))}
             </select>
@@ -277,9 +304,9 @@ const AdminReports = () => {
               className="px-3 py-2 rounded-lg border border-[#E2E8F0] bg-white text-xs font-semibold text-[#1E293B] focus:outline-hidden focus:border-[#2563EB] shadow-2xs"
             >
               <option value="all">All Semesters</option>
-              {mockSemesters.map((sem) => (
-                <option key={sem.semester_id} value={sem.semester_id}>
-                  Semester {sem.semester_number}
+              {semesters.map((sem) => (
+                <option key={sem.semester_id || sem.id} value={sem.semester_id || sem.id}>
+                  Semester {sem.semester_number || sem.number}
                 </option>
               ))}
             </select>
@@ -502,17 +529,17 @@ const AdminReports = () => {
                 </thead>
                 <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
                   {filteredSemesterResults.map((res) => {
-                    const stu = mockStudents.find((s) => s.student_id === res.student_id);
+                    const stu = users.find((s) => s.student_id === res.student_id || s.id === res.student_id);
                     const isExpanded = expandedResultId === res.semester_result_id;
-                    const details = mockSemesterResultDetails.filter(d => d.semester_result_id === res.semester_result_id);
+                    const details = semesterResultDetails.filter(d => d.semester_result_id === res.semester_result_id);
 
                     return (
                       <React.Fragment key={res.semester_result_id}>
                         <tr className="hover:bg-slate-50 transition-colors">
                           <td className="p-3.5 font-semibold">
-                            {stu ? `${stu.first_name} ${stu.last_name}` : "Student Record"}
+                            {stu ? `${stu.first_name || stu.name} ${stu.last_name || ""}` : "Student Record"}
                           </td>
-                          <td className="p-3.5 font-mono font-bold text-[#2563EB]">{stu?.enrollment_no || "N/A"}</td>
+                          <td className="p-3.5 font-mono font-bold text-[#2563EB]">{stu?.enrollment_no || stu?.identifier || "N/A"}</td>
                           <td className="p-3.5 font-medium">
                             {res.semester_id === "sem-001" ? "Semester 1" : res.semester_id === "sem-002" ? "Semester 2" : "Semester 3"}
                           </td>
@@ -550,12 +577,12 @@ const AdminReports = () => {
                             <td colSpan={8} className="p-4">
                               <div className="bg-white p-3 rounded-lg border border-[#E2E8F0] space-y-2">
                                 <h4 className="text-xs font-bold text-[#1E293B] flex items-center gap-1.5">
-                                  <BookOpen className="w-3.5 h-3.5 text-[#2563EB]" /> Subject-Wise Exam Marks Breakdown ({stu?.first_name} {stu?.last_name})
+                                  <BookOpen className="w-3.5 h-3.5 text-[#2563EB]" /> Subject-Wise Exam Marks Breakdown ({stu?.first_name || stu?.name} {stu?.last_name || ""})
                                 </h4>
                                 {details.length > 0 ? (
                                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                                     {details.map((d) => {
-                                      const subj = mockSubjects.find(s => s.subject_id === d.subject_id);
+                                      const subj = subjects.find(s => s.subject_id === d.subject_id || s.id === d.subject_id);
                                       return (
                                         <div key={d.semester_result_detail_id} className="p-2.5 rounded-md bg-[#F8FAFC] border border-[#E2E8F0]">
                                           <p className="font-bold text-[#1E293B] text-[11px] truncate">{subj?.subject_name || d.subject_id}</p>
@@ -625,9 +652,9 @@ const AdminReports = () => {
                 </thead>
                 <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
                   {filteredWeeklyResults.map((wer) => {
-                    const exam = mockWeeklyExams.find(w => w.weekly_exam_id === wer.weekly_exam_id);
-                    const stu = mockStudents.find(s => s.student_id === wer.student_id);
-                    const percentage = exam ? ((wer.obtained_marks / exam.total_marks) * 100).toFixed(1) : 0;
+                    const exam = weeklyExams.find(w => w.weekly_exam_id === wer.weekly_exam_id || w.id === wer.weekly_exam_id);
+                    const stu = users.find(s => s.student_id === wer.student_id || s.id === wer.student_id);
+                    const percentage = exam ? ((wer.obtained_marks / (exam.total_marks || 25)) * 100).toFixed(1) : 0;
 
                     return (
                       <tr key={wer.weekly_exam_result_id} className="hover:bg-slate-50 transition-colors">

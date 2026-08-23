@@ -1,12 +1,48 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { User, Save, Edit, Check } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockAdmins } from "../../data/mockData";
+import { adminApi } from "../../services/api";
 
 const AdminProfile = () => {
-  const [profile, setProfile] = useState(mockAdmins[0]);
+  const [profile, setProfile] = useState({
+    admin_id: "adm-001",
+    first_name: "System",
+    last_name: "Admin",
+    email: "admin@educonnect.ac.in",
+    mobile: "+91 9876543210",
+    gender: "Male",
+    date_of_birth: "1985-05-15",
+    address: "Campus Admin Block, University Grounds",
+    profile_photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
+  });
   const [isEditing, setIsEditing] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      const stored = localStorage.getItem("educonnect_user");
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed.email) {
+            setProfile((prev) => ({
+              ...prev,
+              email: parsed.email,
+              first_name: parsed.name ? parsed.name.split(" ")[0] : prev.first_name,
+              last_name: parsed.name ? parsed.name.split(" ").slice(1).join(" ") : prev.last_name,
+            }));
+          }
+        } catch (e) {}
+      }
+      try {
+        const data = await adminApi.getProfile();
+        if (data && data.email) {
+          setProfile((prev) => ({ ...prev, ...data }));
+        }
+      } catch (err) {}
+    };
+    loadProfile();
+  }, []);
 
   const handleChange = (field, value) => {
     setProfile((prev) => ({ ...prev, [field]: value }));

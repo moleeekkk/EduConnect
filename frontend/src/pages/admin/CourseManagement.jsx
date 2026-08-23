@@ -5,8 +5,6 @@ import Button from "../../components/common/Button";
 import Input from "../../components/common/Input";
 import { adminApi } from "../../services/api";
 
-import { mockSubjects } from "../../data/mockData";
-
 const CourseManagement = () => {
   const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
@@ -18,29 +16,9 @@ const CourseManagement = () => {
     const fetchCourses = async () => {
       try {
         const data = await adminApi.getCourses();
-        if (Array.isArray(data) && data.length > 0) {
-          setCourses(data);
-        } else {
-          setCourses(
-            mockSubjects.map((s) => ({
-              code: s.subject_code,
-              name: s.subject_name,
-              credits: s.credits,
-              type: s.credits >= 4 ? "Theory & Practical" : "Theory",
-              semester: s.semester_id === "sem-003" ? 3 : s.semester_id === "sem-001" ? 1 : 2,
-            }))
-          );
-        }
+        setCourses(Array.isArray(data) ? data : []);
       } catch (err) {
-        setCourses(
-          mockSubjects.map((s) => ({
-            code: s.subject_code,
-            name: s.subject_name,
-            credits: s.credits,
-            type: s.credits >= 4 ? "Theory & Practical" : "Theory",
-            semester: s.semester_id === "sem-003" ? 3 : s.semester_id === "sem-001" ? 1 : 2,
-          }))
-        );
+        setCourses([]);
       }
     };
     fetchCourses();

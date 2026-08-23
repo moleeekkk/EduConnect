@@ -1,8 +1,27 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { CheckSquare, Calendar, Award, Clock, FileText } from "lucide-react";
-import { mockWeeklyExams, mockWeeklyExamResults } from "../../data/mockData";
+import { studentApi } from "../../services/api";
 
 const StudentWeeklyTests = () => {
+  const [weeklyExams, setWeeklyExams] = useState([]);
+  const [examResults, setExamResults] = useState([]);
+
+  useEffect(() => {
+    const fetchTests = async () => {
+      try {
+        const data = await studentApi.getWeeklyTests();
+        if (Array.isArray(data)) {
+          setWeeklyExams(data);
+        } else if (data && Array.isArray(data.exams)) {
+          setWeeklyExams(data.exams);
+          if (Array.isArray(data.results)) setExamResults(data.results);
+        }
+      } catch (err) {
+        console.error("Weekly tests load error:", err);
+      }
+    };
+    fetchTests();
+  }, []);
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -14,10 +33,10 @@ const StudentWeeklyTests = () => {
 
       {/* Weekly Tests Reference Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {mockWeeklyExams.map((exam) => {
-          const result = mockWeeklyExamResults.find((r) => r.weekly_exam_id === exam.weekly_exam_id);
+        {weeklyExams.map((exam) => {
+          const result = examResults.find((r) => r.weekly_exam_id === exam.weekly_exam_id);
           return (
-            <div key={exam.weekly_exam_id} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs flex flex-col justify-between space-y-4">
+            <div key={exam.weekly_exam_id || exam.id} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs flex flex-col justify-between space-y-4">
               <div className="space-y-2 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="px-2.5 py-0.5 rounded-full bg-[#2563EB]/10 text-[#2563EB] font-mono font-bold text-[11px]">
@@ -73,10 +92,10 @@ const StudentWeeklyTests = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
-              {mockWeeklyExams.map((exam) => {
-                const result = mockWeeklyExamResults.find((r) => r.weekly_exam_id === exam.weekly_exam_id);
+              {weeklyExams.map((exam) => {
+                const result = examResults.find((r) => r.weekly_exam_id === exam.weekly_exam_id);
                 return (
-                  <tr key={exam.weekly_exam_id} className="hover:bg-[#F8FAFC]">
+                  <tr key={exam.weekly_exam_id || exam.id} className="hover:bg-[#F8FAFC]">
                     <td className="p-3.5 font-mono">{exam.exam_date}</td>
                     <td className="p-3.5 font-bold text-[#2563EB]">{exam.title}</td>
                     <td className="p-3.5 font-mono text-[#64748B]">{exam.start_time} - {exam.end_time}</td>

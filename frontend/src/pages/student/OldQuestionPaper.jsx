@@ -1,11 +1,25 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FileQuestion, Download, Eye, Paperclip, X, FileText } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockLearningResources } from "../../data/mockData";
+import { studentApi } from "../../services/api";
 
 const StudentOldQuestionPaper = () => {
-  const papers = mockLearningResources.filter((r) => r.resource_type === "Question Paper");
+  const [papers, setPapers] = useState([]);
   const [viewFileModal, setViewFileModal] = useState(null);
+
+  useEffect(() => {
+    const fetchPapers = async () => {
+      try {
+        const data = await studentApi.getOldQuestionPapers();
+        if (Array.isArray(data)) {
+          setPapers(data);
+        }
+      } catch (err) {
+        console.error("Old question papers load error:", err);
+      }
+    };
+    fetchPapers();
+  }, []);
 
   return (
     <div className="space-y-6">

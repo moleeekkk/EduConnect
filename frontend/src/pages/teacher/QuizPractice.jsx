@@ -1,11 +1,32 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { HelpCircle, Plus, Edit, Trash2, CheckCircle2, ListPlus, BookOpen, X } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockQuizzes, mockMcqs, mockSubjects } from "../../data/mockData";
+import { teacherApi, adminApi } from "../../services/api";
 
 const TeacherQuizPractice = () => {
-  const [quizzes, setQuizzes] = useState(mockQuizzes);
-  const [mcqs, setMcqs] = useState(mockMcqs);
+  const [quizzes, setQuizzes] = useState([]);
+  const [mcqs, setMcqs] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [quizData, subData] = await Promise.all([
+          teacherApi.getQuizzes(),
+          adminApi.getSubjects(),
+        ]);
+        if (Array.isArray(quizData)) {
+          setQuizzes(quizData);
+        }
+        if (Array.isArray(subData)) {
+          setSubjects(subData);
+        }
+      } catch (err) {
+        console.error("Teacher quiz practice load error:", err);
+      }
+    };
+    fetchData();
+  }, []);
 
   // Add / Edit Quiz Modal States
   const [showAddModal, setShowAddModal] = useState(false);
@@ -159,10 +180,10 @@ const TeacherQuizPractice = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {quizzes.map((quiz) => {
           const quizMcqCount = mcqs.filter((m) => m.quiz_id === quiz.quiz_id).length;
-          const subj = mockSubjects.find((s) => s.subject_id === quiz.subject_id);
+          const subj = subjects.find((s) => s.subject_id === quiz.subject_id || s.id === quiz.subject_id);
 
           return (
-            <div key={quiz.quiz_id} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs flex flex-col justify-between space-y-4">
+            <div key={quiz.quiz_id || quiz.id} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs flex flex-col justify-between space-y-4">
               <div className="space-y-2 text-xs">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <span
@@ -175,7 +196,7 @@ const TeacherQuizPractice = () => {
                     Category: {quiz.learner_type} Learner
                   </span>
                   <span className="font-mono text-[#2563EB] bg-[#2563EB]/10 px-2 py-0.5 rounded font-bold text-[10px]">
-                    {subj ? subj.subject_code : "MCA"}
+                    {subj ? (subj.subject_code || subj.code) : "MCA"}
                   </span>
                   <span className="font-bold text-[#64748B] text-[11px]">{quizMcqCount} Questions</span>
                 </div>
@@ -262,9 +283,9 @@ const TeacherQuizPractice = () => {
                     onChange={(e) => setSubjectId(e.target.value)}
                     className="w-full p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
                   >
-                    {mockSubjects.map((s) => (
-                      <option key={s.subject_id} value={s.subject_id}>
-                        {s.subject_code} - {s.subject_name}
+                    {subjects.map((s) => (
+                      <option key={s.subject_id || s.id} value={s.subject_id || s.id}>
+                        {s.subject_code || s.code} - {s.subject_name || s.name}
                       </option>
                     ))}
                   </select>

@@ -1,11 +1,12 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { IdCard, PhoneCall, AlertTriangle, ShieldCheck, MapPin, Heart, UserCheck } from "lucide-react";
-import { mockStudents } from "../../data/mockData";
+import { studentApi } from "../../services/api";
 
 const StudentDigitalID = () => {
   const userStr = localStorage.getItem("educonnect_user");
   const loggedUser = userStr ? JSON.parse(userStr) : null;
-  const student = mockStudents[0] || {
+
+  const [student, setStudent] = useState({
     student_id: "stu-001",
     enrollment_no: loggedUser?.identifier || "25CI2110016",
     first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : "Student",
@@ -19,7 +20,21 @@ const StudentDigitalID = () => {
     parent_name: "Parent / Guardian",
     parent_mobile: "+91 98765 00001",
     profile_photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-  };
+  });
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const data = await studentApi.getProfile(student.enrollment_no);
+        if (data && data.enrollment_no) {
+          setStudent((prev) => ({ ...prev, ...data }));
+        }
+      } catch (err) {
+        console.error("Profile load error:", err);
+      }
+    };
+    fetchProfile();
+  }, [student.enrollment_no]);
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">

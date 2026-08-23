@@ -1,12 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { User, Mail, Phone, Calendar, MapPin, Heart, Shield, Edit, Save, Check } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockStudents } from "../../data/mockData";
+import { studentApi } from "../../services/api";
 
 const StudentProfile = () => {
   const userStr = localStorage.getItem("educonnect_user");
   const loggedUser = userStr ? JSON.parse(userStr) : null;
-  const initialStudent = mockStudents[0] || {
+
+  const [profile, setProfile] = useState({
     student_id: "stu-001",
     enrollment_no: loggedUser?.identifier || "25CI2110016",
     first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : "Student",
@@ -22,10 +23,23 @@ const StudentProfile = () => {
     admission_date: "2025-07-15",
     profile_photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
     is_active: true,
-  };
-  const [profile, setProfile] = useState(initialStudent);
+  });
   const [isEditing, setIsEditing] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const data = await studentApi.getProfile(profile.enrollment_no);
+        if (data && data.enrollment_no) {
+          setProfile((prev) => ({ ...prev, ...data }));
+        }
+      } catch (err) {
+        console.error("Student profile load error:", err);
+      }
+    };
+    fetchProfile();
+  }, [profile.enrollment_no]);
 
   const handleChange = (field, value) => {
     setProfile((prev) => ({ ...prev, [field]: value }));

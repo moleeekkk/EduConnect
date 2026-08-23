@@ -1,11 +1,30 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { BookOpen, Plus, Edit, Trash2, Eye, Award, Clock, FileText, Layers, CheckCircle2, X, FolderTree } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockSubjects, mockPrograms } from "../../data/mockData";
+import ConfirmModal from "../../components/modals/ConfirmModal";
+import { adminApi } from "../../services/api";
 
 const AdminSubjectManagement = () => {
-  const [subjects, setSubjects] = useState(mockSubjects);
-  const [programs] = useState(mockPrograms);
+  const [subjects, setSubjects] = useState([]);
+  const [programs, setPrograms] = useState([]);
+  const [deleting, setDeleting] = useState(false);
+  const [deletingSubj, setDeletingSubj] = useState(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [subData, progData] = await Promise.all([
+          adminApi.getSubjects(),
+          adminApi.getPrograms(),
+        ]);
+        setSubjects(Array.isArray(subData) ? subData : []);
+        setPrograms(Array.isArray(progData) ? progData : []);
+      } catch (err) {
+        console.error("Subject load error:", err);
+      }
+    };
+    fetchData();
+  }, []);
 
   // Selected Department Modal State (Subjects View & Add inside Pop-up)
   const [selectedDeptModal, setSelectedDeptModal] = useState(null);
@@ -66,10 +85,11 @@ const AdminSubjectManagement = () => {
   };
 
   // Delete Subject
-  const handleDeleteSubject = (subjId) => {
-    if (window.confirm("Are you sure you want to delete this subject?")) {
-      setSubjects(subjects.filter((s) => s.subject_id !== subjId));
-    }
+  const handleConfirmDeleteSubject = () => {
+    if (!deletingSubj) return;
+    const subjId = deletingSubj.subject_id || deletingSubj.subjectId;
+    setSubjects(subjects.filter((s) => (s.subject_id || s.subjectId) !== subjId));
+    setDeletingSubj(null);
   };
 
   // Open Edit Subject Modal
@@ -319,7 +339,7 @@ const AdminSubjectManagement = () => {
                               <Edit className="w-3.5 h-3.5" />
                             </button>
                             <button
-                              onClick={() => handleDeleteSubject(subj.subject_id)}
+                              onClick={() => setDeletingSubj(subj)}
                               className="p-1 hover:bg-[#EF4444]/10 rounded text-[#EF4444] transition-colors cursor-pointer"
                               title="Delete Subject"
                             >
@@ -472,6 +492,17 @@ const AdminSubjectManagement = () => {
           </div>
         </div>
       )}
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={Boolean(deletingSubj)}
+        onClose={() => setDeletingSubj(null)}
+        onConfirm={handleConfirmDeleteSubject}
+        title="Delete Subject"
+        message={`Are you sure you want to delete subject "${deletingSubj?.subject_name || deletingSubj?.subjectName || 'this subject'}"? This action cannot be undone.`}
+        confirmText="Delete Subject"
+        loading={deleting}
+        variant="danger"
+      />
     </div>
   );
 };

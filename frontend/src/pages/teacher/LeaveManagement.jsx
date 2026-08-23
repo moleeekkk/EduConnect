@@ -1,12 +1,29 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { BadgeAlert, CheckCircle2, XCircle, Clock, X } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockLeaveRequests, mockStudents } from "../../data/mockData";
+import { teacherApi } from "../../services/api";
 
 const TeacherLeaveManagement = () => {
-  const [requests, setRequests] = useState(mockLeaveRequests);
+  const [requests, setRequests] = useState([]);
+  const [students, setStudents] = useState([]);
   const [selectedReq, setSelectedReq] = useState(null);
   const [remarksText, setRemarksText] = useState("");
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [leavesData, stuData] = await Promise.all([
+          teacherApi.getLeaveRequests(),
+          teacherApi.getStudents(),
+        ]);
+        setRequests(Array.isArray(leavesData) ? leavesData : []);
+        setStudents(Array.isArray(stuData) ? stuData : []);
+      } catch (err) {
+        console.error("Leave management load error:", err);
+      }
+    };
+    fetchData();
+  }, []);
 
   const handleReview = (status) => {
     if (!selectedReq) return;
@@ -57,7 +74,7 @@ const TeacherLeaveManagement = () => {
             </thead>
             <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
               {requests.map((req) => {
-                const stu = mockStudents.find((s) => s.student_id === req.student_id);
+                const stu = students.find((s) => s.student_id === req.student_id || s.id === req.student_id);
                 return (
                   <tr key={req.leave_request_id} className="hover:bg-[#F8FAFC] transition-colors">
                     <td className="p-3.5">

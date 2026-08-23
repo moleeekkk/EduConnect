@@ -1,17 +1,33 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { BookOpen, Award, CheckCircle } from "lucide-react";
-import { mockSubjects } from "../../data/mockData";
+import { studentApi } from "../../services/api";
 
 const StudentSyllabus = () => {
+  const [subjects, setSubjects] = useState([]);
+
+  useEffect(() => {
+    const fetchSyllabus = async () => {
+      try {
+        const data = await studentApi.getSyllabus();
+        if (Array.isArray(data)) {
+          setSubjects(data);
+        }
+      } catch (err) {
+        console.error("Syllabus load error:", err);
+      }
+    };
+    fetchSyllabus();
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
-        <h1 className="text-xl font-bold text-[#1E293B]">Course Syllabus (subjects)</h1>
-        <p className="text-xs text-[#64748B] mt-0.5">Semester 3 Curriculum Breakdown & Unit Modules</p>
+        <h1 className="text-xl font-bold text-[#1E293B]">Course Syllabus</h1>
+        <p className="text-xs text-[#64748B] mt-0.5">Curriculum Breakdown & Unit Modules</p>
       </div>
 
       <div className="space-y-4">
-        {mockSubjects.map((subject) => (
+        {subjects.map((subject) => (
           <div key={subject.subject_id} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#E2E8F0] pb-3 gap-2">
               <div>

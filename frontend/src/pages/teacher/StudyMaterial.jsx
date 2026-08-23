@@ -1,16 +1,27 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FileText, Plus, Trash2, Edit, Paperclip, Download, Eye, X, BookOpen, CheckCircle2 } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockLearningResources } from "../../data/mockData";
+import { teacherApi } from "../../services/api";
 
 const TeacherStudyMaterial = () => {
-  const [resources, setResources] = useState(
-    mockLearningResources.filter((r) => r.resource_type !== "Question Paper")
-  );
-
+  const [resources, setResources] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editingResourceId, setEditingResourceId] = useState(null);
   const [viewFileModal, setViewFileModal] = useState(null);
+
+  useEffect(() => {
+    const fetchMaterials = async () => {
+      try {
+        const data = await teacherApi.getStudyMaterials();
+        if (Array.isArray(data)) {
+          setResources(data);
+        }
+      } catch (err) {
+        console.error("Teacher study materials load error:", err);
+      }
+    };
+    fetchMaterials();
+  }, []);
 
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");

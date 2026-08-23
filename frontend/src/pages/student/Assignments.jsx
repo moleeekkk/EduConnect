@@ -1,14 +1,29 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { BookOpenCheck, Upload, CheckCircle2, Clock, AlertCircle, FileText, Download, Eye, Paperclip, X } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockAssignments, mockAssignmentSubmissions } from "../../data/mockData";
+import { studentApi } from "../../services/api";
 
 const StudentAssignments = () => {
-  const [submissions, setSubmissions] = useState(mockAssignmentSubmissions);
+  const [assignments, setAssignments] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [viewFileModal, setViewFileModal] = useState(null);
   const [uploadFile, setUploadFile] = useState(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const data = await studentApi.getAssignments();
+        if (Array.isArray(data)) {
+          setAssignments(data);
+        }
+      } catch (err) {
+        console.error("Assignments load error:", err);
+      }
+    };
+    fetchData();
+  }, []);
 
   const handleSubmitAssignment = (e) => {
     e.preventDefault();
@@ -71,7 +86,7 @@ const StudentAssignments = () => {
 
       {/* Assignment List Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {mockAssignments.map((asgn) => {
+        {assignments.map((asgn) => {
           const submission = submissions.find((s) => s.assignment_id === asgn.assignment_id);
           return (
             <div

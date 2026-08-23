@@ -1,23 +1,46 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { CalendarCheck, Save, CheckCircle2, UserCheck, UserX } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockStudents, mockAttendanceSessions, mockSubjects } from "../../data/mockData";
+import { teacherApi, adminApi } from "../../services/api";
 
 const TeacherAttendanceMarker = () => {
-  const [selectedSubject, setSelectedSubject] = useState(mockSubjects[0]?.subject_id || "subj-101");
-  const [sessionDate, setSessionDate] = useState("2026-08-08");
+  const [selectedSubject, setSelectedSubject] = useState("subj-101");
+  const [sessionDate, setSessionDate] = useState(new Date().toISOString().split("T")[0]);
   const [lectureNo, setLectureNo] = useState(1);
   const [startTime, setStartTime] = useState("09:30");
   const [endTime, setEndTime] = useState("11:00");
   const [topic, setTopic] = useState("State Management & Custom Hooks Architecture");
 
-  const [studentStatus, setStudentStatus] = useState({
-    "stu-001": "Present",
-    "stu-002": "Present",
-    "stu-003": "Absent",
-  });
-
+  const [students, setStudents] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [studentStatus, setStudentStatus] = useState({});
   const [saveMsg, setSaveMsg] = useState(false);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [stuData, subData] = await Promise.all([
+          teacherApi.getStudents(),
+          adminApi.getSubjects(),
+        ]);
+        if (Array.isArray(stuData)) {
+          setStudents(stuData);
+          const initialStatus = {};
+          stuData.forEach((s) => {
+            initialStatus[s.student_id || s.id] = "Present";
+          });
+          setStudentStatus(initialStatus);
+        }
+        if (Array.isArray(subData)) {
+          setSubjects(subData);
+          if (subData[0]?.subject_id) setSelectedSubject(subData[0].subject_id);
+        }
+      } catch (err) {
+        console.error("AttendanceMarker load error:", err);
+      }
+    };
+    fetchData();
+  }, []);
 
   const toggleStatus = (id) => {
     setStudentStatus((prev) => ({
@@ -61,9 +84,9 @@ const TeacherAttendanceMarker = () => {
               onChange={(e) => setSelectedSubject(e.target.value)}
               className="w-full p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
             >
-              {mockSubjects.map((s) => (
-                <option key={s.subject_id} value={s.subject_id}>
-                  {s.subject_name} ({s.subject_code})
+              {subjects.map((s) => (
+                <option key={s.subject_id || s.id} value={s.subject_id || s.id}>
+                  {s.subject_name || s.name} ({s.subject_code || s.code})
                 </option>
               ))}
             </select>
@@ -129,13 +152,14 @@ const TeacherAttendanceMarker = () => {
         </div>
 
         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {mockStudents.map((stu) => {
-            const status = studentStatus[stu.student_id] || "Present";
+          {students.map((stu) => {
+            const stuId = stu.student_id || stu.id;
+            const status = studentStatus[stuId] || "Present";
             const isPresent = status === "Present";
             return (
               <div
-                key={stu.student_id}
-                onClick={() => toggleStatus(stu.student_id)}
+                key={stuId}
+                onClick={() => toggleStatus(stuId)}
                 className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
                   isPresent
                     ? "bg-[#22C55E]/5 border-[#22C55E]/30"

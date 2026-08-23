@@ -1,32 +1,34 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Award, ArrowLeft, CheckCircle2, FileText, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import {
-  mockSemesters,
-  mockSemesterResults,
-  mockSemesterResultDetails,
-  mockSubjects,
-} from "../../data/mockData";
+import { studentApi } from "../../services/api";
 
 const StudentResults = () => {
   const navigate = useNavigate();
   const [selectedSemId, setSelectedSemId] = useState("sem-003");
+  const [semesters, setSemesters] = useState([
+    { semester_id: "sem-001", semester_number: 1 },
+    { semester_id: "sem-002", semester_number: 2 },
+    { semester_id: "sem-003", semester_number: 3 },
+  ]);
+  const [currentResult, setCurrentResult] = useState(null);
+  const [resultDetails, setResultDetails] = useState([]);
 
-  const currentResult = mockSemesterResults.find(
-    (res) => res.semester_id === selectedSemId && res.student_id === "stu-001"
-  ) || mockSemesterResults[2];
-
-  const resultDetails = mockSemesterResultDetails
-    .filter((det) => det.semester_result_id === currentResult?.semester_result_id)
-    .map((det) => {
-      const subj = mockSubjects.find((s) => s.subject_id === det.subject_id) || {
-        subject_name: "Core Subject Module",
-        subject_code: "MCA301",
-        credits: 4,
-      };
-      const points = det.grade === "O" ? 10.0 : det.grade === "A+" ? 9.0 : det.grade === "A" ? 8.0 : 7.0;
-      return { ...det, subj, points };
-    });
+  useEffect(() => {
+    const fetchResults = async () => {
+      try {
+        const data = await studentApi.getResults();
+        if (data) {
+          if (data.result) setCurrentResult(data.result);
+          if (Array.isArray(data.details)) setResultDetails(data.details);
+          if (Array.isArray(data.semesters)) setSemesters(data.semesters);
+        }
+      } catch (err) {
+        console.error("Student results load error:", err);
+      }
+    };
+    fetchResults();
+  }, [selectedSemId]);
 
   return (
     <div className="space-y-6">
@@ -49,7 +51,7 @@ const StudentResults = () => {
             onChange={(e) => setSelectedSemId(e.target.value)}
             className="p-2.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-xs font-bold text-[#1E293B] cursor-pointer outline-none focus:border-[#2563EB]"
           >
-            {mockSemesters.map((sem) => (
+            {semesters.map((sem) => (
               <option key={sem.semester_id} value={sem.semester_id}>
                 Semester {sem.semester_number}
               </option>

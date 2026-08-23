@@ -29,6 +29,8 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  CalendarRange,
+  Layers,
 } from "lucide-react";
 import logoImg from "../../assets/logo/logo.png";
 
@@ -74,8 +76,10 @@ const Sidebar = ({
     ],
     Admin: [
       { label: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard },
+      { label: "Batches Management", path: "/admin/batches", icon: CalendarRange },
+      { label: "Department Management", path: "/admin/departments", icon: FolderTree },
+      { label: "Semesters Management", path: "/admin/semesters", icon: Layers },
       { label: "Institute Management", path: "/admin/institutes", icon: Building2 },
-      { label: "Department Management", path: "/admin/programs", icon: FolderTree },
       { label: "Teacher Management", path: "/admin/teachers", icon: School },
       { label: "Student Management", path: "/admin/students", icon: GraduationCap },
       { label: "Subject Management", path: "/admin/subjects", icon: BookOpen },

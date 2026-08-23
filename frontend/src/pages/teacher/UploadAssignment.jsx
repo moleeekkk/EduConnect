@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   BookOpenCheck, Plus, CheckCircle2, FileText, Check, X, Edit, Trash2, 
   Paperclip, Upload, Clock, AlertTriangle, UserCheck, Mail, Send, Eye, Users
 } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockAssignments, mockStudents } from "../../data/mockData";
+import { teacherApi } from "../../services/api";
 
 const defaultSubmissions = [
   {
@@ -82,7 +82,7 @@ const defaultSubmissions = [
 ];
 
 const TeacherUploadAssignment = () => {
-  const [assignments, setAssignments] = useState(mockAssignments);
+  const [assignments, setAssignments] = useState([]);
   const [submissions, setSubmissions] = useState(defaultSubmissions);
 
   // Submissions Pop-up Modal State
@@ -178,21 +178,6 @@ const TeacherUploadAssignment = () => {
         updated_at: new Date().toISOString(),
       };
       setAssignments([created, ...assignments]);
-
-      // Seed submissions for students
-      const seededSubs = mockStudents.map((stu, idx) => ({
-        submission_id: `sub-new-${Date.now()}-${idx}`,
-        assignment_id: newAsgnId,
-        student_id: stu.student_id,
-        student_name: `${stu.first_name} ${stu.last_name}`,
-        enrollment_no: stu.enrollment_no,
-        submission_date: "-",
-        attachment: null,
-        obtained_marks: null,
-        feedback: null,
-        submission_status: "Missed",
-      }));
-      setSubmissions([...seededSubs, ...submissions]);
     }
 
     setShowAddModal(false);

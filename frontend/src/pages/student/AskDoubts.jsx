@@ -1,14 +1,31 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Send, CheckCircle2, MessageSquare, Plus, Clock } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockDoubts, mockTeachers, mockSubjects } from "../../data/mockData";
+import { studentApi } from "../../services/api";
 
 const StudentAskDoubts = () => {
-  const [doubts, setDoubts] = useState(mockDoubts);
+  const [doubts, setDoubts] = useState([]);
+  const [subjects, setSubjects] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [successMsg, setSuccessMsg] = useState(false);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [doubtsData, syllabusData] = await Promise.all([
+          studentApi.getDoubts(),
+          studentApi.getSyllabus(),
+        ]);
+        setDoubts(Array.isArray(doubtsData) ? doubtsData : []);
+        setSubjects(Array.isArray(syllabusData) ? syllabusData : []);
+      } catch (err) {
+        console.error("Doubts load error:", err);
+      }
+    };
+    fetchData();
+  }, []);
 
   const handlePostDoubt = (e) => {
     e.preventDefault();
@@ -104,9 +121,9 @@ const StudentAskDoubts = () => {
               <div>
                 <label className="block font-medium text-[#64748B] mb-1">Target Subject</label>
                 <select className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]">
-                  {mockSubjects.map((s) => (
-                    <option key={s.subject_id} value={s.subject_id}>
-                      {s.subject_name} ({s.subject_code})
+                  {subjects.map((s) => (
+                    <option key={s.subject_id || s.id || s.code} value={s.subject_id || s.id}>
+                      {s.subject_name || s.name} ({s.subject_code || s.code})
                     </option>
                   ))}
                 </select>

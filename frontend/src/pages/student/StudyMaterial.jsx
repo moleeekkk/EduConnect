@@ -1,11 +1,25 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FileText, Download, Eye, Paperclip, X } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockLearningResources } from "../../data/mockData";
+import { studentApi } from "../../services/api";
 
 const StudentStudyMaterial = () => {
-  const materials = mockLearningResources.filter((r) => r.resource_type !== "Question Paper");
+  const [materials, setMaterials] = useState([]);
   const [viewFileModal, setViewFileModal] = useState(null);
+
+  useEffect(() => {
+    const fetchMaterials = async () => {
+      try {
+        const data = await studentApi.getStudyMaterials();
+        if (Array.isArray(data)) {
+          setMaterials(data);
+        }
+      } catch (err) {
+        console.error("Study materials load error:", err);
+      }
+    };
+    fetchMaterials();
+  }, []);
 
   return (
     <div className="space-y-6">

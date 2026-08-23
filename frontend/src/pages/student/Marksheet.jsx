@@ -1,37 +1,34 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Award, CheckCircle, FileSpreadsheet, Calendar, BookOpen } from "lucide-react";
-import {
-  mockSemesters,
-  mockSemesterResults,
-  mockSemesterResultDetails,
-  mockSubjects,
-  mockWeeklyExams,
-  mockWeeklyExamResults,
-} from "../../data/mockData";
+import { studentApi } from "../../services/api";
 
 const StudentMarksheet = () => {
   const [selectedSemId, setSelectedSemId] = useState("sem-003");
+  const [semesters, setSemesters] = useState([
+    { semester_id: "sem-001", semester_number: 1 },
+    { semester_id: "sem-002", semester_number: 2 },
+    { semester_id: "sem-003", semester_number: 3 },
+  ]);
+  const [currentResult, setCurrentResult] = useState(null);
+  const [resultDetails, setResultDetails] = useState([]);
+  const [weeklyResults, setWeeklyResults] = useState([]);
 
-  const currentResult = mockSemesterResults.find(
-    (res) => res.semester_id === selectedSemId && res.student_id === "stu-001"
-  );
-
-  const resultDetails = mockSemesterResultDetails
-    .filter((det) => det.semester_result_id === currentResult?.semester_result_id)
-    .map((det) => {
-      const subj = mockSubjects.find((s) => s.subject_id === det.subject_id) || {
-        subject_name: "Core Subject Module",
-        subject_code: "MCA301",
-        credits: 4,
-      };
-      const percentage = ((det.obtained_marks / det.total_marks) * 100).toFixed(1);
-      return { ...det, subj, percentage };
-    });
-
-  const weeklyResults = mockWeeklyExamResults.map((wer) => {
-    const exam = mockWeeklyExams.find((e) => e.weekly_exam_id === wer.weekly_exam_id);
-    return { ...wer, exam };
-  });
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const resData = await studentApi.getMarksheet();
+        if (resData) {
+          if (resData.result) setCurrentResult(resData.result);
+          if (Array.isArray(resData.details)) setResultDetails(resData.details);
+          if (Array.isArray(resData.weeklyResults)) setWeeklyResults(resData.weeklyResults);
+          if (Array.isArray(resData.semesters)) setSemesters(resData.semesters);
+        }
+      } catch (err) {
+        console.error("Marksheet load error:", err);
+      }
+    };
+    fetchData();
+  }, [selectedSemId]);
 
   return (
     <div className="space-y-6">
@@ -48,7 +45,7 @@ const StudentMarksheet = () => {
             onChange={(e) => setSelectedSemId(e.target.value)}
             className="p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] text-xs font-bold text-[#1E293B] cursor-pointer outline-none focus:border-[#2563EB]"
           >
-            {mockSemesters.map((sem) => (
+            {semesters.map((sem) => (
               <option key={sem.semester_id} value={sem.semester_id}>
                 Semester {sem.semester_number}
               </option>
@@ -87,7 +84,7 @@ const StudentMarksheet = () => {
             <h2 className="text-sm font-bold text-[#1E293B]">Subject-Wise Marks Breakdown</h2>
           </div>
           <span className="text-xs font-bold text-[#2563EB] bg-[#2563EB]/10 px-2.5 py-0.5 rounded-full">
-            Semester {mockSemesters.find((s) => s.semester_id === selectedSemId)?.semester_number || 3}
+            Semester {semesters.find((s) => s.semester_id === selectedSemId)?.semester_number || 3}
           </span>
         </div>
 

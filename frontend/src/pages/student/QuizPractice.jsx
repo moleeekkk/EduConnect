@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { HelpCircle, CheckCircle, XCircle, Sparkles, RefreshCw, BookOpen } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockQuizzes, mockMcqs, mockSubjects } from "../../data/mockData";
+import { studentApi } from "../../services/api";
 
 const StudentQuizPractice = () => {
   const [selectedLearnerType, setSelectedLearnerType] = useState("Fast");
@@ -9,13 +9,36 @@ const StudentQuizPractice = () => {
   const [userAnswers, setUserAnswers] = useState({});
   const [showExplanations, setShowExplanations] = useState(false);
 
-  // Find quizzes matching learner_type and subject_id
-  const matchingQuizzes = mockQuizzes.filter(
-    (q) => q.learner_type === selectedLearnerType && q.subject_id === selectedSubjectId
+  const [quizzes, setQuizzes] = useState([]);
+  const [mcqs, setMcqs] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [quizData, syllabusData] = await Promise.all([
+          studentApi.getQuizzes(),
+          studentApi.getSyllabus(),
+        ]);
+        if (Array.isArray(quizData)) {
+          setQuizzes(quizData);
+        }
+        if (Array.isArray(syllabusData)) {
+          setSubjects(syllabusData);
+        }
+      } catch (err) {
+        console.error("Quiz load error:", err);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const matchingQuizzes = quizzes.filter(
+    (q) => q.learner_type === selectedLearnerType && (q.subject_id === selectedSubjectId || !q.subject_id)
   );
 
-  const activeQuiz = matchingQuizzes[0] || mockQuizzes.find((q) => q.learner_type === selectedLearnerType);
-  const quizMcqs = mockMcqs.filter((m) => m.quiz_id === activeQuiz?.quiz_id);
+  const activeQuiz = matchingQuizzes[0] || quizzes.find((q) => q.learner_type === selectedLearnerType) || quizzes[0];
+  const quizMcqs = mcqs.filter((m) => m.quiz_id === activeQuiz?.quiz_id) || activeQuiz?.mcqs || [];
 
   const handleSelectOption = (mcqId, option) => {
     if (showExplanations) return;
@@ -75,9 +98,9 @@ const StudentQuizPractice = () => {
               }}
               className="p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] text-xs font-bold text-[#1E293B] cursor-pointer outline-none focus:border-[#2563EB]"
             >
-              {mockSubjects.map((subj) => (
-                <option key={subj.subject_id} value={subj.subject_id}>
-                  {subj.subject_name} ({subj.subject_code})
+              {subjects.map((subj) => (
+                <option key={subj.subject_id || subj.id || subj.code} value={subj.subject_id || subj.id}>
+                  {subj.subject_name || subj.name} ({subj.subject_code || subj.code})
                 </option>
               ))}
             </select>
@@ -100,7 +123,7 @@ const StudentQuizPractice = () => {
                   {activeQuiz.learner_type} Learner Category
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full bg-[#F59E0B]/10 text-[#F59E0B] text-[10px] font-bold">
-                  {mockSubjects.find((s) => s.subject_id === selectedSubjectId)?.subject_code}
+                  {subjects.find((s) => s.subject_id === selectedSubjectId || s.id === selectedSubjectId)?.subject_code || "MCQ"}
                 </span>
               </div>
               <h2 className="text-base font-bold text-[#1E293B] mt-1">{activeQuiz.title}</h2>

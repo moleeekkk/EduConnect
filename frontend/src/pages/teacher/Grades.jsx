@@ -12,15 +12,9 @@ const TeacherGrades = () => {
     const fetchGrades = async () => {
       try {
         const data = await teacherApi.getPendingGrades();
-        setSubmissions(data);
+        setSubmissions(Array.isArray(data) ? data : []);
       } catch (err) {
-        setSubmissions([
-          { id: "SUB-801", studentName: "Maulik Dabhi", enrollmentNo: "25CI2110016", assignmentTitle: "React State Architecture & Custom Hooks", totalMarks: 50, status: "Graded", obtainedMarks: 48 },
-          { id: "SUB-802", studentName: "Aanya Sharma", enrollmentNo: "25CI2110017", assignmentTitle: "Docker Compose Multi-Container Orchestration", totalMarks: 100, status: "Pending", submittedDate: "11-AUG-2026" },
-          { id: "SUB-803", studentName: "Rohan Verma", enrollmentNo: "25CI2110018", assignmentTitle: "Database Indexing & Query Optimization", totalMarks: 50, status: "Graded", obtainedMarks: 44 },
-          { id: "SUB-804", studentName: "Priya Patel", enrollmentNo: "25CI2110019", assignmentTitle: "Docker Compose Multi-Container Orchestration", totalMarks: 100, status: "Graded", obtainedMarks: 92 },
-          { id: "SUB-805", studentName: "Aarav Joshi", enrollmentNo: "25CI2110020", assignmentTitle: "Supervised Learning Classification Model", totalMarks: 100, status: "Pending", submittedDate: "10-AUG-2026" },
-        ]);
+        setSubmissions([]);
       }
     };
     fetchGrades();

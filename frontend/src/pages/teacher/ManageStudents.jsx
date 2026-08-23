@@ -1,13 +1,27 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Users, Plus, Edit, Trash2, Eye, CheckCircle2, X, GraduationCap } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockStudents } from "../../data/mockData";
+import { teacherApi } from "../../services/api";
 
 const TeacherManageStudents = () => {
-  const [students, setStudents] = useState(mockStudents);
+  const [students, setStudents] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editStudent, setEditStudent] = useState(null);
   const [viewStudent, setViewStudent] = useState(null);
+
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        const data = await teacherApi.getStudents();
+        if (Array.isArray(data)) {
+          setStudents(data);
+        }
+      } catch (err) {
+        console.error("Teacher students load error:", err);
+      }
+    };
+    fetchStudents();
+  }, []);
   const [form, setForm] = useState({
     enrollment_no: "",
     first_name: "",

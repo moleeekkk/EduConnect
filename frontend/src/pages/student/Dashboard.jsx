@@ -1,17 +1,47 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { CalendarCheck, BookOpen, Award, Clock, ArrowRight, User, FileText, Sparkles, CheckSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Button from "../../components/common/Button";
-import { mockStudents, mockAttendanceSessions, mockAssignments, mockAnnouncements } from "../../data/mockData";
+import { studentApi } from "../../services/api";
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
   const userStr = localStorage.getItem("educonnect_user");
   const loggedUser = userStr ? JSON.parse(userStr) : null;
+
+  const [dashData, setDashData] = useState({
+    enrollmentNo: loggedUser?.identifier || "25CI2110016",
+    firstName: loggedUser?.name ? loggedUser.name.split(" ")[0] : "Student",
+    lastName: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : "User",
+    sessions: [],
+    announcements: [],
+    attendancePct: "88.5%",
+    cgpa: "8.89 / 10.0",
+  });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await studentApi.getDashboard(dashData.enrollmentNo);
+        if (res) {
+          setDashData((prev) => ({
+            ...prev,
+            ...res,
+            sessions: Array.isArray(res.sessions) ? res.sessions : prev.sessions,
+            announcements: Array.isArray(res.announcements) ? res.announcements : prev.announcements,
+          }));
+        }
+      } catch (err) {
+        console.error("Student dashboard load error:", err);
+      }
+    };
+    fetchData();
+  }, [dashData.enrollmentNo]);
+
   const currentStudent = {
-    enrollment_no: loggedUser?.identifier || mockStudents[0]?.enrollment_no || "25CI2110016",
-    first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : (mockStudents[0]?.first_name || "Student"),
-    last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : (mockStudents[0]?.last_name || "User"),
+    enrollment_no: dashData.enrollmentNo,
+    first_name: dashData.firstName,
+    last_name: dashData.lastName,
   };
 
   const stats = [
@@ -109,14 +139,14 @@ const StudentDashboard = () => {
           </div>
 
           <div className="space-y-3">
-            {mockAttendanceSessions.map((session, idx) => (
-              <div key={session.session_id} className="p-3.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            {dashData.sessions.map((session, idx) => (
+              <div key={session.session_id || idx} className="p-3.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-[#1E293B]">Lecture #{session.lecture_no}</span>
-                    <span className="text-[#64748B]">• {session.start_time} - {session.end_time}</span>
+                    <span className="font-bold text-[#1E293B]">Lecture #{session.lecture_no || idx + 1}</span>
+                    <span className="text-[#64748B]">• {session.start_time || "09:00"} - {session.end_time || "10:00"}</span>
                   </div>
-                  <p className="text-xs font-medium text-[#2563EB] mt-0.5">{session.topic}</p>
+                  <p className="text-xs font-medium text-[#2563EB] mt-0.5">{session.topic || session.subject_name || "Academic Session"}</p>
                 </div>
                 <span className="px-2.5 py-1 rounded-full bg-[#22C55E]/10 text-[#22C55E] text-[10px] font-bold self-start sm:self-auto">
                   Scheduled
@@ -130,9 +160,9 @@ const StudentDashboard = () => {
         <div className="bg-white rounded-xl p-5 border border-[#E2E8F0] shadow-xs space-y-4">
           <h2 className="text-base font-bold text-[#1E293B] border-b border-[#E2E8F0] pb-3">Latest Announcements</h2>
           <div className="space-y-3">
-            {mockAnnouncements.map((notice) => (
-              <div key={notice.id} className="p-3 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
-                <span className="text-[10px] font-bold text-[#2563EB] uppercase">{notice.target_role}</span>
+            {dashData.announcements.map((notice, idx) => (
+              <div key={notice.id || idx} className="p-3 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
+                <span className="text-[10px] font-bold text-[#2563EB] uppercase">{notice.target_role || "ALL"}</span>
                 <h4 className="text-xs font-bold text-[#1E293B]">{notice.title}</h4>
                 <p className="text-[11px] text-[#64748B] line-clamp-2">{notice.description}</p>
                 <p className="text-[10px] text-[#64748B]">{notice.date}</p>
