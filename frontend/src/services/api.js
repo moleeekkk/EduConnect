@@ -96,7 +96,16 @@ export const teacherApi = {
     const response = await api.get(`/teacher/grades?teacherId=${teacherId || ""}`);
     return response.data;
   },
+  getMyAssignedSubjects: async (teacherId) => {
+    const response = await api.get(`/teacher/my-subjects?teacherId=${teacherId || ""}`);
+    return response.data;
+  },
+  getApplicableStudentsForAllocation: async (allocationId) => {
+    const response = await api.get(`/teacher/allocations/${allocationId}/students`);
+    return response.data;
+  },
 };
+
 
 // Admin Endpoints
 export const adminApi = {
@@ -235,15 +244,21 @@ export const adminApi = {
     return response.data;
   },
 
-  // Users
-  getUsers: async () => {
-    const response = await api.get("/admin/users");
+  // Teacher Allocations
+  getTeacherAllocations: async (params) => {
+    const query = new URLSearchParams(params || {}).toString();
+    const response = await api.get(`/admin/teacher-allocations${query ? "?" + query : ""}`);
     return response.data;
   },
-  createUser: async (userData) => {
-    const response = await api.post("/admin/users", userData);
+  createTeacherAllocation: async (data) => {
+    const response = await api.post("/admin/teacher-allocations", data);
+    return response.data;
+  },
+  deleteTeacherAllocation: async (id) => {
+    const response = await api.delete(`/admin/teacher-allocations/${id}`);
     return response.data;
   },
 };
 
 export default api;
+

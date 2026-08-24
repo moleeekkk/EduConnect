@@ -22,6 +22,8 @@ public class AdminService {
     private final InstituteRepository instituteRepository;
     private final ProgramRepository programRepository;
     private final SemesterRepository semesterRepository;
+    private final TeacherSubjectAllocationRepository teacherSubjectAllocationRepository;
+    private final DivisionRepository divisionRepository;
 
     // --- DASHBOARD & PROFILE ---
     public Map<String, Object> getAdminDashboard() {
@@ -1135,4 +1137,220 @@ public class AdminService {
         dto.setStatus("Active");
         return dto;
     }
+
+    // --- TEACHER ALLOCATION CRUD ---
+    public List<Map<String, Object>> getAllTeacherAllocations(String teacherIdStr, String subjectIdStr, String programIdStr, String semesterIdStr) {
+        List<Map<String, Object>> list = new ArrayList<>();
+        List<TeacherSubjectAllocation> allocations = teacherSubjectAllocationRepository.findAll();
+
+        for (TeacherSubjectAllocation a : allocations) {
+            if (teacherIdStr != null && !teacherIdStr.isBlank() && !"all".equalsIgnoreCase(teacherIdStr)) {
+                if (a.getTeacher() == null || (!a.getTeacher().getTeacherId().toString().equalsIgnoreCase(teacherIdStr) && !a.getTeacher().getEmail().equalsIgnoreCase(teacherIdStr))) {
+                    continue;
+                }
+            }
+            if (subjectIdStr != null && !subjectIdStr.isBlank() && !"all".equalsIgnoreCase(subjectIdStr)) {
+                if (a.getSubject() == null || (!a.getSubject().getSubjectId().toString().equalsIgnoreCase(subjectIdStr) && !a.getSubject().getSubjectCode().equalsIgnoreCase(subjectIdStr))) {
+                    continue;
+                }
+            }
+            if (programIdStr != null && !programIdStr.isBlank() && !"all".equalsIgnoreCase(programIdStr)) {
+                if (a.getProgram() == null || (!a.getProgram().getProgramId().toString().equalsIgnoreCase(programIdStr) && !a.getProgram().getProgramCode().equalsIgnoreCase(programIdStr))) {
+                    continue;
+                }
+            }
+            if (semesterIdStr != null && !semesterIdStr.isBlank() && !"all".equalsIgnoreCase(semesterIdStr)) {
+                if (a.getSemester() == null || !a.getSemester().getSemesterId().toString().equalsIgnoreCase(semesterIdStr)) {
+                    continue;
+                }
+            }
+
+            list.add(mapAllocationToMap(a));
+        }
+
+        return list;
+    }
+
+    public Map<String, Object> createTeacherAllocation(Map<String, Object> body) {
+        Object tObj = body.get("teacher_id");
+        if (tObj == null) tObj = body.get("teacherId");
+        if (tObj == null) tObj = body.get("teacherEmail");
+        if (tObj == null) tObj = body.get("teacher");
+        if (tObj == null) tObj = body.get("faculty_id");
+        if (tObj == null) tObj = body.get("facultyId");
+
+        Object sObj = body.get("subject_id");
+        if (sObj == null) sObj = body.get("subjectId");
+        if (sObj == null) sObj = body.get("subjectCode");
+        if (sObj == null) sObj = body.get("subject");
+        if (sObj == null) sObj = body.get("course_id");
+        if (sObj == null) sObj = body.get("courseId");
+
+        Object pObj = body.get("program_id");
+        if (pObj == null) pObj = body.get("programId");
+        if (pObj == null) pObj = body.get("programCode");
+        if (pObj == null) pObj = body.get("department_id");
+        if (pObj == null) pObj = body.get("departmentId");
+        if (pObj == null) pObj = body.get("program");
+        if (pObj == null) pObj = body.get("department");
+
+        Object semObj = body.get("semester_id");
+        if (semObj == null) semObj = body.get("semesterId");
+        if (semObj == null) semObj = body.get("semesterNo");
+        if (semObj == null) semObj = body.get("semester_number");
+        if (semObj == null) semObj = body.get("semester");
+
+        if (tObj == null || tObj.toString().isBlank() ||
+            sObj == null || sObj.toString().isBlank() ||
+            pObj == null || pObj.toString().isBlank() ||
+            semObj == null || semObj.toString().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Teacher ID/Email, Subject ID/Code, Program ID/Code, and Semester ID are required for allocation");
+        }
+
+        Teacher teacher = findTeacherByIdOrEmail(tObj.toString());
+
+        final String subCodeStr = sObj.toString();
+        Subject subject;
+        try {
+            subject = subjectRepository.findById(UUID.fromString(subCodeStr))
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Referenced Subject not found"));
+        } catch (IllegalArgumentException e) {
+            subject = subjectRepository.findBySubjectCode(subCodeStr.toUpperCase())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Referenced Subject Code not found: " + subCodeStr));
+        }
+
+        final String progCodeStr = pObj.toString();
+        Program program;
+        try {
+            program = programRepository.findById(UUID.fromString(progCodeStr))
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Referenced Program not found"));
+        } catch (IllegalArgumentException e) {
+            program = programRepository.findByProgramCode(progCodeStr.toUpperCase())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Referenced Program Code not found: " + progCodeStr));
+        }
+
+        final String semCodeStr = semObj.toString();
+        Semester semester = null;
+        try {
+            semester = semesterRepository.findById(UUID.fromString(semCodeStr)).orElse(null);
+        } catch (Exception ignored) {}
+
+        if (semester == null && program != null) {
+            try {
+                int semNum = Integer.parseInt(semCodeStr);
+                List<Semester> sems = semesterRepository.findByProgram_ProgramId(program.getProgramId());
+                semester = sems.stream().filter(s -> s.getSemesterNumber() == semNum).findFirst().orElse(null);
+            } catch (Exception ignored) {}
+        }
+
+        if (semester == null) {
+            semester = semesterRepository.findAll().stream().findFirst()
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Referenced Semester not found: " + semCodeStr));
+        }
+
+        Division division = null;
+        Object divObj = body.get("division_id");
+        if (divObj == null) divObj = body.get("divisionId");
+        if (divObj == null) divObj = body.get("class_id");
+        if (divObj == null) divObj = body.get("classId");
+        if (divObj == null) divObj = body.get("division");
+        if (divObj != null && !divObj.toString().isBlank()) {
+            try {
+                division = divisionRepository.findById(UUID.fromString(divObj.toString())).orElse(null);
+            } catch (Exception ignored) {}
+        }
+
+        // Duplicate Check
+        if (teacherSubjectAllocationRepository.existsByTeacher_TeacherIdAndSubject_SubjectIdAndProgram_ProgramIdAndSemester_SemesterId(
+                teacher.getTeacherId(), subject.getSubjectId(), program.getProgramId(), semester.getSemesterId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Allocation already exists: Teacher '" + teacher.getFirstName() + " " + teacher.getLastName() + "' is already assigned to Subject '" + subject.getSubjectName() + "' for this Program & Semester");
+        }
+
+        Object acYearObj = body.get("academic_year");
+        if (acYearObj == null) acYearObj = body.get("academicYear");
+        String academicYear = acYearObj != null ? acYearObj.toString() : "2025-2026";
+
+        TeacherSubjectAllocation allocation = TeacherSubjectAllocation.builder()
+                .teacher(teacher)
+                .subject(subject)
+                .program(program)
+                .semester(semester)
+                .division(division)
+                .academicYear(academicYear)
+                .isActive(true)
+                .build();
+
+        TeacherSubjectAllocation saved = teacherSubjectAllocationRepository.save(allocation);
+        return mapAllocationToMap(saved);
+    }
+
+    public void deleteTeacherAllocation(String idStr) {
+        try {
+            UUID id = UUID.fromString(idStr);
+            teacherSubjectAllocationRepository.deleteById(id);
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Teacher allocation not found with ID: " + idStr);
+        }
+    }
+
+    private Map<String, Object> mapAllocationToMap(TeacherSubjectAllocation a) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("allocation_id", a.getAllocationId().toString());
+        m.put("allocationId", a.getAllocationId().toString());
+
+        if (a.getTeacher() != null) {
+            m.put("teacher_id", a.getTeacher().getTeacherId().toString());
+            m.put("teacherId", a.getTeacher().getTeacherId().toString());
+            m.put("teacher_name", a.getTeacher().getFirstName() + " " + a.getTeacher().getLastName());
+            m.put("teacherName", a.getTeacher().getFirstName() + " " + a.getTeacher().getLastName());
+            m.put("teacher_email", a.getTeacher().getEmail());
+            m.put("teacherEmail", a.getTeacher().getEmail());
+            m.put("teacher_designation", a.getTeacher().getDesignation());
+            m.put("teacherDesignation", a.getTeacher().getDesignation());
+        }
+
+        if (a.getSubject() != null) {
+            m.put("subject_id", a.getSubject().getSubjectId().toString());
+            m.put("subjectId", a.getSubject().getSubjectId().toString());
+            m.put("subject_code", a.getSubject().getSubjectCode());
+            m.put("subjectCode", a.getSubject().getSubjectCode());
+            m.put("subject_name", a.getSubject().getSubjectName());
+            m.put("subjectName", a.getSubject().getSubjectName());
+            m.put("credits", a.getSubject().getCredits());
+            m.put("type", a.getSubject().getSubjectType());
+        }
+
+        if (a.getProgram() != null) {
+            m.put("program_id", a.getProgram().getProgramId().toString());
+            m.put("programId", a.getProgram().getProgramId().toString());
+            m.put("program_code", a.getProgram().getProgramCode());
+            m.put("programCode", a.getProgram().getProgramCode());
+            m.put("program_name", a.getProgram().getProgramName());
+            m.put("programName", a.getProgram().getProgramName());
+        }
+
+        if (a.getSemester() != null) {
+            m.put("semester_id", a.getSemester().getSemesterId().toString());
+            m.put("semesterId", a.getSemester().getSemesterId().toString());
+            m.put("semester_number", a.getSemester().getSemesterNumber());
+            m.put("semesterNumber", a.getSemester().getSemesterNumber());
+            m.put("semester_name", a.getSemester().getSemesterName());
+            m.put("semesterName", a.getSemester().getSemesterName());
+        }
+
+        if (a.getDivision() != null) {
+            m.put("division_id", a.getDivision().getDivisionId().toString());
+            m.put("divisionId", a.getDivision().getDivisionId().toString());
+            m.put("division_name", a.getDivision().getDivisionName());
+            m.put("divisionName", a.getDivision().getDivisionName());
+        }
+
+        m.put("academic_year", a.getAcademicYear() != null ? a.getAcademicYear() : "2025-2026");
+        m.put("academicYear", a.getAcademicYear() != null ? a.getAcademicYear() : "2025-2026");
+        m.put("is_active", a.getIsActive() != null ? a.getIsActive() : true);
+        m.put("isActive", a.getIsActive() != null ? a.getIsActive() : true);
+
+        return m;
+    }
 }
+

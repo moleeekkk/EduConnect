@@ -231,4 +231,29 @@ public class AdminController {
         UserDto created = adminService.createUser(userDto);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
+
+    // --- TEACHER SUBJECT ALLOCATIONS / ACADEMIC ASSIGNMENTS ---
+    @GetMapping({"/teacher-allocations", "/teacher-assignments", "/assignments", "/teacher-subjects", "/faculty-assignments"})
+    public ResponseEntity<List<Map<String, Object>>> getAllTeacherAllocations(
+            @RequestParam(required = false) String teacherId,
+            @RequestParam(required = false) String subjectId,
+            @RequestParam(required = false) String programId,
+            @RequestParam(required = false) String semesterId) {
+        List<Map<String, Object>> list = adminService.getAllTeacherAllocations(teacherId, subjectId, programId, semesterId);
+        return ResponseEntity.ok(list);
+    }
+
+    @PostMapping({"/teacher-allocations", "/teacher-assignments", "/assignments", "/teacher-subjects", "/faculty-assignments"})
+    public ResponseEntity<Map<String, Object>> createTeacherAllocation(@RequestBody Map<String, Object> body) {
+        Map<String, Object> created = adminService.createTeacherAllocation(body);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @DeleteMapping({"/teacher-allocations/{id}", "/teacher-assignments/{id}", "/assignments/{id}", "/teacher-subjects/{id}", "/faculty-assignments/{id}"})
+    public ResponseEntity<Map<String, Object>> deleteTeacherAllocation(@PathVariable String id) {
+        adminService.deleteTeacherAllocation(id);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Teacher allocation deleted successfully"));
+    }
 }
+
+

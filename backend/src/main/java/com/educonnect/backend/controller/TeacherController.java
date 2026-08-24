@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.security.Principal;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping({"/api/v1/teacher", "/api/teacher"})
@@ -18,22 +19,58 @@ public class TeacherController {
 
     private final TeacherService teacherService;
 
-    private String getEffectiveTeacherId(String requestedId, Principal principal) {
-        if (principal != null && principal.getName() != null && !principal.getName().isBlank()) {
-            return principal.getName();
-        }
-        return requestedId != null ? requestedId : "";
+    // --- TEACHER PROFILE ---
+    @GetMapping("/profile")
+    public ResponseEntity<Map<String, Object>> getTeacherProfile(Principal principal) {
+        Map<String, Object> profile = teacherService.getTeacherProfile(principal);
+        return ResponseEntity.ok(profile);
     }
 
+    @PutMapping("/profile")
+    public ResponseEntity<Map<String, Object>> updateTeacherProfile(
+            @RequestBody Map<String, Object> body,
+            Principal principal) {
+        Map<String, Object> updated = teacherService.updateTeacherProfile(body, principal);
+        return ResponseEntity.ok(updated);
+    }
+
+    // --- TEACHER DASHBOARD ---
     @GetMapping("/dashboard")
     public ResponseEntity<Map<String, Object>> getTeacherDashboard(
             @RequestParam(required = false) String teacherId,
             Principal principal) {
-        String targetId = getEffectiveTeacherId(teacherId, principal);
-        Map<String, Object> data = teacherService.getTeacherDashboard(targetId);
+        Map<String, Object> data = teacherService.getTeacherDashboard(teacherId, principal);
         return ResponseEntity.ok(data);
     }
 
+    // --- ASSIGNED SUBJECTS ---
+    @GetMapping({"/subjects", "/my-subjects"})
+    public ResponseEntity<List<Map<String, Object>>> getMyAssignedSubjects(
+            @RequestParam(required = false) String teacherId,
+            Principal principal) {
+        List<Map<String, Object>> list = teacherService.getMyAssignedSubjects(teacherId, principal);
+        return ResponseEntity.ok(list);
+    }
+
+    // --- ASSIGNED STUDENTS ---
+    @GetMapping("/students")
+    public ResponseEntity<List<Map<String, Object>>> getAssignedStudents(
+            @RequestParam(required = false) String teacherId,
+            @RequestParam(required = false) UUID allocationId,
+            Principal principal) {
+        List<Map<String, Object>> list = teacherService.getAssignedStudents(teacherId, allocationId, principal);
+        return ResponseEntity.ok(list);
+    }
+
+    @GetMapping("/allocations/{allocationId}/students")
+    public ResponseEntity<List<Map<String, Object>>> getApplicableStudentsForAllocation(
+            @PathVariable UUID allocationId,
+            Principal principal) {
+        List<Map<String, Object>> list = teacherService.getAssignedStudents(null, allocationId, principal);
+        return ResponseEntity.ok(list);
+    }
+
+    // --- ATTENDANCE & GRADES ---
     @PostMapping("/attendance/mark")
     public ResponseEntity<Map<String, Object>> markAttendance(@RequestBody AttendanceMarkRequest request) {
         Map<String, Object> response = teacherService.markAttendance(request);
@@ -42,10 +79,8 @@ public class TeacherController {
 
     @GetMapping("/grades")
     public ResponseEntity<List<Map<String, Object>>> getPendingGrades(
-            @RequestParam(required = false) String teacherId,
-            Principal principal) {
-        String targetId = getEffectiveTeacherId(teacherId, principal);
-        List<Map<String, Object>> grades = teacherService.getPendingGrades(targetId);
+            @RequestParam(required = false) String teacherId) {
+        List<Map<String, Object>> grades = teacherService.getPendingGrades(teacherId);
         return ResponseEntity.ok(grades);
     }
 }
