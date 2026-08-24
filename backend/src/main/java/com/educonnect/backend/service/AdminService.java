@@ -116,6 +116,239 @@ public class AdminService {
         return res;
     }
 
+    // --- TEACHER MANAGEMENT CRUD ---
+    public List<Map<String, Object>> getAllTeachers(String search, String designation, String instituteIdStr, Boolean activeOnly) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        List<Teacher> teachers = teacherRepository.findAll();
+
+        for (Teacher t : teachers) {
+            if (activeOnly != null && activeOnly && (t.getIsActive() == null || !t.getIsActive())) {
+                continue;
+            }
+
+            if (designation != null && !designation.isBlank() && !"all".equalsIgnoreCase(designation)) {
+                if (t.getDesignation() == null || !t.getDesignation().equalsIgnoreCase(designation.trim())) {
+                    continue;
+                }
+            }
+
+            if (instituteIdStr != null && !instituteIdStr.isBlank() && !"all".equalsIgnoreCase(instituteIdStr)) {
+                if (t.getInstitute() == null || !t.getInstitute().getInstituteId().toString().equals(instituteIdStr)) {
+                    continue;
+                }
+            }
+
+            if (search != null && !search.isBlank()) {
+                String q = search.trim().toLowerCase();
+                String fullName = ((t.getFirstName() != null ? t.getFirstName() : "") + " " + (t.getLastName() != null ? t.getLastName() : "")).toLowerCase();
+                String email = t.getEmail() != null ? t.getEmail().toLowerCase() : "";
+                String desig = t.getDesignation() != null ? t.getDesignation().toLowerCase() : "";
+                if (!fullName.contains(q) && !email.contains(q) && !desig.contains(q)) {
+                    continue;
+                }
+            }
+
+            result.add(mapTeacherToMap(t));
+        }
+
+        return result;
+    }
+
+    public Map<String, Object> getTeacherById(String idStr) {
+        Teacher t = findTeacherByIdOrEmail(idStr);
+        return mapTeacherToMap(t);
+    }
+
+    public Map<String, Object> createTeacher(Map<String, Object> body) {
+        String firstName = (String) body.get("first_name");
+        if (firstName == null || firstName.isBlank()) firstName = (String) body.get("firstName");
+
+        String lastName = (String) body.get("last_name");
+        if (lastName == null || lastName.isBlank()) lastName = (String) body.get("lastName");
+
+        if ((firstName == null || firstName.isBlank()) && body.containsKey("name")) {
+            String full = (String) body.get("name");
+            if (full != null && !full.isBlank()) {
+                String[] parts = full.trim().split(" ");
+                firstName = parts[0];
+                lastName = parts.length > 1 ? parts[1] : "Faculty";
+            }
+        }
+
+        String email = (String) body.get("email");
+
+        if (firstName == null || firstName.isBlank() || email == null || email.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "First name and email address are required");
+        }
+
+        String cleanEmail = email.trim().toLowerCase();
+
+        if (teacherRepository.existsByEmail(cleanEmail)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Teacher with email '" + cleanEmail + "' already exists");
+        }
+
+        Institute inst = resolveInstitute(body);
+
+        Object mobileObj = body.get("mobile");
+        String mobile = mobileObj != null ? mobileObj.toString() : "+91 9876543210";
+
+        Object genderObj = body.get("gender");
+        String gender = genderObj != null ? genderObj.toString() : "Female";
+
+        Object desigObj = body.get("designation");
+        if (desigObj == null) desigObj = body.get("department");
+        String designation = desigObj != null ? desigObj.toString() : "Assistant Professor";
+
+        Object passObj = body.get("password");
+        String password = passObj != null && !passObj.toString().isBlank() ? passObj.toString() : "teacher123";
+
+        Object dobObj = body.get("date_of_birth");
+        if (dobObj == null) dobObj = body.get("dateOfBirth");
+        LocalDate dob = LocalDate.of(1988, 5, 15);
+        if (dobObj != null && !dobObj.toString().isBlank()) {
+            try {
+                dob = LocalDate.parse(dobObj.toString());
+            } catch (Exception ignored) {}
+        }
+
+        Object activeObj = body.get("is_active");
+        if (activeObj == null) activeObj = body.get("isActive");
+        boolean active = activeObj != null ? (Boolean) activeObj : true;
+
+        Teacher t = Teacher.builder()
+                .firstName(firstName.trim())
+                .lastName(lastName != null ? lastName.trim() : "Faculty")
+                .email(cleanEmail)
+                .password(password)
+                .mobile(mobile)
+                .gender(gender)
+                .designation(designation)
+                .dateOfBirth(dob)
+                .address((String) body.getOrDefault("address", "Faculty Quarters"))
+                .institute(inst)
+                .isActive(active)
+                .build();
+
+        Teacher saved = teacherRepository.save(t);
+        return mapTeacherToMap(saved);
+    }
+
+    public Map<String, Object> updateTeacher(String idStr, Map<String, Object> body) {
+        Teacher t = findTeacherByIdOrEmail(idStr);
+
+        if (body.containsKey("first_name")) t.setFirstName((String) body.get("first_name"));
+        if (body.containsKey("firstName")) t.setFirstName((String) body.get("firstName"));
+
+        if (body.containsKey("last_name")) t.setLastName((String) body.get("last_name"));
+        if (body.containsKey("lastName")) t.setLastName((String) body.get("lastName"));
+
+        if (body.containsKey("mobile")) t.setMobile((String) body.get("mobile"));
+        if (body.containsKey("gender")) t.setGender((String) body.get("gender"));
+        if (body.containsKey("address")) t.setAddress((String) body.get("address"));
+        
+        if (body.containsKey("designation")) t.setDesignation((String) body.get("designation"));
+        else if (body.containsKey("department")) t.setDesignation((String) body.get("department"));
+
+        if (body.containsKey("email")) {
+            String newEmail = ((String) body.get("email")).trim().toLowerCase();
+            if (!newEmail.equalsIgnoreCase(t.getEmail())) {
+                if (teacherRepository.existsByEmail(newEmail)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Teacher with email '" + newEmail + "' already exists");
+                }
+                t.setEmail(newEmail);
+            }
+        }
+
+        if (body.containsKey("is_active")) t.setIsActive((Boolean) body.get("is_active"));
+        if (body.containsKey("isActive")) t.setIsActive((Boolean) body.get("isActive"));
+
+        Institute inst = resolveInstitute(body);
+        if (inst != null) t.setInstitute(inst);
+
+        Teacher updated = teacherRepository.save(t);
+        return mapTeacherToMap(updated);
+    }
+
+    public Map<String, Object> patchTeacherStatus(String idStr, Map<String, Object> body) {
+        Teacher t = findTeacherByIdOrEmail(idStr);
+        Object activeObj = body.get("is_active");
+        if (activeObj == null) activeObj = body.get("isActive");
+        if (activeObj == null) activeObj = body.get("status");
+
+        if (activeObj != null) {
+            if (activeObj instanceof Boolean) {
+                t.setIsActive((Boolean) activeObj);
+            } else if ("Active".equalsIgnoreCase(activeObj.toString())) {
+                t.setIsActive(true);
+            } else if ("Inactive".equalsIgnoreCase(activeObj.toString())) {
+                t.setIsActive(false);
+            }
+        }
+        Teacher updated = teacherRepository.save(t);
+        return mapTeacherToMap(updated);
+    }
+
+    public void deleteTeacher(String idStr) {
+        Teacher t = findTeacherByIdOrEmail(idStr);
+        teacherRepository.delete(t);
+    }
+
+    private Teacher findTeacherByIdOrEmail(String idStr) {
+        if (idStr == null || idStr.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Teacher ID or Email is required");
+        }
+        try {
+            UUID id = UUID.fromString(idStr);
+            return teacherRepository.findById(id)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Teacher not found with ID: " + idStr));
+        } catch (IllegalArgumentException e) {
+            return teacherRepository.findByEmail(idStr.trim().toLowerCase())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Teacher not found with Email: " + idStr));
+        }
+    }
+
+    private Map<String, Object> mapTeacherToMap(Teacher t) {
+        Map<String, Object> m = new HashMap<>();
+        String empId = t.getTeacherId().toString().length() >= 8 ? "TCH-" + t.getTeacherId().toString().substring(0, 8).toUpperCase() : t.getTeacherId().toString();
+
+        m.put("teacher_id", t.getTeacherId().toString());
+        m.put("teacherId", t.getTeacherId().toString());
+        m.put("id", t.getTeacherId().toString());
+
+        m.put("employee_id", empId);
+        m.put("employeeId", empId);
+        m.put("identifier", t.getEmail());
+
+        m.put("first_name", t.getFirstName());
+        m.put("firstName", t.getFirstName());
+
+        m.put("last_name", t.getLastName());
+        m.put("lastName", t.getLastName());
+
+        m.put("name", t.getFirstName() + " " + t.getLastName());
+        m.put("email", t.getEmail());
+        m.put("mobile", t.getMobile() != null ? t.getMobile() : "");
+        m.put("gender", t.getGender() != null ? t.getGender() : "Female");
+        m.put("designation", t.getDesignation() != null ? t.getDesignation() : "Assistant Professor");
+        m.put("department", t.getDesignation() != null ? t.getDesignation() : "Computer Science");
+        m.put("date_of_birth", t.getDateOfBirth() != null ? t.getDateOfBirth().toString() : "");
+        m.put("dateOfBirth", t.getDateOfBirth() != null ? t.getDateOfBirth().toString() : "");
+        m.put("address", t.getAddress() != null ? t.getAddress() : "");
+        m.put("profile_photo", t.getProfilePhoto() != null ? t.getProfilePhoto() : "");
+        m.put("profilePhoto", t.getProfilePhoto() != null ? t.getProfilePhoto() : "");
+
+        m.put("institute_id", t.getInstitute() != null ? t.getInstitute().getInstituteId().toString() : "inst-001");
+        m.put("instituteId", t.getInstitute() != null ? t.getInstitute().getInstituteId().toString() : "inst-001");
+        m.put("institute_name", t.getInstitute() != null ? t.getInstitute().getInstituteName() : "Computer Applications");
+        m.put("instituteName", t.getInstitute() != null ? t.getInstitute().getInstituteName() : "Computer Applications");
+
+        m.put("is_active", t.getIsActive() != null ? t.getIsActive() : true);
+        m.put("isActive", t.getIsActive() != null ? t.getIsActive() : true);
+        m.put("status", (t.getIsActive() != null && t.getIsActive()) ? "Active" : "Inactive");
+        m.put("role", "Teacher");
+        return m;
+    }
+
     // --- STUDENTS MANAGEMENT CRUD ---
     public List<Map<String, Object>> getAllStudents(String search, String instituteIdStr, String programIdStr, String semesterIdStr, Boolean activeOnly) {
         List<Map<String, Object>> result = new ArrayList<>();

@@ -42,6 +42,47 @@ public class AdminController {
         return ResponseEntity.ok(result);
     }
 
+    // --- TEACHER MANAGEMENT CRUD ---
+    @GetMapping("/teachers")
+    public ResponseEntity<List<Map<String, Object>>> getAllTeachers(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String designation,
+            @RequestParam(required = false) String instituteId,
+            @RequestParam(required = false) Boolean activeOnly) {
+        List<Map<String, Object>> list = adminService.getAllTeachers(search, designation, instituteId, activeOnly);
+        return ResponseEntity.ok(list);
+    }
+
+    @GetMapping("/teachers/{id}")
+    public ResponseEntity<Map<String, Object>> getTeacherById(@PathVariable String id) {
+        Map<String, Object> teacher = adminService.getTeacherById(id);
+        return ResponseEntity.ok(teacher);
+    }
+
+    @PostMapping("/teachers")
+    public ResponseEntity<Map<String, Object>> createTeacher(@RequestBody Map<String, Object> body) {
+        Map<String, Object> created = adminService.createTeacher(body);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @PutMapping("/teachers/{id}")
+    public ResponseEntity<Map<String, Object>> updateTeacher(@PathVariable String id, @RequestBody Map<String, Object> body) {
+        Map<String, Object> updated = adminService.updateTeacher(id, body);
+        return ResponseEntity.ok(updated);
+    }
+
+    @PatchMapping("/teachers/{id}/status")
+    public ResponseEntity<Map<String, Object>> patchTeacherStatus(@PathVariable String id, @RequestBody Map<String, Object> body) {
+        Map<String, Object> updated = adminService.patchTeacherStatus(id, body);
+        return ResponseEntity.ok(updated);
+    }
+
+    @DeleteMapping("/teachers/{id}")
+    public ResponseEntity<Map<String, Object>> deleteTeacher(@PathVariable String id) {
+        adminService.deleteTeacher(id);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Teacher record deleted successfully"));
+    }
+
     // --- STUDENTS MANAGEMENT CRUD ---
     @GetMapping("/students")
     public ResponseEntity<List<Map<String, Object>>> getAllStudents(
