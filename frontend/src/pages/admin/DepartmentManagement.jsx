@@ -32,31 +32,8 @@ const AdminDepartmentManagement = () => {
         adminApi.getSemesters(),
         adminApi.getInstitutes(),
       ]);
-      const fetchedDepts = Array.isArray(deptData) ? deptData : [];
-      setDepartments((prevDepts) => {
-        if (fetchedDepts.length === 0) return prevDepts;
-        const merged = [...fetchedDepts];
-        prevDepts.forEach((p) => {
-          const pId = p.department_id || p.departmentId || p.program_id;
-          const exists = merged.some(
-            (m) => (m.department_id || m.departmentId || m.program_id) === pId
-          );
-          if (!exists) merged.push(p);
-        });
-        return merged;
-      });
-
-      const fetchedSems = Array.isArray(semData) ? semData : [];
-      setSemesters((prevSems) => {
-        if (fetchedSems.length === 0) return prevSems;
-        const merged = [...fetchedSems];
-        prevSems.forEach((ps) => {
-          const sId = ps.semester_id || ps.semesterId;
-          const exists = merged.some((m) => (m.semester_id || m.semesterId) === sId);
-          if (!exists) merged.push(ps);
-        });
-        return merged;
-      });
+      setDepartments(Array.isArray(deptData) ? deptData : []);
+      setSemesters(Array.isArray(semData) ? semData : []);
       setInstitutes(Array.isArray(instData) ? instData : []);
     } catch (err) {
       console.error("Department load error:", err);
@@ -117,9 +94,7 @@ const AdminDepartmentManagement = () => {
     const id = deletingDept.department_id || deletingDept.departmentId || deletingDept.program_id;
     try {
       await adminApi.deleteDepartment(id);
-      setDepartments((prev) =>
-        prev.filter((d) => (d.department_id || d.departmentId || d.program_id) !== id)
-      );
+      await fetchData();
     } catch (err) {
       console.error("Delete department error:", err);
       setDepartments((prev) =>
@@ -143,7 +118,7 @@ const AdminDepartmentManagement = () => {
       const payload = {
         department_code: deptForm.department_code,
         department_name: deptForm.department_name,
-        institute_id: instId,
+        institute_id: instId || null,
         duration_years: parseInt(deptForm.duration_years) || 2,
         description: deptForm.description || "",
         is_active: deptForm.is_active !== undefined ? deptForm.is_active : true,
@@ -151,34 +126,14 @@ const AdminDepartmentManagement = () => {
 
       if (editDept) {
         const id = editDept.department_id || editDept.departmentId || editDept.program_id;
-        const res = await adminApi.updateDepartment(id, payload);
-        const updatedObj = (res && (res.department_id || res.departmentId || res.program_id))
-          ? res
-          : { department_id: id, ...payload };
-
-        setDepartments((prev) =>
-          prev.map((d) => ((d.department_id || d.departmentId || d.program_id) === id ? updatedObj : d))
-        );
+        await adminApi.updateDepartment(id, payload);
       } else {
-        const res = await adminApi.createDepartment(payload);
-        const newDeptObj = (res && (res.department_id || res.departmentId || res.program_id))
-          ? res
-          : {
-            department_id: "dept-" + Date.now(),
-            ...payload,
-            created_at: new Date().toISOString(),
-          };
-        setDepartments((prev) => [newDeptObj, ...prev]);
+        await adminApi.createDepartment(payload);
       }
+      await fetchData();
       setShowDeptModal(false);
     } catch (err) {
       console.error("Save department error:", err);
-      const newDeptObj = {
-        department_id: "dept-" + Date.now(),
-        ...deptForm,
-        created_at: new Date().toISOString(),
-      };
-      setDepartments((prev) => [newDeptObj, ...prev]);
       setShowDeptModal(false);
     } finally {
       setSaving(false);
@@ -191,9 +146,7 @@ const AdminDepartmentManagement = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
           <h1 className="text-xl font-bold text-[#1E293B]">Department Management</h1>
-          <p className="text-xs text-[#64748B] mt-0.5">
-            Manage academic departments, degree programs, and course durations
-          </p>
+
         </div>
 
         <Button variant="accent" size="sm" icon={Plus} onClick={handleOpenAddDept} className="text-xs">

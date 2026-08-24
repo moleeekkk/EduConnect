@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = "http://localhost:8081/api/v1";
+const API_BASE_URL = "http://localhost:8080/api/v1";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -226,6 +226,22 @@ export const adminApi = {
     handleRequest(() => api.delete(`/admin/batches/${id}`), { success: true }),
   toggleBatchStatus: (id) =>
     handleRequest(() => api.patch(`/admin/batches/${id}/toggle-status`), {}),
+  getFaculty: () =>
+    handleRequest(() => api.get("/admin/teachers"), []),
+  createFaculty: (data) =>
+    handleRequest(() => api.post("/admin/teachers", data), {}),
+  updateFaculty: (id, data) =>
+    handleRequest(() => api.put(`/admin/teachers/${id}`, data), {}),
+  deleteFaculty: (id) =>
+    handleRequest(() => api.delete(`/admin/teachers/${id}`), { success: true }),
+  getStudents: () =>
+    handleRequest(() => api.get("/admin/students"), []),
+  createStudent: (data) =>
+    handleRequest(() => api.post("/admin/students", data), {}),
+  updateStudent: (id, data) =>
+    handleRequest(() => api.put(`/admin/students/${id}`, data), {}),
+  deleteStudent: (id) =>
+    handleRequest(() => api.delete(`/admin/students/${id}`), { success: true }),
 };
 
 export default api;

@@ -20,9 +20,9 @@ const AdminBatchManagement = () => {
   const [editBatchItem, setEditBatchItem] = useState(null);
   const [formData, setFormData] = useState({
     batch_name: "",
-    program_id: "",
-    start_year: new Date().getFullYear(),
-    end_year: new Date().getFullYear() + 2,
+    department_id: "",
+    start_year: "",
+    end_year: "",
     is_active: true,
   });
 
@@ -49,9 +49,9 @@ const AdminBatchManagement = () => {
     setEditBatchItem(null);
     setFormData({
       batch_name: "",
-      program_id: programs.length > 0 ? (programs[0].program_id || programs[0].department_id || "") : "",
-      start_year: new Date().getFullYear(),
-      end_year: new Date().getFullYear() + 2,
+      department_id: "",
+      start_year: "",
+      end_year: "",
       is_active: true,
     });
     setShowModal(true);
@@ -61,9 +61,9 @@ const AdminBatchManagement = () => {
     setEditBatchItem(batch);
     setFormData({
       batch_name: batch.batch_name || batch.batchName || "",
-      program_id: batch.program_id || batch.programId || "",
-      start_year: batch.start_year || batch.startYear || new Date().getFullYear(),
-      end_year: batch.end_year || batch.endYear || new Date().getFullYear() + 2,
+      department_id: batch.department_id || batch.departmentId || batch.program_id || batch.programId || "",
+      start_year: batch.start_year || batch.startYear || "",
+      end_year: batch.end_year || batch.endYear || "",
       is_active: batch.is_active !== undefined ? batch.is_active : batch.isActive !== undefined ? batch.isActive : true,
     });
     setShowModal(true);
@@ -73,11 +73,19 @@ const AdminBatchManagement = () => {
     e.preventDefault();
     setSaving(true);
     try {
+      const payload = {
+        batch_name: formData.batch_name,
+        department_id: formData.department_id,
+        program_id: formData.department_id,
+        start_year: parseInt(formData.start_year) || new Date().getFullYear(),
+        end_year: parseInt(formData.end_year) || (new Date().getFullYear() + 2),
+        is_active: formData.is_active,
+      };
       if (editBatchItem) {
         const id = editBatchItem.batch_id || editBatchItem.batchId;
-        await adminApi.updateBatch(id, formData);
+        await adminApi.updateBatch(id, payload);
       } else {
-        await adminApi.createBatch(formData);
+        await adminApi.createBatch(payload);
       }
       setShowModal(false);
       await refreshBatches();
@@ -113,25 +121,23 @@ const AdminBatchManagement = () => {
     }
   };
 
-  // Helper map for program names
-  const getProgramName = (progId) => {
-    if (!progId) return "N/A";
+  // Helper map for department names
+  const getDepartmentName = (deptId) => {
+    if (!deptId) return "N/A";
     const found = programs.find(
       (p) =>
-        p.program_id === progId ||
-        p.department_id === progId ||
-        p.programId === progId
+        (p.department_id || p.departmentId || p.program_id || p.programId) === deptId
     );
-    return found ? (found.program_name || found.department_name) : "Computer Applications";
+    return found ? (found.department_name || found.departmentName || found.program_name || found.programName) : "Computer Applications";
   };
 
   // Filtered List
   const filteredBatches = (batches || []).filter((b) => {
     const bName = (b.batch_name || b.batchName || "").toLowerCase();
     const matchesSearch = bName.includes(searchTerm.toLowerCase());
-    const progId = b.program_id || b.programId;
+    const deptId = b.department_id || b.departmentId || b.program_id || b.programId;
     const matchesProgram =
-      selectedProgramFilter === "ALL" || progId === selectedProgramFilter;
+      selectedProgramFilter === "ALL" || deptId === selectedProgramFilter;
     return matchesSearch && matchesProgram;
   });
 
@@ -199,13 +205,15 @@ const AdminBatchManagement = () => {
                 <th className="p-3.5">Duration</th>
                 <th className="p-3.5">Status</th>
                 <th className="p-3.5">System Selection</th>
+                <th className="p-3.5">Created At</th>
+                <th className="p-3.5">Updated At</th>
                 <th className="p-3.5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-[#64748B]">
+                  <td colSpan={8} className="p-8 text-center text-[#64748B]">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="w-5 h-5 animate-spin text-[#2563EB]" />
                       <span>Fetching batches from database...</span>
@@ -214,7 +222,7 @@ const AdminBatchManagement = () => {
                 </tr>
               ) : filteredBatches.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-[#64748B]">
+                  <td colSpan={8} className="p-8 text-center text-[#64748B]">
                     No batches found in database. Click <strong>Add New Batch</strong> to create one.
                   </td>
                 </tr>
@@ -235,20 +243,18 @@ const AdminBatchManagement = () => {
                       </td>
                       <td className="p-3.5">
                         <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-[#475569] font-medium text-[11px]">
-                          {getProgramName(batch.program_id || batch.programId)}
+                          {getDepartmentName(batch.department_id || batch.departmentId || batch.program_id || batch.programId)}
                         </span>
                       </td>
                       <td className="p-3.5 font-medium text-[#334155]">
                         {sYear} - {eYear} <span className="text-[11px] text-[#64748B]">({eYear - sYear} Yrs)</span>
                       </td>
                       <td className="p-3.5">
-                        <button
-                          onClick={() => handleToggleStatus(bId)}
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold cursor-pointer transition-all ${
-                            isActive
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${isActive
                               ? "bg-emerald-50 text-[#10B981] border border-emerald-200"
                               : "bg-rose-50 text-[#EF4444] border border-rose-200"
-                          }`}
+                            }`}
                         >
                           {isActive ? (
                             <>
@@ -259,7 +265,7 @@ const AdminBatchManagement = () => {
                               <XCircle className="w-3.5 h-3.5" /> Inactive
                             </>
                           )}
-                        </button>
+                        </span>
                       </td>
                       <td className="p-3.5">
                         {isCurrentSelected ? (
@@ -274,6 +280,12 @@ const AdminBatchManagement = () => {
                             Set Active
                           </button>
                         )}
+                      </td>
+                      <td className="p-3.5 text-[#64748B] font-mono text-[11px]">
+                        {batch.created_at || batch.createdAt ? new Date(batch.created_at || batch.createdAt).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A"}
+                      </td>
+                      <td className="p-3.5 text-[#64748B] font-mono text-[11px]">
+                        {batch.updated_at || batch.updatedAt ? new Date(batch.updated_at || batch.updatedAt).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A"}
                       </td>
                       <td className="p-3.5 text-right space-x-1">
                         <button
@@ -332,19 +344,20 @@ const AdminBatchManagement = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#1E293B] mb-1">Academic Program / Department *</label>
+                <label className="block text-xs font-bold text-[#1E293B] mb-1">Academic Department *</label>
                 <select
-                  value={formData.program_id}
-                  onChange={(e) => setFormData({ ...formData, program_id: e.target.value })}
+                  required
+                  value={formData.department_id}
+                  onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
                   className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs text-[#1E293B] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all font-medium cursor-pointer"
                 >
-                  <option value="">-- Select Program --</option>
+                  <option value="">-- Select Department --</option>
                   {programs.map((p) => {
-                    const pId = p.program_id || p.department_id || p.programId;
-                    const pName = p.program_name || p.department_name;
+                    const deptId = p.department_id || p.departmentId || p.program_id || p.programId;
+                    const deptName = p.department_name || p.departmentName || p.program_name || p.programName;
                     return (
-                      <option key={pId} value={pId}>
-                        {pName}
+                      <option key={deptId} value={deptId}>
+                        {deptName}
                       </option>
                     );
                   })}

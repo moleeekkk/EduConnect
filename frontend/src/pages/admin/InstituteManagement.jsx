@@ -132,13 +132,15 @@ const AdminInstituteManagement = () => {
                 <th className="p-3.5">Institute Name</th>
                 <th className="p-3.5">Description</th>
                 <th className="p-3.5">Status</th>
+                <th className="p-3.5">Created At</th>
+                <th className="p-3.5">Updated At</th>
                 <th className="p-3.5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-[#64748B]">
+                  <td colSpan={7} className="p-8 text-center text-[#64748B]">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="w-5 h-5 animate-spin text-[#2563EB]" />
                       <span>Fetching institutes from database...</span>
@@ -147,7 +149,7 @@ const AdminInstituteManagement = () => {
                 </tr>
               ) : institutes.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-[#64748B]">
+                  <td colSpan={7} className="p-8 text-center text-[#64748B]">
                     No institutes found in database. Click "Add Institute" to create one.
                   </td>
                 </tr>
@@ -167,6 +169,12 @@ const AdminInstituteManagement = () => {
                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${isActive ? "bg-[#22C55E]/10 text-[#22C55E]" : "bg-gray-200 text-gray-600"}`}>
                           {isActive ? "Active" : "Inactive"}
                         </span>
+                      </td>
+                      <td className="p-3.5 text-[#64748B] font-mono text-[11px]">
+                        {inst.created_at || inst.createdAt ? new Date(inst.created_at || inst.createdAt).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A"}
+                      </td>
+                      <td className="p-3.5 text-[#64748B] font-mono text-[11px]">
+                        {inst.updated_at || inst.updatedAt ? new Date(inst.updated_at || inst.updatedAt).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A"}
                       </td>
                       <td className="p-3.5 text-right whitespace-nowrap">
                         <div className="inline-flex items-center justify-end gap-1.5">

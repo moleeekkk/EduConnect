@@ -57,9 +57,7 @@ const AdminDashboard = () => {
           <h1 className="text-2xl font-bold tracking-tight">
             EduConnect Institutional Control Center
           </h1>
-          <p className="text-white/80 text-xs mt-1">
-            Global Administration • Department Operations • Database Governance
-          </p>
+
         </div>
       </div>
 
@@ -83,22 +81,6 @@ const AdminDashboard = () => {
 
       {/* Quick Navigation Control Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {/* Academic Batches Card - Placed BEFORE Institutes */}
-        <div className="bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-[#F59E0B]/10 text-[#F59E0B]">
-              <CalendarRange className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-[#1E293B]">Academic Batches</h3>
-              <p className="text-xs text-[#64748B]">Manage batch sessions & active batch</p>
-            </div>
-          </div>
-          <Button variant="outline" fullWidth size="sm" onClick={() => navigate("/admin/batches")} className="text-xs">
-            Manage Batches
-          </Button>
-        </div>
-
         <div className="bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs space-y-3">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-lg bg-[#2563EB]/10 text-[#2563EB]">
@@ -126,6 +108,21 @@ const AdminDashboard = () => {
           </div>
           <Button variant="outline" fullWidth size="sm" onClick={() => navigate("/admin/departments")} className="text-xs">
             Manage Departments
+          </Button>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-lg bg-[#F59E0B]/10 text-[#F59E0B]">
+              <CalendarRange className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-[#1E293B]">Academic Batches</h3>
+              <p className="text-xs text-[#64748B]">Manage batch sessions & active batch</p>
+            </div>
+          </div>
+          <Button variant="outline" fullWidth size="sm" onClick={() => navigate("/admin/batches")} className="text-xs">
+            Manage Batches
           </Button>
         </div>
 

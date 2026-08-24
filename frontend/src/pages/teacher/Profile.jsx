@@ -9,7 +9,7 @@ const TeacherProfile = () => {
 
   const [profile, setProfile] = useState({
     teacher_id: "teach-001",
-    employee_id: loggedUser?.identifier || "FAC-8092",
+    employee_id: loggedUser?.identifier || "",
     first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : "Faculty",
     last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : "Member",
     email: loggedUser?.identifier || "teacher@educonnect.ac.in",
