@@ -104,7 +104,32 @@ export const teacherApi = {
     const response = await api.get(`/teacher/allocations/${allocationId}/students`);
     return response.data;
   },
+  getAssignments: async () => {
+    const response = await api.get("/teacher/assignments");
+    return response.data;
+  },
+  createAssignment: async (assignmentData) => {
+    const response = await api.post("/teacher/assignments", assignmentData);
+    return response.data;
+  },
+  updateAssignment: async (id, assignmentData) => {
+    const response = await api.put(`/teacher/assignments/${id}`, assignmentData);
+    return response.data;
+  },
+  deleteAssignment: async (id) => {
+    const response = await api.delete(`/teacher/assignments/${id}`);
+    return response.data;
+  },
+  getSubmissions: async (assignmentId) => {
+    const response = await api.get(`/teacher/assignments/${assignmentId}/submissions`);
+    return response.data;
+  },
+  gradeSubmission: async (submissionId, gradeData) => {
+    const response = await api.post(`/teacher/submissions/${submissionId}/grade`, gradeData);
+    return response.data;
+  },
 };
+
 
 
 // Admin Endpoints

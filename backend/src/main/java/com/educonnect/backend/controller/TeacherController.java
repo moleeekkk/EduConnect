@@ -1,5 +1,6 @@
 package com.educonnect.backend.controller;
 
+import com.educonnect.backend.dto.AssignmentDto;
 import com.educonnect.backend.dto.AttendanceMarkRequest;
 import com.educonnect.backend.service.TeacherService;
 import lombok.RequiredArgsConstructor;
@@ -70,7 +71,7 @@ public class TeacherController {
         return ResponseEntity.ok(list);
     }
 
-    // --- SAVE / CREATE ATTENDANCE (MULTIPLE ALIASES TO PREVENT POST METHOD NOT SUPPORTED) ---
+    // --- SAVE / CREATE ATTENDANCE ---
     @PostMapping({"/attendance", "/attendances", "/attendance/mark", "/attendance/save", "/attendance/record", "/attendance/records"})
     public ResponseEntity<Map<String, Object>> saveAttendance(
             @RequestBody AttendanceMarkRequest request,
@@ -88,7 +89,7 @@ public class TeacherController {
         return ResponseEntity.ok(response);
     }
 
-    // --- ATTENDANCE HISTORY / GET ATTENDANCE BY SUBJECT & DATE ---
+    // --- ATTENDANCE HISTORY ---
     @GetMapping({"/attendance", "/attendances", "/attendance/history", "/attendance/records"})
     public ResponseEntity<List<Map<String, Object>>> getAttendanceHistory(
             @RequestParam(required = false) String allocationId,
@@ -98,6 +99,62 @@ public class TeacherController {
         String targetAllocation = allocationId != null ? allocationId : subjectId;
         List<Map<String, Object>> history = teacherService.getAttendanceHistory(targetAllocation, date, principal);
         return ResponseEntity.ok(history);
+    }
+
+    // --- ASSIGNMENT MANAGEMENT ---
+    @GetMapping({"/assignments", "/upload-assignment"})
+    public ResponseEntity<List<Map<String, Object>>> getTeacherAssignments(Principal principal) {
+        List<Map<String, Object>> list = teacherService.getTeacherAssignments(principal);
+        return ResponseEntity.ok(list);
+    }
+
+    @PostMapping({"/assignments", "/upload-assignment"})
+    public ResponseEntity<Map<String, Object>> createAssignment(
+            @RequestBody AssignmentDto dto,
+            Principal principal) {
+        Map<String, Object> result = teacherService.createAssignment(dto, principal);
+        return ResponseEntity.ok(result);
+    }
+
+    @PutMapping("/assignments/{assignmentId}")
+    public ResponseEntity<Map<String, Object>> updateAssignment(
+            @PathVariable UUID assignmentId,
+            @RequestBody AssignmentDto dto,
+            Principal principal) {
+        Map<String, Object> result = teacherService.updateAssignment(assignmentId, dto, principal);
+        return ResponseEntity.ok(result);
+    }
+
+    @DeleteMapping("/assignments/{assignmentId}")
+    public ResponseEntity<Map<String, Object>> deleteAssignment(
+            @PathVariable UUID assignmentId,
+            Principal principal) {
+        Map<String, Object> result = teacherService.deleteAssignment(assignmentId, principal);
+        return ResponseEntity.ok(result);
+    }
+
+    // --- SUBMISSIONS & GRADING ---
+    @GetMapping({"/assignments/{assignmentId}/submissions", "/submissions"})
+    public ResponseEntity<List<Map<String, Object>>> getAssignmentSubmissions(
+            @PathVariable(required = false) UUID assignmentId,
+            @RequestParam(required = false) UUID asgnId,
+            Principal principal) {
+        UUID targetId = assignmentId != null ? assignmentId : asgnId;
+        if (targetId == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        List<Map<String, Object>> submissions = teacherService.getAssignmentSubmissions(targetId, principal);
+        return ResponseEntity.ok(submissions);
+    }
+
+    @PostMapping({"/submissions/{submissionId}/grade", "/grade-submission"})
+    public ResponseEntity<Map<String, Object>> gradeSubmission(
+            @PathVariable(required = false) UUID submissionId,
+            @RequestBody AssignmentDto dto,
+            Principal principal) {
+        UUID targetSubId = submissionId != null ? submissionId : (dto.getSubmissionId() != null ? dto.getSubmissionId() : UUID.nameUUIDFromBytes((dto.getSubmission_id() != null ? dto.getSubmission_id() : "").getBytes()));
+        Map<String, Object> result = teacherService.gradeSubmission(targetSubId, dto, principal);
+        return ResponseEntity.ok(result);
     }
 
     // --- GRADES ---
