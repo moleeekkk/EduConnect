@@ -284,53 +284,233 @@ public class TeacherService {
         return m;
     }
 
-    public Map<String, Object> markAttendance(AttendanceMarkRequest request) {
-        UUID teacherSubjectId = request.getTeacherSubjectId() != null
-                ? request.getTeacherSubjectId()
-                : UUID.randomUUID();
+    public Map<String, Object> markAttendance(AttendanceMarkRequest request, Principal principal) {
+        Teacher authenticatedTeacher = getAuthenticatedTeacher(principal);
 
-        AttendanceSession session = AttendanceSession.builder()
-                .teacherSubjectId(teacherSubjectId)
-                .sessionDate(LocalDate.now())
-                .lectureNo(request.getLectureNo() != null ? request.getLectureNo() : 1)
-                .startTime(LocalTime.of(9, 30))
-                .endTime(LocalTime.of(11, 0))
-                .topic(request.getTopic() != null ? request.getTopic() : "Lecture Session")
-                .build();
+        Object idObj = request.getTeacherSubjectId();
+        if (idObj == null) idObj = request.getAllocationId();
+        if (idObj == null) idObj = request.getSubjectId();
+        if (idObj == null) idObj = request.getSelectedSubject();
 
+        TeacherSubjectAllocation allocation = null;
+        UUID targetId = null;
+
+        if (idObj != null && !idObj.toString().isBlank()) {
+            try {
+                UUID parsedId = UUID.fromString(idObj.toString());
+                Optional<TeacherSubjectAllocation> allocOpt = allocationRepository.findById(parsedId);
+                if (allocOpt.isPresent()) {
+                    allocation = allocOpt.get();
+                    targetId = allocation.getAllocationId();
+                } else {
+                    targetId = parsedId;
+                }
+            } catch (Exception e) {
+                targetId = UUID.nameUUIDFromBytes(idObj.toString().getBytes());
+            }
+        }
+
+        List<TeacherSubjectAllocation> teacherAllocations = allocationRepository.findByTeacher_TeacherId(authenticatedTeacher.getTeacherId());
+
+        if (allocation != null) {
+            if (!allocation.getTeacher().getTeacherId().equals(authenticatedTeacher.getTeacherId())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "403 Forbidden: You are not authorized to mark attendance for another teacher's allocation");
+            }
+        } else if (!teacherAllocations.isEmpty()) {
+            allocation = teacherAllocations.get(0);
+            targetId = allocation.getAllocationId();
+        } else {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "403 Forbidden: You do not have any assigned subjects to mark attendance for");
+        }
+
+        LocalDate sessionDate = LocalDate.now();
+        if (request.getSessionDate() != null && !request.getSessionDate().isBlank()) {
+            try {
+                sessionDate = LocalDate.parse(request.getSessionDate());
+            } catch (Exception ignored) {}
+        }
+
+        Integer lectureNo = request.getLectureNo() != null ? request.getLectureNo() : 1;
+
+        LocalTime startTime = LocalTime.of(9, 30);
+        if (request.getStartTime() != null && !request.getStartTime().isBlank()) {
+            try {
+                startTime = LocalTime.parse(request.getStartTime());
+            } catch (Exception ignored) {}
+        }
+
+        LocalTime endTime = LocalTime.of(11, 0);
+        if (request.getEndTime() != null && !request.getEndTime().isBlank()) {
+            try {
+                endTime = LocalTime.parse(request.getEndTime());
+            } catch (Exception ignored) {}
+        }
+
+        String topic = request.getTopic() != null && !request.getTopic().isBlank() 
+                ? request.getTopic() 
+                : "Lecture Session - " + (allocation.getSubject() != null ? allocation.getSubject().getSubjectName() : "Class Session");
+
+        // Duplicate Check & Session Upsert
+        Optional<AttendanceSession> existingSessionOpt = sessionRepository.findByTeacherSubjectIdAndSessionDateAndLectureNo(
+                targetId, sessionDate, lectureNo);
+
+        AttendanceSession session;
+        if (existingSessionOpt.isPresent()) {
+            session = existingSessionOpt.get();
+            session.setStartTime(startTime);
+            session.setEndTime(endTime);
+            session.setTopic(topic);
+        } else {
+            session = AttendanceSession.builder()
+                    .teacherSubjectId(targetId)
+                    .sessionDate(sessionDate)
+                    .lectureNo(lectureNo)
+                    .startTime(startTime)
+                    .endTime(endTime)
+                    .topic(topic)
+                    .build();
+        }
         AttendanceSession savedSession = sessionRepository.save(session);
+
+        // Authorized Students in the Allocation's Program & Semester
+        List<Student> authorizedStudents = Collections.emptyList();
+        if (allocation.getProgram() != null && allocation.getSemester() != null) {
+            authorizedStudents = studentRepository.findByProgram_ProgramIdAndSemester_SemesterId(
+                    allocation.getProgram().getProgramId(), allocation.getSemester().getSemesterId());
+        } else {
+            authorizedStudents = studentRepository.findAll();
+        }
+
+        Map<UUID, Student> authorizedStudentMap = new HashMap<>();
+        authorizedStudents.forEach(s -> authorizedStudentMap.put(s.getStudentId(), s));
 
         int presentCount = 0;
         int absentCount = 0;
+        int lateCount = 0;
+        int totalProcessed = 0;
 
-        if (request.getStudentStatuses() != null) {
-            for (AttendanceMarkRequest.StudentStatus status : request.getStudentStatuses()) {
-                UUID studentId = status.getStudentId() != null ? status.getStudentId() : UUID.randomUUID();
-                AttendanceRecord record = AttendanceRecord.builder()
-                        .sessionId(savedSession.getSessionId())
-                        .studentId(studentId)
-                        .attendanceStatus(status.getStatus() != null ? status.getStatus() : "Present")
-                        .remarks(status.getRemarks())
-                        .build();
-                recordRepository.save(record);
+        // Process List
+        if (request.getStudentStatuses() != null && !request.getStudentStatuses().isEmpty()) {
+            for (AttendanceMarkRequest.StudentStatus statusItem : request.getStudentStatuses()) {
+                UUID studentId = statusItem.getStudentId();
+                if (studentId == null && statusItem.getStudentIdStr() != null && !statusItem.getStudentIdStr().isBlank()) {
+                    try {
+                        studentId = UUID.fromString(statusItem.getStudentIdStr());
+                    } catch (Exception ignored) {}
+                }
 
-                if ("Present".equalsIgnoreCase(status.getStatus())) presentCount++;
-                else absentCount++;
+                if (studentId != null && authorizedStudentMap.containsKey(studentId)) {
+                    String status = statusItem.getStatus() != null ? statusItem.getStatus() : "Present";
+                    upsertRecord(savedSession.getSessionId(), studentId, status, statusItem.getRemarks());
+
+                    totalProcessed++;
+                    if ("Present".equalsIgnoreCase(status)) presentCount++;
+                    else if ("Late".equalsIgnoreCase(status)) lateCount++;
+                    else absentCount++;
+                }
+            }
+        } 
+        // Process Map
+        else if (request.getStudentStatusMap() != null && !request.getStudentStatusMap().isEmpty()) {
+            for (Map.Entry<String, String> entry : request.getStudentStatusMap().entrySet()) {
+                try {
+                    UUID studentId = UUID.fromString(entry.getKey());
+                    if (authorizedStudentMap.containsKey(studentId)) {
+                        String status = entry.getValue() != null ? entry.getValue() : "Present";
+                        upsertRecord(savedSession.getSessionId(), studentId, status, null);
+
+                        totalProcessed++;
+                        if ("Present".equalsIgnoreCase(status)) presentCount++;
+                        else if ("Late".equalsIgnoreCase(status)) lateCount++;
+                        else absentCount++;
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+        // Fallback for default authorized roster
+        else if (!authorizedStudents.isEmpty()) {
+            for (Student s : authorizedStudents) {
+                upsertRecord(savedSession.getSessionId(), s.getStudentId(), "Present", null);
+                totalProcessed++;
+                presentCount++;
             }
         }
 
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
-        response.put("message", "Attendance session saved successfully");
+        response.put("message", "Lecture session and attendance records saved successfully in PostgreSQL");
         response.put("sessionId", savedSession.getSessionId().toString());
-        response.put("totalRecords", request.getStudentStatuses() != null ? request.getStudentStatuses().size() : 0);
+        response.put("totalRecords", totalProcessed);
         response.put("presentCount", presentCount);
         response.put("absentCount", absentCount);
+        response.put("lateCount", lateCount);
 
         return response;
+    }
+
+    private void upsertRecord(UUID sessionId, UUID studentId, String status, String remarks) {
+        Optional<AttendanceRecord> existing = recordRepository.findBySessionIdAndStudentId(sessionId, studentId);
+        AttendanceRecord record;
+        if (existing.isPresent()) {
+            record = existing.get();
+            record.setAttendanceStatus(status);
+            if (remarks != null) record.setRemarks(remarks);
+        } else {
+            record = AttendanceRecord.builder()
+                    .sessionId(sessionId)
+                    .studentId(studentId)
+                    .attendanceStatus(status)
+                    .remarks(remarks)
+                    .build();
+        }
+        recordRepository.save(record);
+    }
+
+    public List<Map<String, Object>> getAttendanceHistory(String allocationIdStr, String dateStr, Principal principal) {
+        Teacher authenticatedTeacher = getAuthenticatedTeacher(principal);
+
+        List<TeacherSubjectAllocation> allocations = allocationRepository.findByTeacher_TeacherId(authenticatedTeacher.getTeacherId());
+        List<UUID> targetIds = allocations.stream().map(TeacherSubjectAllocation::getAllocationId).toList();
+
+        if (targetIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<AttendanceSession> sessions = sessionRepository.findByTeacherSubjectIdIn(targetIds);
+        List<Map<String, Object>> history = new ArrayList<>();
+
+        for (AttendanceSession s : sessions) {
+            if (dateStr != null && !dateStr.isBlank() && !s.getSessionDate().toString().equalsIgnoreCase(dateStr.trim())) {
+                continue;
+            }
+
+            List<AttendanceRecord> records = recordRepository.findBySessionId(s.getSessionId());
+            long present = records.stream().filter(r -> "Present".equalsIgnoreCase(r.getAttendanceStatus())).count();
+            long absent = records.stream().filter(r -> "Absent".equalsIgnoreCase(r.getAttendanceStatus())).count();
+            long late = records.stream().filter(r -> "Late".equalsIgnoreCase(r.getAttendanceStatus())).count();
+
+            Map<String, Object> item = new HashMap<>();
+            item.put("session_id", s.getSessionId().toString());
+            item.put("sessionId", s.getSessionId().toString());
+            item.put("session_date", s.getSessionDate().toString());
+            item.put("sessionDate", s.getSessionDate().toString());
+            item.put("lecture_no", s.getLectureNo());
+            item.put("lectureNo", s.getLectureNo());
+            item.put("start_time", s.getStartTime().toString());
+            item.put("end_time", s.getEndTime().toString());
+            item.put("topic", s.getTopic());
+            item.put("totalStudents", records.size());
+            item.put("presentCount", present);
+            item.put("absentCount", absent);
+            item.put("lateCount", late);
+            history.add(item);
+        }
+
+        return history;
     }
 
     public List<Map<String, Object>> getPendingGrades(String teacherId) {
         return Collections.emptyList();
     }
 }
+

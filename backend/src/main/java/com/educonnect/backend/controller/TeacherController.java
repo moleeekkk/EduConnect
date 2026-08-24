@@ -52,8 +52,8 @@ public class TeacherController {
         return ResponseEntity.ok(list);
     }
 
-    // --- ASSIGNED STUDENTS ---
-    @GetMapping("/students")
+    // --- ASSIGNED STUDENTS FOR ATTENDANCE ---
+    @GetMapping({"/students", "/attendance/students"})
     public ResponseEntity<List<Map<String, Object>>> getAssignedStudents(
             @RequestParam(required = false) String teacherId,
             @RequestParam(required = false) UUID allocationId,
@@ -62,7 +62,7 @@ public class TeacherController {
         return ResponseEntity.ok(list);
     }
 
-    @GetMapping("/allocations/{allocationId}/students")
+    @GetMapping({"/allocations/{allocationId}/students", "/subjects/{allocationId}/students"})
     public ResponseEntity<List<Map<String, Object>>> getApplicableStudentsForAllocation(
             @PathVariable UUID allocationId,
             Principal principal) {
@@ -70,13 +70,37 @@ public class TeacherController {
         return ResponseEntity.ok(list);
     }
 
-    // --- ATTENDANCE & GRADES ---
-    @PostMapping("/attendance/mark")
-    public ResponseEntity<Map<String, Object>> markAttendance(@RequestBody AttendanceMarkRequest request) {
-        Map<String, Object> response = teacherService.markAttendance(request);
+    // --- SAVE / CREATE ATTENDANCE (MULTIPLE ALIASES TO PREVENT POST METHOD NOT SUPPORTED) ---
+    @PostMapping({"/attendance", "/attendances", "/attendance/mark", "/attendance/save", "/attendance/record", "/attendance/records"})
+    public ResponseEntity<Map<String, Object>> saveAttendance(
+            @RequestBody AttendanceMarkRequest request,
+            Principal principal) {
+        Map<String, Object> response = teacherService.markAttendance(request, principal);
         return ResponseEntity.ok(response);
     }
 
+    // --- UPDATE ATTENDANCE ---
+    @PutMapping({"/attendance", "/attendances", "/attendance/mark", "/attendance/update", "/attendance/{sessionId}"})
+    public ResponseEntity<Map<String, Object>> updateAttendance(
+            @RequestBody AttendanceMarkRequest request,
+            Principal principal) {
+        Map<String, Object> response = teacherService.markAttendance(request, principal);
+        return ResponseEntity.ok(response);
+    }
+
+    // --- ATTENDANCE HISTORY / GET ATTENDANCE BY SUBJECT & DATE ---
+    @GetMapping({"/attendance", "/attendances", "/attendance/history", "/attendance/records"})
+    public ResponseEntity<List<Map<String, Object>>> getAttendanceHistory(
+            @RequestParam(required = false) String allocationId,
+            @RequestParam(required = false) String subjectId,
+            @RequestParam(required = false) String date,
+            Principal principal) {
+        String targetAllocation = allocationId != null ? allocationId : subjectId;
+        List<Map<String, Object>> history = teacherService.getAttendanceHistory(targetAllocation, date, principal);
+        return ResponseEntity.ok(history);
+    }
+
+    // --- GRADES ---
     @GetMapping("/grades")
     public ResponseEntity<List<Map<String, Object>>> getPendingGrades(
             @RequestParam(required = false) String teacherId) {
