@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { BookOpenCheck, Upload, CheckCircle2, Clock, AlertCircle, FileText, Download, Eye, Paperclip, X } from "lucide-react";
 import Button from "../../components/common/Button";
 import { studentApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
+
 
 const StudentAssignments = () => {
   const [assignments, setAssignments] = useState([]);
@@ -25,48 +27,60 @@ const StudentAssignments = () => {
     fetchData();
   }, []);
 
-  const handleSubmitAssignment = (e) => {
+  const handleSubmitAssignment = async (e) => {
     e.preventDefault();
-    if (!selectedAssignment || !uploadFile) return;
-
-    const existingSub = submissions.find((s) => s.assignment_id === selectedAssignment.assignment_id);
-
-    if (existingSub) {
-      // Re-upload / Update existing submission
-      setSubmissions(
-        submissions.map((s) =>
-          s.assignment_id === selectedAssignment.assignment_id
-            ? {
-                ...s,
-                submission_date: new Date().toISOString().split("T")[0],
-                attachment: uploadFile.name,
-                submission_status: "Timely",
-                updated_at: new Date().toISOString(),
-              }
-            : s
-        )
-      );
-    } else {
-      // Create new submission
-      const newSub = {
-        submission_id: `sub-00${submissions.length + 1}`,
-        assignment_id: selectedAssignment.assignment_id,
-        student_id: "stu-001",
-        submission_date: new Date().toISOString().split("T")[0],
-        attachment: uploadFile.name,
-        obtained_marks: null,
-        feedback: null,
-        submission_status: "Timely",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      setSubmissions([newSub, ...submissions]);
+    if (!selectedAssignment || !uploadFile) {
+      notifyError("Please select a file to upload.");
+      return;
     }
 
-    setSelectedAssignment(null);
-    setUploadFile(null);
-    setUploadSuccess(true);
-    setTimeout(() => setUploadSuccess(false), 3000);
+    try {
+      await studentApi.submitAssignment(selectedAssignment.assignment_id, {
+        fileName: uploadFile.name,
+      });
+
+      const existingSub = submissions.find((s) => s.assignment_id === selectedAssignment.assignment_id);
+
+      if (existingSub) {
+        setSubmissions(
+          submissions.map((s) =>
+            s.assignment_id === selectedAssignment.assignment_id
+              ? {
+                  ...s,
+                  submission_date: new Date().toISOString().split("T")[0],
+                  attachment: uploadFile.name,
+                  submission_status: "Timely",
+                  updated_at: new Date().toISOString(),
+                }
+              : s
+          )
+        );
+      } else {
+        const newSub = {
+          submission_id: `sub-00${submissions.length + 1}`,
+          assignment_id: selectedAssignment.assignment_id,
+          student_id: "stu-001",
+          submission_date: new Date().toISOString().split("T")[0],
+          attachment: uploadFile.name,
+          obtained_marks: null,
+          feedback: null,
+          submission_status: "Timely",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        setSubmissions([newSub, ...submissions]);
+      }
+
+      setSelectedAssignment(null);
+      setUploadFile(null);
+      setUploadSuccess(true);
+      notifySuccess(`Assignment '${selectedAssignment.title}' solution submitted to database successfully!`);
+      setTimeout(() => setUploadSuccess(false), 3000);
+    } catch (err) {
+      console.error("Submit assignment error:", err);
+      const msg = err.response?.data?.error || err.message || "Failed to submit assignment.";
+      notifyError(`Failed to submit assignment: ${msg}`);
+    }
   };
 
   return (

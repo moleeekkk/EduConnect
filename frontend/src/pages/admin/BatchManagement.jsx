@@ -1,39 +1,37 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, CheckCircle2, XCircle, Search, Filter, X, Loader2, Sparkles } from "lucide-react";
+import { Plus, Edit, Trash2, CheckCircle2, XCircle, Search, X, Loader2, Sparkles } from "lucide-react";
 import Button from "../../components/common/Button";
 import ConfirmModal from "../../components/modals/ConfirmModal";
 import { adminApi } from "../../services/api";
 import { useBatch } from "../../context/BatchContext";
+import { notifySuccess, notifyError } from "../../utils/toast";
+
 
 const AdminBatchManagement = () => {
   const { batches, selectedBatch, setSelectedBatch, refreshBatches } = useBatch();
-  const [programs, setPrograms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deletingBatch, setDeletingBatch] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedProgramFilter, setSelectedProgramFilter] = useState("ALL");
+
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 16 }, (_, i) => 2020 + i);
 
   // Modal states
   const [showModal, setShowModal] = useState(false);
   const [editBatchItem, setEditBatchItem] = useState(null);
   const [formData, setFormData] = useState({
     batch_name: "",
-    department_id: "",
-    start_year: "",
-    end_year: "",
+    start_year: currentYear,
+    end_year: currentYear + 2,
     is_active: true,
   });
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [progData] = await Promise.all([
-        adminApi.getPrograms(),
-        refreshBatches(),
-      ]);
-      setPrograms(Array.isArray(progData) ? progData : []);
+      await refreshBatches();
     } catch (err) {
       console.error("Error loading data from database:", err);
     } finally {
@@ -49,9 +47,8 @@ const AdminBatchManagement = () => {
     setEditBatchItem(null);
     setFormData({
       batch_name: "",
-      department_id: "",
-      start_year: "",
-      end_year: "",
+      start_year: currentYear,
+      end_year: currentYear + 2,
       is_active: true,
     });
     setShowModal(true);
@@ -59,39 +56,64 @@ const AdminBatchManagement = () => {
 
   const handleOpenEdit = (batch) => {
     setEditBatchItem(batch);
+    const sYr = parseInt(batch.start_year || batch.startYear) || currentYear;
+    const eYr = parseInt(batch.end_year || batch.endYear) || (sYr + 2);
     setFormData({
       batch_name: batch.batch_name || batch.batchName || "",
-      department_id: batch.department_id || batch.departmentId || batch.program_id || batch.programId || "",
-      start_year: batch.start_year || batch.startYear || "",
-      end_year: batch.end_year || batch.endYear || "",
+      start_year: sYr,
+      end_year: eYr >= sYr ? eYr : sYr + 2,
       is_active: batch.is_active !== undefined ? batch.is_active : batch.isActive !== undefined ? batch.isActive : true,
     });
     setShowModal(true);
   };
 
+  const handleStartYearChange = (newStart) => {
+    const startVal = parseInt(newStart);
+    let endVal = parseInt(formData.end_year);
+    if (isNaN(endVal) || endVal < startVal) {
+      endVal = startVal + 2;
+    }
+    setFormData({
+      ...formData,
+      start_year: startVal,
+      end_year: endVal,
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const startYr = parseInt(formData.start_year);
+    const endYr = parseInt(formData.end_year);
+
+    if (endYr < startYr) {
+      notifyError("End Year cannot be less than Start Year.");
+      return;
+    }
+
     setSaving(true);
     try {
       const payload = {
         batch_name: formData.batch_name,
-        department_id: formData.department_id,
-        program_id: formData.department_id,
-        start_year: parseInt(formData.start_year) || new Date().getFullYear(),
-        end_year: parseInt(formData.end_year) || (new Date().getFullYear() + 2),
+        department_id: null,
+        program_id: null,
+        start_year: startYr,
+        end_year: endYr,
         is_active: formData.is_active,
       };
       if (editBatchItem) {
         const id = editBatchItem.batch_id || editBatchItem.batchId;
         await adminApi.updateBatch(id, payload);
+        notifySuccess(`Batch '${formData.batch_name}' updated successfully!`);
       } else {
         await adminApi.createBatch(payload);
+        notifySuccess(`Batch '${formData.batch_name}' created successfully in database!`);
       }
       setShowModal(false);
       await refreshBatches();
     } catch (err) {
       console.error("Error saving batch to database:", err);
-      alert("Failed to save batch to database.");
+      const msg = err.response?.data?.error || err.response?.data?.message || err.message || "Failed to save batch to database.";
+      notifyError(`Failed to save batch: ${msg}`);
     } finally {
       setSaving(false);
     }
@@ -101,44 +123,25 @@ const AdminBatchManagement = () => {
     if (!deletingBatch) return;
     setDeleting(true);
     const batchId = deletingBatch.batch_id || deletingBatch.batchId;
+    const bName = deletingBatch.batch_name || deletingBatch.batchName || "Batch";
     try {
       await adminApi.deleteBatch(batchId);
+      notifySuccess(`Batch '${bName}' deleted successfully!`);
       await refreshBatches();
     } catch (err) {
       console.error("Error deleting batch:", err);
+      const msg = err.response?.data?.error || err.message || "Failed to delete batch.";
+      notifyError(`Failed to delete batch: ${msg}`);
     } finally {
       setDeleting(false);
       setDeletingBatch(null);
     }
   };
 
-  const handleToggleStatus = async (batchId) => {
-    try {
-      await adminApi.toggleBatchStatus(batchId);
-      await refreshBatches();
-    } catch (err) {
-      console.error("Error toggling batch status:", err);
-    }
-  };
-
-  // Helper map for department names
-  const getDepartmentName = (deptId) => {
-    if (!deptId) return "N/A";
-    const found = programs.find(
-      (p) =>
-        (p.department_id || p.departmentId || p.program_id || p.programId) === deptId
-    );
-    return found ? (found.department_name || found.departmentName || found.program_name || found.programName) : "Computer Applications";
-  };
-
   // Filtered List
   const filteredBatches = (batches || []).filter((b) => {
     const bName = (b.batch_name || b.batchName || "").toLowerCase();
-    const matchesSearch = bName.includes(searchTerm.toLowerCase());
-    const deptId = b.department_id || b.departmentId || b.program_id || b.programId;
-    const matchesProgram =
-      selectedProgramFilter === "ALL" || deptId === selectedProgramFilter;
-    return matchesSearch && matchesProgram;
+    return bName.includes(searchTerm.toLowerCase());
   });
 
   return (
@@ -172,26 +175,6 @@ const AdminBatchManagement = () => {
             className="w-full pl-10 pr-4 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs text-[#1E293B] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all"
           />
         </div>
-
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <Filter className="w-4 h-4 text-[#64748B]" />
-          <select
-            value={selectedProgramFilter}
-            onChange={(e) => setSelectedProgramFilter(e.target.value)}
-            className="px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs font-semibold text-[#1E293B] outline-none focus:border-[#2563EB] transition-all cursor-pointer w-full md:w-auto"
-          >
-            <option value="ALL">All Programs</option>
-            {programs.map((p) => {
-              const pId = p.program_id || p.department_id || p.programId;
-              const pName = p.program_name || p.department_name;
-              return (
-                <option key={pId} value={pId}>
-                  {pName}
-                </option>
-              );
-            })}
-          </select>
-        </div>
       </div>
 
       {/* Batches Table */}
@@ -201,7 +184,6 @@ const AdminBatchManagement = () => {
             <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#64748B] font-semibold">
               <tr>
                 <th className="p-3.5">Batch Name</th>
-                <th className="p-3.5">Program</th>
                 <th className="p-3.5">Duration</th>
                 <th className="p-3.5">Status</th>
                 <th className="p-3.5">System Selection</th>
@@ -213,7 +195,7 @@ const AdminBatchManagement = () => {
             <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-[#64748B]">
+                  <td colSpan={7} className="p-8 text-center text-[#64748B]">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="w-5 h-5 animate-spin text-[#2563EB]" />
                       <span>Fetching batches from database...</span>
@@ -222,7 +204,7 @@ const AdminBatchManagement = () => {
                 </tr>
               ) : filteredBatches.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-[#64748B]">
+                  <td colSpan={7} className="p-8 text-center text-[#64748B]">
                     No batches found in database. Click <strong>Add New Batch</strong> to create one.
                   </td>
                 </tr>
@@ -240,11 +222,6 @@ const AdminBatchManagement = () => {
                     <tr key={bId} className="hover:bg-[#F8FAFC] transition-colors">
                       <td className="p-3.5 font-bold text-[#1E293B]">
                         {bName}
-                      </td>
-                      <td className="p-3.5">
-                        <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-[#475569] font-medium text-[11px]">
-                          {getDepartmentName(batch.department_id || batch.departmentId || batch.program_id || batch.programId)}
-                        </span>
                       </td>
                       <td className="p-3.5 font-medium text-[#334155]">
                         {sYear} - {eYear} <span className="text-[11px] text-[#64748B]">({eYear - sYear} Yrs)</span>
@@ -343,52 +320,39 @@ const AdminBatchManagement = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-[#1E293B] mb-1">Academic Department *</label>
-                <select
-                  required
-                  value={formData.department_id}
-                  onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
-                  className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs text-[#1E293B] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all font-medium cursor-pointer"
-                >
-                  <option value="">-- Select Department --</option>
-                  {programs.map((p) => {
-                    const deptId = p.department_id || p.departmentId || p.program_id || p.programId;
-                    const deptName = p.department_name || p.departmentName || p.program_name || p.programName;
-                    return (
-                      <option key={deptId} value={deptId}>
-                        {deptName}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-[#1E293B] mb-1">Start Year *</label>
-                  <input
-                    type="number"
+                  <select
                     required
-                    min="2000"
-                    max="2100"
                     value={formData.start_year}
-                    onChange={(e) => setFormData({ ...formData, start_year: parseInt(e.target.value) || "" })}
-                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs text-[#1E293B] outline-none focus:border-[#2563EB] transition-all font-medium"
-                  />
+                    onChange={(e) => handleStartYearChange(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs text-[#1E293B] outline-none focus:border-[#2563EB] transition-all font-medium cursor-pointer"
+                  >
+                    {yearOptions.map((y) => (
+                      <option key={y} value={y}>
+                        {y}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#1E293B] mb-1">End Year *</label>
-                  <input
-                    type="number"
+                  <label className="block text-[#1E293B] text-xs font-bold mb-1">End Year *</label>
+                  <select
                     required
-                    min="2000"
-                    max="2100"
                     value={formData.end_year}
-                    onChange={(e) => setFormData({ ...formData, end_year: parseInt(e.target.value) || "" })}
-                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs text-[#1E293B] outline-none focus:border-[#2563EB] transition-all font-medium"
-                  />
+                    onChange={(e) => setFormData({ ...formData, end_year: parseInt(e.target.value) })}
+                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs text-[#1E293B] outline-none focus:border-[#2563EB] transition-all font-medium cursor-pointer"
+                  >
+                    {yearOptions
+                      .filter((y) => y >= parseInt(formData.start_year))
+                      .map((y) => (
+                        <option key={y} value={y}>
+                          {y}
+                        </option>
+                      ))}
+                  </select>
                 </div>
               </div>
 

@@ -3,6 +3,8 @@ import { School, Plus, Edit, Trash2, Eye, Calendar, Phone, Mail, MapPin, X, Sear
 import Button from "../../components/common/Button";
 import ConfirmModal from "../../components/modals/ConfirmModal";
 import { adminApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
+
 
 const FacultyManagement = () => {
   const [teachers, setTeachers] = useState([]);
@@ -22,6 +24,7 @@ const FacultyManagement = () => {
     employee_id: "",
     first_name: "",
     last_name: "",
+    surname: "",
     email: "",
     mobile: "",
     gender: "Male",
@@ -35,17 +38,22 @@ const FacultyManagement = () => {
     is_active: true,
   });
 
+  const [errorMessage, setErrorMessage] = useState(null);
+
   const fetchTeachers = async () => {
     setLoading(true);
+    setErrorMessage(null);
     try {
       const res = await adminApi.getFaculty();
       if (Array.isArray(res)) {
         setTeachers(res);
       } else {
         console.warn("getFaculty returned non-array:", res);
+        setTeachers([]);
       }
     } catch (err) {
       console.error("Faculty management load error:", err);
+      setErrorMessage("Failed to load faculty list from backend.");
     } finally {
       setLoading(false);
     }
@@ -57,10 +65,12 @@ const FacultyManagement = () => {
 
   const handleOpenTeacherAdd = () => {
     setEditTeacher(null);
+    setErrorMessage(null);
     setTeacherForm({
       employee_id: "",
       first_name: "",
       last_name: "",
+      surname: "",
       email: "",
       mobile: "",
       gender: "Male",
@@ -78,21 +88,23 @@ const FacultyManagement = () => {
 
   const handleOpenTeacherEdit = (t) => {
     setEditTeacher(t);
+    setErrorMessage(null);
     setTeacherForm({
-      employee_id: t.employee_id || "",
-      first_name: t.first_name || "",
-      last_name: t.last_name || "",
+      employee_id: t.employee_id || t.employeeId || "",
+      first_name: t.first_name || t.firstName || "",
+      last_name: t.last_name || t.lastName || "",
+      surname: t.surname || "",
       email: t.email || "",
       mobile: t.mobile || "",
       gender: t.gender || "Male",
-      date_of_birth: t.date_of_birth || "",
+      date_of_birth: t.date_of_birth || t.dateOfBirth || "",
       address: t.address || "",
       qualification: t.qualification || "",
       designation: t.designation || "",
       experience: t.experience !== undefined && t.experience !== null ? t.experience : "",
-      joining_date: t.joining_date || "",
-      profile_photo: t.profile_photo || "",
-      is_active: t.is_active !== undefined ? t.is_active : true,
+      joining_date: t.joining_date || t.joiningDate || "",
+      profile_photo: t.profile_photo || t.profilePhoto || "",
+      is_active: t.is_active !== undefined ? t.is_active : (t.isActive !== undefined ? t.isActive : true),
     });
     setShowTeacherModal(true);
   };
@@ -100,11 +112,16 @@ const FacultyManagement = () => {
   const handleConfirmDeleteTeacher = async () => {
     if (!deletingUser) return;
     setDeleting(true);
+    setErrorMessage(null);
     try {
       await adminApi.deleteFaculty(deletingUser.id);
+      notifySuccess(`Faculty member '${deletingUser.name || "record"}' deleted successfully!`);
       await fetchTeachers();
     } catch (err) {
       console.error("Delete teacher error:", err);
+      const msg = err.response?.data?.error || err.message || "Failed to delete teacher record.";
+      setErrorMessage(msg);
+      notifyError(`Failed to delete faculty member: ${msg}`);
     } finally {
       setDeleting(false);
       setDeletingUser(null);
@@ -114,17 +131,23 @@ const FacultyManagement = () => {
   const handleSaveTeacher = async (e) => {
     e.preventDefault();
     setSaving(true);
+    setErrorMessage(null);
     try {
+      const generatedEmpId = teacherForm.employee_id && teacherForm.employee_id.trim() !== ""
+        ? teacherForm.employee_id.trim()
+        : `EMP${Math.floor(10000 + Math.random() * 90000)}`;
+
       const payload = {
-        employee_id: teacherForm.employee_id ? teacherForm.employee_id.trim() : "",
+        employee_id: generatedEmpId,
         first_name: teacherForm.first_name ? teacherForm.first_name.trim() : "Faculty",
         last_name: teacherForm.last_name ? teacherForm.last_name.trim() : "",
+        surname: teacherForm.surname ? teacherForm.surname.trim() : "",
         email: teacherForm.email ? teacherForm.email.trim() : `teacher${Math.floor(1000 + Math.random() * 9000)}@educonnect.ac.in`,
         mobile: teacherForm.mobile ? teacherForm.mobile.trim() : "",
         gender: teacherForm.gender || "Male",
         designation: teacherForm.designation ? teacherForm.designation.trim() : "Assistant Professor",
         qualification: teacherForm.qualification ? teacherForm.qualification.trim() : "",
-        experience: teacherForm.experience ? parseInt(teacherForm.experience) : 0,
+        experience: teacherForm.experience !== "" && teacherForm.experience !== null ? parseInt(teacherForm.experience) : 0,
         joining_date: teacherForm.joining_date && teacherForm.joining_date.trim() !== "" ? teacherForm.joining_date : null,
         date_of_birth: teacherForm.date_of_birth && teacherForm.date_of_birth.trim() !== "" ? teacherForm.date_of_birth : null,
         address: teacherForm.address ? teacherForm.address.trim() : "",
@@ -133,22 +156,27 @@ const FacultyManagement = () => {
       };
 
       if (editTeacher) {
-        const id = editTeacher.teacher_id || editTeacher.id;
+        const id = editTeacher.teacher_id || editTeacher.teacherId || editTeacher.id;
         const updated = await adminApi.updateFaculty(id, payload);
-        if (updated && (updated.teacher_id || updated.teacherId)) {
-          setTeachers((prev) => prev.map((t) => ((t.teacher_id || t.id) === (id) ? updated : t)));
+        if (updated && (updated.teacher_id || updated.teacherId || updated.id)) {
+          setTeachers((prev) => prev.map((t) => ((t.teacher_id || t.teacherId || t.id) === id ? updated : t)));
         }
+        notifySuccess(`Faculty member '${payload.first_name} ${payload.last_name}' updated successfully!`);
       } else {
         const created = await adminApi.createFaculty(payload);
-        if (created && (created.teacher_id || created.teacherId)) {
+        if (created && (created.teacher_id || created.teacherId || created.id)) {
           setTeachers((prev) => [created, ...prev]);
         }
+        notifySuccess(`Faculty member '${payload.first_name} ${payload.last_name}' added successfully to database!`);
       }
 
       await fetchTeachers();
       setShowTeacherModal(false);
     } catch (err) {
       console.error("Save teacher error:", err);
+      const msg = err.response?.data?.error || err.message || "Failed to save teacher record.";
+      setErrorMessage(msg);
+      notifyError(`Failed to save faculty member: ${msg}`);
     } finally {
       setSaving(false);
     }
@@ -157,8 +185,8 @@ const FacultyManagement = () => {
   const filteredTeachers = teachers.filter((t) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
-    const fullName = `${t.first_name || ""} ${t.last_name || ""}`.toLowerCase();
-    const empId = (t.employee_id || "").toLowerCase();
+    const fullName = `${t.first_name || t.firstName || ""} ${t.last_name || t.lastName || ""}`.toLowerCase();
+    const empId = (t.employee_id || t.employeeId || "").toLowerCase();
     const email = (t.email || "").toLowerCase();
     const desig = (t.designation || "").toLowerCase();
     return fullName.includes(q) || empId.includes(q) || email.includes(q) || desig.includes(q);
@@ -184,6 +212,15 @@ const FacultyManagement = () => {
           </Button>
         </div>
       </div>
+
+      {errorMessage && (
+        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-medium flex items-center justify-between">
+          <span>{errorMessage}</span>
+          <button onClick={() => setErrorMessage(null)} className="text-rose-500 hover:text-rose-800 font-bold ml-2">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Filter / Search Bar */}
       <div className="bg-white p-4 rounded-xl border border-[#E2E8F0] shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
@@ -246,47 +283,56 @@ const FacultyManagement = () => {
                   </td>
                 </tr>
               ) : (
-                filteredTeachers.map((t) => (
-                  <tr key={t.teacher_id || t.id || t.employee_id} className="hover:bg-[#F8FAFC]">
-                    <td className="p-3.5 font-mono font-bold text-[#14B8A6]">{t.employee_id || "N/A"}</td>
-                    <td className="p-3.5 font-semibold">{t.first_name} {t.last_name}</td>
-                    <td className="p-3.5 text-[#64748B]">{t.email}</td>
-                    <td className="p-3.5">{t.mobile || "N/A"}</td>
-                    <td className="p-3.5 font-medium">{t.designation || "N/A"}</td>
-                    <td className="p-3.5 text-[#64748B]">{t.experience !== undefined && t.experience !== null ? `${t.experience} Years` : "N/A"}</td>
-                    <td className="p-3.5 text-[#64748B] font-mono text-[11px]">
-                      {t.created_at || t.createdAt ? new Date(t.created_at || t.createdAt).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A"}
-                    </td>
-                    <td className="p-3.5 text-[#64748B] font-mono text-[11px]">
-                      {t.updated_at || t.updatedAt ? new Date(t.updated_at || t.updatedAt).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A"}
-                    </td>
-                    <td className="p-3.5 text-right whitespace-nowrap">
-                      <div className="inline-flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => setViewTeacher(t)}
-                          className="p-1.5 hover:bg-[#2563EB]/10 rounded-lg text-[#2563EB] transition-colors"
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleOpenTeacherEdit(t)}
-                          className="p-1.5 hover:bg-[#14B8A6]/10 rounded-lg text-[#14B8A6] transition-colors"
-                          title="Edit Full Info"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setDeletingUser({ id: t.teacher_id || t.id, name: `${t.first_name || ''} ${t.last_name || ''}` })}
-                          className="p-1.5 hover:bg-[#EF4444]/10 rounded-lg text-[#EF4444] transition-colors cursor-pointer"
-                          title="Delete Record"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                filteredTeachers.map((t) => {
+                  const teacherId = t.teacher_id || t.teacherId || t.id;
+                  const firstName = t.first_name || t.firstName || "Faculty";
+                  const lastName = t.last_name || t.lastName || "";
+                  const empId = t.employee_id || t.employeeId || "N/A";
+                  const createdAtVal = t.created_at || t.createdAt;
+                  const updatedAtVal = t.updated_at || t.updatedAt;
+
+                  return (
+                    <tr key={teacherId || empId} className="hover:bg-[#F8FAFC]">
+                      <td className="p-3.5 font-mono font-bold text-[#14B8A6]">{empId}</td>
+                      <td className="p-3.5 font-semibold">{firstName} {lastName}</td>
+                      <td className="p-3.5 text-[#64748B]">{t.email}</td>
+                      <td className="p-3.5">{t.mobile || "N/A"}</td>
+                      <td className="p-3.5 font-medium">{t.designation || "N/A"}</td>
+                      <td className="p-3.5 text-[#64748B]">{t.experience !== undefined && t.experience !== null ? `${t.experience} Years` : "N/A"}</td>
+                      <td className="p-3.5 text-[#64748B] font-mono text-[11px]">
+                        {createdAtVal ? new Date(createdAtVal).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A"}
+                      </td>
+                      <td className="p-3.5 text-[#64748B] font-mono text-[11px]">
+                        {updatedAtVal ? new Date(updatedAtVal).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A"}
+                      </td>
+                      <td className="p-3.5 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => setViewTeacher(t)}
+                            className="p-1.5 hover:bg-[#2563EB]/10 rounded-lg text-[#2563EB] transition-colors cursor-pointer"
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleOpenTeacherEdit(t)}
+                            className="p-1.5 hover:bg-[#14B8A6]/10 rounded-lg text-[#14B8A6] transition-colors cursor-pointer"
+                            title="Edit Full Info"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setDeletingUser({ id: teacherId, name: `${firstName} ${lastName}`.trim() })}
+                            className="p-1.5 hover:bg-[#EF4444]/10 rounded-lg text-[#EF4444] transition-colors cursor-pointer"
+                            title="Delete Record"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -315,19 +361,19 @@ const FacultyManagement = () => {
                 {(viewTeacher.profile_photo || viewTeacher.profilePhoto) ? (
                   <img
                     src={viewTeacher.profile_photo || viewTeacher.profilePhoto}
-                    alt={viewTeacher.first_name || "Teacher"}
+                    alt={viewTeacher.first_name || viewTeacher.firstName || "Teacher"}
                     className="w-16 h-16 rounded-xl object-cover border border-[#E2E8F0] shadow-xs shrink-0"
                   />
                 ) : (
                   <div className="w-16 h-16 rounded-xl bg-[#14B8A6]/10 text-[#14B8A6] font-bold text-xl flex items-center justify-center border border-[#14B8A6]/20 shrink-0">
-                    {(viewTeacher.first_name || "T")[0]}
+                    {(viewTeacher.first_name || viewTeacher.firstName || "T")[0]}
                   </div>
                 )}
                 <div>
                   <h4 className="text-base font-extrabold text-[#1E293B]">
-                    {viewTeacher.first_name} {viewTeacher.last_name}
+                    {viewTeacher.first_name || viewTeacher.firstName} {viewTeacher.last_name || viewTeacher.lastName}
                   </h4>
-                  <p className="font-mono text-[#14B8A6] font-bold text-xs">Employee ID: {viewTeacher.employee_id || "N/A"}</p>
+                  <p className="font-mono text-[#14B8A6] font-bold text-xs">Employee ID: {viewTeacher.employee_id || viewTeacher.employeeId || "N/A"}</p>
                   <p className="text-xs text-[#64748B] font-medium mt-0.5">{viewTeacher.designation || "N/A"}</p>
                 </div>
               </div>
@@ -348,17 +394,17 @@ const FacultyManagement = () => {
                 <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
                   <span className="text-[10px] text-[#64748B] font-bold block uppercase">Experience & Joining</span>
                   <p className="font-medium text-[#1E293B]">
-                    {viewTeacher.experience !== undefined && viewTeacher.experience !== null ? `${viewTeacher.experience} Years` : "N/A"} • {viewTeacher.joining_date || "N/A"}
+                    {viewTeacher.experience !== undefined && viewTeacher.experience !== null ? `${viewTeacher.experience} Years` : "N/A"} • {viewTeacher.joining_date || viewTeacher.joiningDate || "N/A"}
                   </p>
                 </div>
                 <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
                   <span className="text-[10px] text-[#64748B] font-bold block uppercase">Gender & DOB</span>
-                  <p className="font-medium text-[#1E293B]">{viewTeacher.gender || "N/A"} • {viewTeacher.date_of_birth || "N/A"}</p>
+                  <p className="font-medium text-[#1E293B]">{viewTeacher.gender || "N/A"} • {viewTeacher.date_of_birth || viewTeacher.dateOfBirth || "N/A"}</p>
                 </div>
                 <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
                   <span className="text-[10px] text-[#64748B] font-bold block uppercase">Status</span>
-                  <span className={`inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold ${viewTeacher.is_active ? "bg-[#22C55E]/10 text-[#22C55E]" : "bg-gray-200 text-gray-600"}`}>
-                    {viewTeacher.is_active ? "Active Faculty" : "Inactive Account"}
+                  <span className={`inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold ${(viewTeacher.is_active !== undefined ? viewTeacher.is_active : viewTeacher.isActive) ? "bg-[#22C55E]/10 text-[#22C55E]" : "bg-gray-200 text-gray-600"}`}>
+                    {(viewTeacher.is_active !== undefined ? viewTeacher.is_active : viewTeacher.isActive) ? "Active Faculty" : "Inactive Account"}
                   </span>
                 </div>
               </div>
@@ -409,6 +455,17 @@ const FacultyManagement = () => {
                   placeholder="Last name"
                   value={teacherForm.last_name}
                   onChange={(e) => setTeacherForm({ ...teacherForm, last_name: e.target.value })}
+                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[#64748B] mb-1 font-semibold">Surname</label>
+                <input
+                  type="text"
+                  placeholder="Surname"
+                  value={teacherForm.surname}
+                  onChange={(e) => setTeacherForm({ ...teacherForm, surname: e.target.value })}
                   className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
                 />
               </div>

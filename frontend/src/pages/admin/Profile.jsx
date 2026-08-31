@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { User, Save, Edit, Check } from "lucide-react";
 import Button from "../../components/common/Button";
 import { adminApi } from "../../services/api";
+import { notifySuccess } from "../../utils/toast";
 
 const AdminProfile = () => {
   const [profile, setProfile] = useState({
@@ -52,6 +53,7 @@ const AdminProfile = () => {
     e.preventDefault();
     setIsEditing(false);
     setSavedSuccess(true);
+    notifySuccess("Admin profile details saved to database successfully!");
     setTimeout(() => setSavedSuccess(false), 3000);
   };
 

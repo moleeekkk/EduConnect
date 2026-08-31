@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { FileText, Plus, Trash2, Edit, Paperclip, Download, Eye, X, BookOpen, CheckCircle2 } from "lucide-react";
 import Button from "../../components/common/Button";
 import { teacherApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const TeacherStudyMaterial = () => {
   const [resources, setResources] = useState([]);
@@ -54,7 +55,7 @@ const TeacherStudyMaterial = () => {
     setShowModal(true);
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     const finalFilePath = selectedFileName
       ? selectedFileName.startsWith("/")
@@ -62,43 +63,62 @@ const TeacherStudyMaterial = () => {
         : `/resources/${selectedFileName}`
       : "/resources/study_material_doc.pdf";
 
-    if (editingResourceId) {
-      setResources(
-        resources.map((r) =>
-          r.resource_id === editingResourceId
-            ? {
-                ...r,
-                title,
-                description: desc,
-                resource_type: type,
-                file_path: finalFilePath,
-                updated_at: new Date().toISOString(),
-              }
-            : r
-        )
-      );
-    } else {
-      const created = {
-        resource_id: `res-00${resources.length + 10}`,
-        teacher_subject_id: "ts-001",
+    try {
+      const payload = {
         title,
         description: desc,
         resource_type: type,
         file_path: finalFilePath,
-        uploaded_date: new Date().toISOString().split("T")[0],
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
       };
-      setResources([created, ...resources]);
-    }
 
-    setShowModal(false);
-    setEditingResourceId(null);
+      if (editingResourceId) {
+        setResources(
+          resources.map((r) =>
+            r.resource_id === editingResourceId
+              ? {
+                  ...r,
+                  title,
+                  description: desc,
+                  resource_type: type,
+                  file_path: finalFilePath,
+                  updated_at: new Date().toISOString(),
+                }
+              : r
+          )
+        );
+        notifySuccess(`Study material '${title}' updated successfully!`);
+      } else {
+        await teacherApi.uploadStudyMaterial(payload);
+        const created = {
+          resource_id: `res-00${resources.length + 10}`,
+          teacher_subject_id: "ts-001",
+          title,
+          description: desc,
+          resource_type: type,
+          file_path: finalFilePath,
+          uploaded_date: new Date().toISOString().split("T")[0],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        setResources([created, ...resources]);
+        notifySuccess(`Study material '${title}' uploaded to database successfully!`);
+      }
+
+      setShowModal(false);
+      setEditingResourceId(null);
+    } catch (err) {
+      console.error("Save material error:", err);
+      const msg = err.response?.data?.error || err.message || "Failed to save study material.";
+      notifyError(`Failed to save study material: ${msg}`);
+    }
   };
 
   const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this study material?")) {
+    const item = resources.find((r) => r.resource_id === id);
+    const itemTitle = item ? item.title : "study material";
+    if (window.confirm(`Are you sure you want to delete '${itemTitle}'?`)) {
       setResources(resources.filter((r) => r.resource_id !== id));
+      notifySuccess(`Study material '${itemTitle}' deleted successfully!`);
     }
   };
 

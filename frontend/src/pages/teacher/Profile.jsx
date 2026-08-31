@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { User, Save, Edit, Check } from "lucide-react";
 import Button from "../../components/common/Button";
 import { teacherApi } from "../../services/api";
+import { notifySuccess } from "../../utils/toast";
 
 const TeacherProfile = () => {
   const userStr = localStorage.getItem("educonnect_user");
@@ -49,6 +50,7 @@ const TeacherProfile = () => {
     e.preventDefault();
     setIsEditing(false);
     setSavedSuccess(true);
+    notifySuccess("Teacher profile details updated successfully!");
     setTimeout(() => setSavedSuccess(false), 3000);
   };
 

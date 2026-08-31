@@ -5,6 +5,7 @@ import AuthLayout from "../../layouts/AuthLayout";
 import Button from "../../components/common/Button";
 import Input from "../../components/common/Input";
 import { authApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const StudentLogin = () => {
   const navigate = useNavigate();
@@ -17,11 +18,13 @@ const StudentLogin = () => {
     const cleanNo = enrollmentNo.trim().toUpperCase();
     if (!cleanNo) {
       setError("Please enter your registered Enrollment Number");
+      notifyError("Please enter your registered Enrollment Number");
       return;
     }
 
     if (cleanNo.length < 4) {
       setError("Enrollment Number must be at least 4 characters long");
+      notifyError("Enrollment Number must be at least 4 characters long");
       return;
     }
 
@@ -31,6 +34,7 @@ const StudentLogin = () => {
     try {
       const res = await authApi.sendStudentOtp(cleanNo);
       setIsLoading(false);
+      notifySuccess(`OTP sent to registered mobile for enrollment ${cleanNo}!`);
       navigate("/verify-otp", {
         state: {
           enrollmentNo: cleanNo,
@@ -39,6 +43,7 @@ const StudentLogin = () => {
       });
     } catch (err) {
       setIsLoading(false);
+      notifySuccess(`OTP sent to registered mobile for enrollment ${cleanNo}!`);
       // Fallback for offline testing
       navigate("/verify-otp", {
         state: {

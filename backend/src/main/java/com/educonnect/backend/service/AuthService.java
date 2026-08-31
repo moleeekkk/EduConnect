@@ -31,14 +31,26 @@ public class AuthService {
     private final SecureRandom random = new SecureRandom();
 
     public AuthResponse sendStudentOtp(StudentOtpRequest request) {
+        if (request == null || request.getEnrollmentNo() == null || request.getEnrollmentNo().trim().isEmpty()) {
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Enrollment Number is required.")
+                    .build();
+        }
+
         String enrollmentNo = request.getEnrollmentNo().trim().toUpperCase();
 
         Optional<Student> studentOpt = studentRepository.findByEnrollmentNo(enrollmentNo);
 
-        String email = studentOpt.map(Student::getEmail).orElse("alex.johnson@educonnect.ac.in");
-        String mobile = studentOpt.map(Student::getMobile).orElse("+91 9876543210");
+        String email = studentOpt.map(Student::getEmail).filter(e -> e != null && !e.trim().isEmpty()).orElse("alex.johnson@educonnect.ac.in");
+        String mobile = studentOpt.map(Student::getMobile).filter(m -> m != null && !m.trim().isEmpty()).orElse("+91 9876543210");
         String maskedPhone = maskPhoneNumber(mobile);
-        String name = studentOpt.map(s -> s.getFirstName() + " " + s.getLastName()).orElse("Alex Johnson");
+        String name = studentOpt.map(s -> {
+            String f = s.getFirstName() != null ? s.getFirstName().trim() : "";
+            String l = s.getLastName() != null ? s.getLastName().trim() : "";
+            String full = (f + " " + l).trim();
+            return full.isEmpty() ? "Student" : full;
+        }).orElse("Alex Johnson");
 
         // Generate random 6-digit OTP
         String generatedOtp = String.format("%06d", random.nextInt(1000000));
@@ -60,13 +72,20 @@ public class AuthService {
     }
 
     public AuthResponse verifyStudentOtp(StudentOtpVerifyRequest request) {
+        if (request == null || request.getEnrollmentNo() == null || request.getOtp() == null) {
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Enrollment Number and OTP code are required.")
+                    .build();
+        }
+
         String enrollmentNo = request.getEnrollmentNo().trim().toUpperCase();
         String inputOtp = request.getOtp().trim();
 
         String cachedOtp = otpStore.get(enrollmentNo);
 
-        // Allow demo master code 123456 or generated cached OTP
-        boolean isValid = (cachedOtp != null && cachedOtp.equals(inputOtp)) || "123456".equals(inputOtp);
+        // Verify real generated OTP stored in memory
+        boolean isValid = cachedOtp != null && cachedOtp.equals(inputOtp);
 
         if (!isValid) {
             return AuthResponse.builder()
@@ -79,8 +98,13 @@ public class AuthService {
         otpStore.remove(enrollmentNo);
 
         Optional<Student> studentOpt = studentRepository.findByEnrollmentNo(enrollmentNo);
-        String studentId = studentOpt.map(s -> s.getStudentId().toString()).orElse("stu-demo-id");
-        String studentName = studentOpt.map(s -> s.getFirstName() + " " + s.getLastName()).orElse("Alex Johnson");
+        String studentId = studentOpt.map(s -> s.getStudentId() != null ? s.getStudentId().toString() : "stu-demo-id").orElse("stu-demo-id");
+        String studentName = studentOpt.map(s -> {
+            String f = s.getFirstName() != null ? s.getFirstName().trim() : "";
+            String l = s.getLastName() != null ? s.getLastName().trim() : "";
+            String full = (f + " " + l).trim();
+            return full.isEmpty() ? "Student" : full;
+        }).orElse("Alex Johnson");
 
         return AuthResponse.builder()
                 .success(true)

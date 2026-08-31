@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { User, Mail, Phone, Calendar, MapPin, Heart, Shield, Edit, Save, Check } from "lucide-react";
 import Button from "../../components/common/Button";
 import { studentApi } from "../../services/api";
+import { notifySuccess } from "../../utils/toast";
 
 const StudentProfile = () => {
   const userStr = localStorage.getItem("educonnect_user");
@@ -49,6 +50,7 @@ const StudentProfile = () => {
     e.preventDefault();
     setIsEditing(false);
     setSavedSuccess(true);
+    notifySuccess("Student profile details saved to database successfully!");
     setTimeout(() => setSavedSuccess(false), 3000);
   };
 

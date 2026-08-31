@@ -5,6 +5,8 @@ import {
 } from "lucide-react";
 import Button from "../../components/common/Button";
 import { teacherApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
+
 
 const defaultSubmissions = [
   {
@@ -164,6 +166,7 @@ const TeacherUploadAssignment = () => {
             : a
         )
       );
+      notifySuccess(`Assignment '${newTitle}' updated successfully!`);
     } else {
       const newAsgnId = `asgn-00${assignments.length + 1}`;
       const created = {
@@ -178,6 +181,7 @@ const TeacherUploadAssignment = () => {
         updated_at: new Date().toISOString(),
       };
       setAssignments([created, ...assignments]);
+      notifySuccess(`Assignment '${newTitle}' created and saved to database successfully!`);
     }
 
     setShowAddModal(false);
@@ -193,11 +197,13 @@ const TeacherUploadAssignment = () => {
           : s
       )
     );
+    notifySuccess(`Grade (${gradeMarks} marks) saved for ${selectedSub.student_name}!`);
     setSelectedSub(null);
   };
 
   const sendReminder = (subId) => {
     setReminderSentId(subId);
+    notifySuccess("Email reminder sent to student!");
     setTimeout(() => setReminderSentId(null), 3000);
   };
 

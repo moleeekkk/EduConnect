@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Users, Plus, Edit, Trash2, Eye, CheckCircle2, X, GraduationCap } from "lucide-react";
 import Button from "../../components/common/Button";
 import { teacherApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const TeacherManageStudents = () => {
   const [students, setStudents] = useState([]);
@@ -63,8 +64,11 @@ const TeacherManageStudents = () => {
   };
 
   const handleDelete = (id) => {
-    if (confirm("Are you sure you want to delete this student record?")) {
+    const target = students.find((s) => s.student_id === id);
+    const name = target ? `${target.first_name} ${target.last_name}` : "student record";
+    if (confirm(`Are you sure you want to delete ${name}?`)) {
       setStudents(students.filter((s) => s.student_id !== id));
+      notifySuccess(`Student '${name}' deleted successfully!`);
     }
   };
 
@@ -72,6 +76,7 @@ const TeacherManageStudents = () => {
     e.preventDefault();
     if (editStudent) {
       setStudents(students.map((s) => (s.student_id === editStudent.student_id ? { ...s, ...form } : s)));
+      notifySuccess(`Student '${form.first_name} ${form.last_name}' updated successfully!`);
     } else {
       const created = {
         student_id: `stu-00${students.length + 1}`,
@@ -84,6 +89,7 @@ const TeacherManageStudents = () => {
         ...form,
       };
       setStudents([...students, created]);
+      notifySuccess(`Student '${form.first_name} ${form.last_name}' added successfully to database!`);
     }
     setShowModal(false);
   };

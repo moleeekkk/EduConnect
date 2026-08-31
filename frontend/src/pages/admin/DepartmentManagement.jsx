@@ -14,6 +14,7 @@ import { Link } from "react-router-dom";
 import Button from "../../components/common/Button";
 import ConfirmModal from "../../components/modals/ConfirmModal";
 import { adminApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const AdminDepartmentManagement = () => {
   const [departments, setDepartments] = useState([]);
@@ -92,11 +93,15 @@ const AdminDepartmentManagement = () => {
     if (!deletingDept) return;
     setDeleting(true);
     const id = deletingDept.department_id || deletingDept.departmentId || deletingDept.program_id;
+    const name = deletingDept.department_name || deletingDept.name || "Department";
     try {
       await adminApi.deleteDepartment(id);
+      notifySuccess(`Department '${name}' deleted successfully!`);
       await fetchData();
     } catch (err) {
       console.error("Delete department error:", err);
+      const msg = err.response?.data?.error || err.message || "Failed to delete department.";
+      notifyError(`Failed to delete department: ${msg}`);
       setDepartments((prev) =>
         prev.filter((d) => (d.department_id || d.departmentId || d.program_id) !== id)
       );
@@ -127,14 +132,17 @@ const AdminDepartmentManagement = () => {
       if (editDept) {
         const id = editDept.department_id || editDept.departmentId || editDept.program_id;
         await adminApi.updateDepartment(id, payload);
+        notifySuccess(`Department '${deptForm.department_name}' updated successfully!`);
       } else {
         await adminApi.createDepartment(payload);
+        notifySuccess(`Department '${deptForm.department_name}' created successfully in database!`);
       }
       await fetchData();
       setShowDeptModal(false);
     } catch (err) {
       console.error("Save department error:", err);
-      setShowDeptModal(false);
+      const msg = err.response?.data?.error || err.message || "Failed to save department.";
+      notifyError(`Failed to save department: ${msg}`);
     } finally {
       setSaving(false);
     }

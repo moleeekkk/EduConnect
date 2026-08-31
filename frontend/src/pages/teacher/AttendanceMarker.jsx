@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { CalendarCheck, Save, CheckCircle2, UserCheck, UserX } from "lucide-react";
 import Button from "../../components/common/Button";
 import { teacherApi, adminApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const TeacherAttendanceMarker = () => {
   const [selectedSubject, setSelectedSubject] = useState("subj-101");
@@ -49,10 +50,30 @@ const TeacherAttendanceMarker = () => {
     }));
   };
 
-  const handleSaveAttendance = (e) => {
+  const handleSaveAttendance = async (e) => {
     e.preventDefault();
-    setSaveMsg(true);
-    setTimeout(() => setSaveMsg(false), 3000);
+    try {
+      const attendanceData = {
+        subject_id: selectedSubject,
+        session_date: sessionDate,
+        lecture_number: lectureNo,
+        start_time: startTime,
+        end_time: endTime,
+        topic_covered: topic,
+        records: Object.entries(studentStatus).map(([student_id, status]) => ({
+          student_id,
+          status,
+        })),
+      };
+      await teacherApi.markAttendance(attendanceData);
+      setSaveMsg(true);
+      notifySuccess(`Attendance for ${students.length || 0} students recorded & saved to database!`);
+      setTimeout(() => setSaveMsg(false), 3000);
+    } catch (err) {
+      console.error("Save attendance error:", err);
+      const msg = err.response?.data?.error || err.message || "Failed to save attendance.";
+      notifyError(`Failed to save attendance to database: ${msg}`);
+    }
   };
 
   return (

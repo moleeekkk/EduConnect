@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { ShieldCheck, Users, School, Building2, FolderTree, BarChart3, CalendarRange } from "lucide-react";
+import {
+  ShieldCheck,
+  Users,
+  School,
+  Building2,
+  FolderTree,
+  BarChart3,
+  CalendarRange,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Button from "../../components/common/Button";
 import { adminApi } from "../../services/api";
@@ -24,8 +32,12 @@ const AdminDashboard = () => {
           adminApi.getBatches(),
         ]);
         setStatsData({
-          totalStudents: dashRes?.totalStudents || (Array.isArray(dashRes?.students) ? dashRes.students.length : 0),
-          totalFaculty: dashRes?.totalFaculty || (Array.isArray(dashRes?.faculty) ? dashRes.faculty.length : 0),
+          totalStudents:
+            dashRes?.totalStudents ||
+            (Array.isArray(dashRes?.students) ? dashRes.students.length : 0),
+          totalFaculty:
+            dashRes?.totalFaculty ||
+            (Array.isArray(dashRes?.faculty) ? dashRes.faculty.length : 0),
           activeInstitutes: Array.isArray(instRes) ? instRes.length : 0,
           activePrograms: Array.isArray(progRes) ? progRes.length : 0,
           activeBatches: Array.isArray(batchRes) ? batchRes.length : 0,
@@ -38,12 +50,36 @@ const AdminDashboard = () => {
   }, []);
 
   const adminStats = [
-    { title: "Academic Batches", value: `${statsData.activeBatches} Batches`, icon: CalendarRange, color: "bg-[#F59E0B]/10 text-[#F59E0B]" },
-    { title: "Active Institutes", value: `${statsData.activeInstitutes} Institutes`, icon: Building2, color: "bg-[#2563EB]/10 text-[#2563EB]" },
-    { title: "Academic Departments", value: `${statsData.activePrograms} Departments`, icon: FolderTree, color: "bg-[#22C55E]/10 text-[#22C55E]" },
-    { title: "Total Students", value: `${statsData.totalStudents} Active`, icon: Users, color: "bg-[#2563EB]/10 text-[#2563EB]" },
-    { title: "Faculty Members", value: `${statsData.totalFaculty} Professors`, icon: School, color: "bg-[#14B8A6]/10 text-[#14B8A6]" },
-
+    {
+      title: "Academic Batches",
+      value: `${statsData.activeBatches} Batches`,
+      icon: CalendarRange,
+      color: "bg-[#F59E0B]/10 text-[#F59E0B]",
+    },
+    {
+      title: "Active Institutes",
+      value: `${statsData.activeInstitutes} Institutes`,
+      icon: Building2,
+      color: "bg-[#2563EB]/10 text-[#2563EB]",
+    },
+    {
+      title: "Academic Departments",
+      value: `${statsData.activePrograms} Departments`,
+      icon: FolderTree,
+      color: "bg-[#22C55E]/10 text-[#22C55E]",
+    },
+    {
+      title: "Total Students",
+      value: `${statsData.totalStudents} Active`,
+      icon: Users,
+      color: "bg-[#2563EB]/10 text-[#2563EB]",
+    },
+    {
+      title: "Faculty Members",
+      value: `${statsData.totalFaculty} Professors`,
+      icon: School,
+      color: "bg-[#14B8A6]/10 text-[#14B8A6]",
+    },
   ];
 
   return (
@@ -57,7 +93,6 @@ const AdminDashboard = () => {
           <h1 className="text-2xl font-bold tracking-tight">
             EduConnect Institutional Control Center
           </h1>
-
         </div>
       </div>
 
@@ -66,12 +101,17 @@ const AdminDashboard = () => {
         {adminStats.map((stat, idx) => {
           const Icon = stat.icon;
           return (
-            <div key={idx} className="bg-white rounded-xl p-4 border border-[#E2E8F0] shadow-xs flex flex-col justify-between gap-3">
+            <div
+              key={idx}
+              className="bg-white rounded-xl p-4 border border-[#E2E8F0] shadow-xs flex flex-col justify-between gap-3"
+            >
               <div className="flex items-center gap-2.5">
                 <div className={`p-2 rounded-lg ${stat.color}`}>
                   <Icon className="w-5 h-5" />
                 </div>
-                <h3 className="text-xs font-semibold text-[#64748B]">{stat.title}</h3>
+                <h3 className="text-xs font-semibold text-[#64748B]">
+                  {stat.title}
+                </h3>
               </div>
               <p className="text-xl font-bold text-[#1E293B]">{stat.value}</p>
             </div>
@@ -87,11 +127,21 @@ const AdminDashboard = () => {
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-[#1E293B]">Institutes & Schools</h3>
-              <p className="text-xs text-[#64748B]">Manage CA, CS, IT schools</p>
+              <h3 className="text-sm font-bold text-[#1E293B]">
+                Institutes & Schools
+              </h3>
+              <p className="text-xs text-[#64748B]">
+                Manage CA, CS, IT schools
+              </p>
             </div>
           </div>
-          <Button variant="outline" fullWidth size="sm" onClick={() => navigate("/admin/institutes")} className="text-xs">
+          <Button
+            variant="outline"
+            fullWidth
+            size="sm"
+            onClick={() => navigate("/admin/institutes")}
+            className="text-xs"
+          >
             Manage Institutes
           </Button>
         </div>
@@ -102,11 +152,19 @@ const AdminDashboard = () => {
               <FolderTree className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-[#1E293B]">Academic Departments</h3>
+              <h3 className="text-sm font-bold text-[#1E293B]">
+                Academic Departments
+              </h3>
               <p className="text-xs text-[#64748B]">Manage MCA, BCA, Terms</p>
             </div>
           </div>
-          <Button variant="outline" fullWidth size="sm" onClick={() => navigate("/admin/departments")} className="text-xs">
+          <Button
+            variant="outline"
+            fullWidth
+            size="sm"
+            onClick={() => navigate("/admin/departments")}
+            className="text-xs"
+          >
             Manage Departments
           </Button>
         </div>
@@ -117,11 +175,21 @@ const AdminDashboard = () => {
               <CalendarRange className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-[#1E293B]">Academic Batches</h3>
-              <p className="text-xs text-[#64748B]">Manage batch sessions & active batch</p>
+              <h3 className="text-sm font-bold text-[#1E293B]">
+                Academic Batches
+              </h3>
+              <p className="text-xs text-[#64748B]">
+                Manage batch sessions & active batch
+              </p>
             </div>
           </div>
-          <Button variant="outline" fullWidth size="sm" onClick={() => navigate("/admin/batches")} className="text-xs">
+          <Button
+            variant="outline"
+            fullWidth
+            size="sm"
+            onClick={() => navigate("/admin/batches")}
+            className="text-xs"
+          >
             Manage Batches
           </Button>
         </div>
@@ -132,11 +200,21 @@ const AdminDashboard = () => {
               <BarChart3 className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-[#1E293B]">Institutional Reports</h3>
-              <p className="text-xs text-[#64748B]">Generate attendance & marks</p>
+              <h3 className="text-sm font-bold text-[#1E293B]">
+                Institutional Reports
+              </h3>
+              <p className="text-xs text-[#64748B]">
+                Generate attendance & marks
+              </p>
             </div>
           </div>
-          <Button variant="outline" fullWidth size="sm" onClick={() => navigate("/admin/reports")} className="text-xs">
+          <Button
+            variant="outline"
+            fullWidth
+            size="sm"
+            onClick={() => navigate("/admin/reports")}
+            className="text-xs"
+          >
             Generate Reports
           </Button>
         </div>

@@ -3,6 +3,8 @@ import { Building2, Plus, Edit, Trash2, Eye, Mail, Phone, MapPin, Layers, X, Loa
 import Button from "../../components/common/Button";
 import ConfirmModal from "../../components/modals/ConfirmModal";
 import { adminApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
+
 
 const AdminInstituteManagement = () => {
   const [institutes, setInstitutes] = useState([]);
@@ -78,11 +80,15 @@ const AdminInstituteManagement = () => {
     if (!deletingInst) return;
     setDeleting(true);
     const id = deletingInst.institute_id || deletingInst.instituteId;
+    const name = deletingInst.institute_name || deletingInst.name || "Institute";
     try {
       await adminApi.deleteInstitute(id);
+      notifySuccess(`Institute '${name}' deleted successfully!`);
       await fetchData();
     } catch (err) {
       console.error("Delete error:", err);
+      const msg = err.response?.data?.error || err.message || "Failed to delete institute.";
+      notifyError(`Failed to delete institute: ${msg}`);
     } finally {
       setDeleting(false);
       setDeletingInst(null);
@@ -96,14 +102,17 @@ const AdminInstituteManagement = () => {
       if (editInst) {
         const id = editInst.institute_id || editInst.instituteId;
         await adminApi.updateInstitute(id, form);
+        notifySuccess(`Institute '${form.institute_name}' updated successfully!`);
       } else {
         await adminApi.createInstitute(form);
+        notifySuccess(`Institute '${form.institute_name}' added successfully to database!`);
       }
       setShowModal(false);
       await fetchData();
     } catch (err) {
       console.error("Save institute error:", err);
-      alert("Failed to save institute to database.");
+      const msg = err.response?.data?.error || err.message || "Failed to save institute to database.";
+      notifyError(`Failed to save institute: ${msg}`);
     } finally {
       setSaving(false);
     }

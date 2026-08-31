@@ -16,6 +16,7 @@ import {
 import Button from "../../components/common/Button";
 import ConfirmModal from "../../components/modals/ConfirmModal";
 import { adminApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const SemesterManagement = () => {
   const [semesters, setSemesters] = useState([]);
@@ -32,7 +33,7 @@ const SemesterManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const [editSem, setEditSem] = useState(null);
   const [semForm, setSemForm] = useState({
-    program_id: "",
+    department_id: "",
     semester_number: 1,
     semester_name: "Semester 1",
     is_active: true,
@@ -61,11 +62,11 @@ const SemesterManagement = () => {
   const handleOpenAddModal = () => {
     setEditSem(null);
     const defaultDept = departments.length > 0
-      ? (departments[0].department_id || departments[0].departmentId || departments[0].program_id || "")
+      ? (departments[0].department_id || departments[0].departmentId || "")
       : "";
 
     setSemForm({
-      program_id: defaultDept,
+      department_id: defaultDept,
       semester_number: 1,
       semester_name: "Semester 1",
       is_active: true,
@@ -75,9 +76,9 @@ const SemesterManagement = () => {
 
   const handleOpenEditModal = (sem) => {
     setEditSem(sem);
-    const semDeptId = sem.program_id || sem.programId || sem.department_id || sem.departmentId || "";
+    const semDeptId = sem.department_id || sem.departmentId || "";
     setSemForm({
-      program_id: semDeptId,
+      department_id: semDeptId,
       semester_number: sem.semester_number || sem.semesterNumber || 1,
       semester_name: sem.semester_name || sem.semesterName || "",
       is_active: sem.is_active !== undefined ? sem.is_active : (sem.isActive !== undefined ? sem.isActive : true),
@@ -89,13 +90,12 @@ const SemesterManagement = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      let deptId = semForm.program_id;
+      let deptId = semForm.department_id;
       if ((!deptId || deptId === "") && departments.length > 0) {
-        deptId = departments[0].department_id || departments[0].departmentId || departments[0].program_id || "";
+        deptId = departments[0].department_id || departments[0].departmentId || "";
       }
 
       const payload = {
-        program_id: deptId,
         department_id: deptId,
         semester_number: parseInt(semForm.semester_number) || 1,
         semester_name: semForm.semester_name || `Semester ${semForm.semester_number}`,
@@ -111,6 +111,7 @@ const SemesterManagement = () => {
         setSemesters((prev) =>
           prev.map((s) => ((s.semester_id || s.semesterId) === id ? updatedObj : s))
         );
+        notifySuccess(`Semester '${payload.semester_name}' updated successfully!`);
       } else {
         const res = await adminApi.createSemester(payload);
         const newSemObj = (res && (res.semester_id || res.semesterId))
@@ -121,17 +122,14 @@ const SemesterManagement = () => {
             created_at: new Date().toISOString(),
           };
         setSemesters((prev) => [...prev, newSemObj]);
+        notifySuccess(`Semester '${payload.semester_name}' created successfully in database!`);
       }
       setShowModal(false);
       await fetchData();
     } catch (err) {
       console.error("Save semester error:", err);
-      const fallbackSem = {
-        semester_id: "sem-" + Date.now(),
-        ...semForm,
-        created_at: new Date().toISOString(),
-      };
-      setSemesters((prev) => [...prev, fallbackSem]);
+      const msg = err.response?.data?.error || err.message || "Failed to save semester.";
+      notifyError(`Failed to save semester: ${msg}`);
       setShowModal(false);
     } finally {
       setSaving(false);
@@ -142,12 +140,15 @@ const SemesterManagement = () => {
     if (!deletingSem) return;
     setDeleting(true);
     const id = deletingSem.semester_id || deletingSem.semesterId;
+    const name = deletingSem.semester_name || deletingSem.name || `Semester ${deletingSem.semester_number || ""}`;
     try {
       await adminApi.deleteSemester(id);
+      notifySuccess(`Semester '${name}' deleted successfully!`);
       setSemesters((prev) => prev.filter((s) => (s.semester_id || s.semesterId) !== id));
     } catch (err) {
       console.error("Delete semester error:", err);
-      setSemesters((prev) => prev.filter((s) => (s.semester_id || s.semesterId) !== id));
+      const msg = err.response?.data?.error || err.message || "Failed to delete semester.";
+      notifyError(`Failed to delete semester: ${msg}`);
     } finally {
       setDeleting(false);
       setDeletingSem(null);
@@ -156,6 +157,7 @@ const SemesterManagement = () => {
 
   const handleToggleStatus = async (sem) => {
     const id = sem.semester_id || sem.semesterId;
+    const name = sem.semester_name || sem.name || `Semester ${sem.semester_number || ""}`;
     try {
       await adminApi.toggleSemesterStatus(id);
       setSemesters((prev) =>
@@ -165,15 +167,11 @@ const SemesterManagement = () => {
             : s
         )
       );
+      notifySuccess(`Semester '${name}' status toggled successfully!`);
     } catch (err) {
       console.error("Toggle status error:", err);
-      setSemesters((prev) =>
-        prev.map((s) =>
-          (s.semester_id || s.semesterId) === id
-            ? { ...s, is_active: !(s.is_active !== undefined ? s.is_active : s.isActive) }
-            : s
-        )
-      );
+      const msg = err.response?.data?.error || err.message || "Failed to toggle semester status.";
+      notifyError(`Failed to toggle status: ${msg}`);
     }
   };
 
@@ -452,21 +450,21 @@ const SemesterManagement = () => {
             <form onSubmit={handleSaveSemester} className="space-y-4 text-xs">
               <div>
                 <label className="block text-[#64748B] mb-1 font-semibold">
-                  Department / Program
+                  Department
                 </label>
                 <select
                   required
-                  value={semForm.program_id}
-                  onChange={(e) => setSemForm({ ...semForm, program_id: e.target.value })}
+                  value={semForm.department_id}
+                  onChange={(e) => setSemForm({ ...semForm, department_id: e.target.value })}
                   className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-semibold text-[#1E293B]"
                 >
                   {departments.length === 0 ? (
                     <option value="">No Departments Available</option>
                   ) : (
                     departments.map((d) => {
-                      const dId = d.department_id || d.departmentId || d.program_id;
-                      const dCode = d.department_code || d.departmentCode || d.program_code;
-                      const dName = d.department_name || d.departmentName || d.program_name;
+                      const dId = d.department_id || d.departmentId;
+                      const dCode = d.department_code || d.departmentCode;
+                      const dName = d.department_name || d.departmentName;
                       return (
                         <option key={dId} value={dId}>
                           {dName} ({dCode})

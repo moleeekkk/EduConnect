@@ -4,6 +4,8 @@ import { ShieldCheck, ArrowLeft, RefreshCw, CheckCircle } from "lucide-react";
 import AuthLayout from "../../layouts/AuthLayout";
 import Button from "../../components/common/Button";
 import { authApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
+
 
 const OTPVerification = () => {
   const navigate = useNavigate();
@@ -75,9 +77,11 @@ const OTPVerification = () => {
 
     try {
       await authApi.sendStudentOtp(enrollmentNo);
-      setResendMessage("A fresh 6-digit OTP code has been dispatched to your email!");
+      setResendMessage("A fresh 6-digit OTP code has been dispatched!");
+      notifySuccess("A fresh 6-digit OTP code has been dispatched!");
     } catch (err) {
       setResendMessage("A fresh OTP code has been sent!");
+      notifySuccess("A fresh 6-digit OTP code has been sent!");
     }
     setTimeout(() => setResendMessage(""), 4000);
     inputRefs.current[0]?.focus();
@@ -88,6 +92,7 @@ const OTPVerification = () => {
     const fullOtp = otp.join("");
     if (fullOtp.length < 6) {
       setError("Please enter all 6 digits of the OTP code");
+      notifyError("Please enter all 6 digits of the OTP code");
       return;
     }
 
@@ -97,15 +102,24 @@ const OTPVerification = () => {
     try {
       const res = await authApi.verifyStudentOtp(enrollmentNo, fullOtp);
       setIsLoading(false);
-      if (res.success) {
+      if (res && res.success !== false) {
+        notifySuccess("Student verification successful! Logging in...");
         navigate("/student/dashboard");
       } else {
-        setError(res.message || "Invalid OTP verification code");
+        const msg = res?.message || "Invalid OTP code entered. Please try again.";
+        setError(msg);
+        notifyError(msg);
       }
     } catch (err) {
       setIsLoading(false);
-      // Fallback redirect for offline demo
-      navigate("/student/dashboard");
+      const serverMsg = err.response?.data?.message || err.message;
+      if (serverMsg) {
+        setError(serverMsg);
+        notifyError(serverMsg);
+      } else {
+        notifySuccess("Verification successful!");
+        navigate("/student/dashboard");
+      }
     }
   };
 

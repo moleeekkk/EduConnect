@@ -4,6 +4,7 @@ import { KeyRound, ArrowLeft, Mail, Lock, CheckCircle2, ArrowRight } from "lucid
 import AuthLayout from "../../layouts/AuthLayout";
 import Button from "../../components/common/Button";
 import Input from "../../components/common/Input";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
@@ -23,6 +24,7 @@ const ForgotPassword = () => {
     e.preventDefault();
     if (!email.trim() || !email.includes("@")) {
       setError("Please enter a valid registered email address");
+      notifyError("Please enter a valid registered email address");
       return;
     }
     setError("");
@@ -32,6 +34,7 @@ const ForgotPassword = () => {
       setIsLoading(false);
       setStep(2);
       setSuccess("Reset code sent to your registered email address.");
+      notifySuccess(`Reset verification code sent to ${email}!`);
     }, 1000);
   };
 
@@ -39,14 +42,17 @@ const ForgotPassword = () => {
     e.preventDefault();
     if (!otp.trim()) {
       setError("Please enter the verification code");
+      notifyError("Please enter the verification code");
       return;
     }
     if (!newPassword || newPassword.length < 6) {
       setError("Password must be at least 6 characters long");
+      notifyError("Password must be at least 6 characters long");
       return;
     }
     if (newPassword !== confirmPassword) {
       setError("Passwords do not match");
+      notifyError("Passwords do not match");
       return;
     }
 
@@ -56,6 +62,7 @@ const ForgotPassword = () => {
     setTimeout(() => {
       setIsLoading(false);
       setStep(3);
+      notifySuccess("Password reset successfully saved to database! You can now log in.");
     }, 1000);
   };
 

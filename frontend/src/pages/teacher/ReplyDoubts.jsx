@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Send, CheckCircle2, MessageSquare, Clock } from "lucide-react";
 import Button from "../../components/common/Button";
 import { teacherApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const TeacherReplyDoubts = () => {
   const [doubts, setDoubts] = useState([]);
@@ -25,19 +26,27 @@ const TeacherReplyDoubts = () => {
     fetchData();
   }, []);
 
-  const handleSendReply = (e) => {
+  const handleSendReply = async (e) => {
     e.preventDefault();
     if (!selectedDoubt) return;
 
-    setDoubts(
-      doubts.map((d) =>
-        d.doubt_id === selectedDoubt.doubt_id
-          ? { ...d, reply: replyText, replied_at: new Date().toISOString(), status: "Answered" }
-          : d
-      )
-    );
-    setSelectedDoubt(null);
-    setReplyText("");
+    try {
+      await teacherApi.replyDoubt(selectedDoubt.doubt_id, replyText);
+      setDoubts(
+        doubts.map((d) =>
+          d.doubt_id === selectedDoubt.doubt_id
+            ? { ...d, reply: replyText, replied_at: new Date().toISOString(), status: "Answered" }
+            : d
+        )
+      );
+      notifySuccess("Reply sent and saved to database successfully!");
+      setSelectedDoubt(null);
+      setReplyText("");
+    } catch (err) {
+      console.error("Send reply error:", err);
+      const msg = err.response?.data?.error || err.message || "Failed to send reply.";
+      notifyError(`Failed to send reply: ${msg}`);
+    }
   };
 
   return (

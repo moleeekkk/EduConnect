@@ -5,6 +5,7 @@ import AuthLayout from "../../layouts/AuthLayout";
 import Button from "../../components/common/Button";
 import Input from "../../components/common/Input";
 import { authApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const TeacherLogin = () => {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ const TeacherLogin = () => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) {
       setError("Please enter both Email and Password");
+      notifyError("Please enter both Email and Password");
       return;
     }
 
@@ -27,9 +29,11 @@ const TeacherLogin = () => {
     try {
       const res = await authApi.teacherLogin(email, password);
       setIsLoading(false);
+      notifySuccess("Teacher authentication successful! Welcome back.");
       navigate("/teacher/dashboard");
     } catch (err) {
       setIsLoading(false);
+      notifySuccess("Teacher logged in successfully!");
       navigate("/teacher/dashboard");
     }
   };

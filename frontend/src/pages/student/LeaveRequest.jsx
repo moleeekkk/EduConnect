@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { BadgeAlert, Plus, CheckCircle2, Clock, XCircle, Send, Calendar, X } from "lucide-react";
 import Button from "../../components/common/Button";
 import { studentApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const StudentLeaveRequest = () => {
   const [requests, setRequests] = useState([]);
@@ -44,33 +45,41 @@ const StudentLeaveRequest = () => {
 
   const currentLeaveDays = getLeaveDaysCount(newForm.from_date, newForm.to_date);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (currentLeaveDays <= 0) {
-      alert("To Date cannot be earlier than From Date.");
+      notifyError("To Date cannot be earlier than From Date.");
       return;
     }
 
-    const created = {
-      leave_request_id: `leave-00${requests.length + 1}`,
-      student_id: "stu-001",
-      leave_type: newForm.leave_type,
-      from_date: newForm.from_date,
-      to_date: newForm.to_date,
-      reason: newForm.reason,
-      status: "Pending",
-      reviewed_by: null,
-      reviewed_date: null,
-      remarks: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+    try {
+      await studentApi.submitLeaveRequest(newForm);
+      const created = {
+        leave_request_id: `leave-00${requests.length + 1}`,
+        student_id: "stu-001",
+        leave_type: newForm.leave_type,
+        from_date: newForm.from_date,
+        to_date: newForm.to_date,
+        reason: newForm.reason,
+        status: "Pending",
+        reviewed_by: null,
+        reviewed_date: null,
+        remarks: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
 
-    setRequests([created, ...requests]);
-    setShowModal(false);
-    setNewForm({ leave_type: "Sick", from_date: todayStr, to_date: todayStr, reason: "" });
-    setSuccessMsg(true);
-    setTimeout(() => setSuccessMsg(false), 3000);
+      setRequests([created, ...requests]);
+      setShowModal(false);
+      setNewForm({ leave_type: "Sick", from_date: todayStr, to_date: todayStr, reason: "" });
+      setSuccessMsg(true);
+      notifySuccess("Leave request submitted to database successfully!");
+      setTimeout(() => setSuccessMsg(false), 3000);
+    } catch (err) {
+      console.error("Submit leave request error:", err);
+      const msg = err.response?.data?.error || err.message || "Failed to submit leave request.";
+      notifyError(`Failed to submit leave request: ${msg}`);
+    }
   };
 
   return (

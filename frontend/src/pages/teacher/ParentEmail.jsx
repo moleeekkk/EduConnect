@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Mail, Send, CheckCircle2, User, Phone, AtSign, Users, Database, Sparkles, AlertCircle } from "lucide-react";
 import Button from "../../components/common/Button";
 import { teacherApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const TeacherParentEmail = () => {
   const [sendMode, setSendMode] = useState("single"); // "single" or "all"

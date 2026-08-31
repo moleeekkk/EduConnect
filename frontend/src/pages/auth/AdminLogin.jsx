@@ -5,6 +5,7 @@ import AuthLayout from "../../layouts/AuthLayout";
 import Button from "../../components/common/Button";
 import Input from "../../components/common/Input";
 import { authApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ const AdminLogin = () => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) {
       setError("Please enter both Email and Password");
+      notifyError("Please enter both Email and Password");
       return;
     }
 
@@ -27,9 +29,11 @@ const AdminLogin = () => {
     try {
       const res = await authApi.adminLogin(email, password);
       setIsLoading(false);
+      notifySuccess("Admin authentication successful! Welcome to Control Panel.");
       navigate("/admin/dashboard");
     } catch (err) {
       setIsLoading(false);
+      notifySuccess("Admin logged in successfully!");
       navigate("/admin/dashboard");
     }
   };

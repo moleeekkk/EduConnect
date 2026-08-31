@@ -22,24 +22,36 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Helper for read queries (safe fallback)
 const handleRequest = async (requestFn, fallbackValue = []) => {
   try {
     const response = await requestFn();
     return response.data;
   } catch (error) {
-    console.warn("API Call fallback:", error.message);
+    console.warn("API Query fallback:", error.message);
     return fallbackValue;
+  }
+};
+
+// Helper for data mutations (creates, updates, deletes, submissions) to propagate errors
+const handleMutationRequest = async (requestFn) => {
+  try {
+    const response = await requestFn();
+    return response.data;
+  } catch (error) {
+    console.error("API Mutation Error:", error);
+    throw error;
   }
 };
 
 // Auth Endpoints
 export const authApi = {
   sendStudentOtp: async (enrollmentNo) => {
-    const response = await api.post("/auth/student/send-otp", { enrollmentNo });
+    const response = await api.post("/auth/student/send-otp", { enrollmentNo, enrollment_no: enrollmentNo });
     return response.data;
   },
   verifyStudentOtp: async (enrollmentNo, otp) => {
-    const response = await api.post("/auth/student/verify-otp", { enrollmentNo, otp });
+    const response = await api.post("/auth/student/verify-otp", { enrollmentNo, enrollment_no: enrollmentNo, otp });
     if (response.data?.token) {
       localStorage.setItem("educonnect_token", response.data.token);
       localStorage.setItem("educonnect_user", JSON.stringify(response.data));
@@ -73,7 +85,7 @@ export const studentApi = {
   getAssignments: (enrollmentNo) =>
     handleRequest(() => api.get(`/student/assignments?enrollmentNo=${enrollmentNo || "2024MCA001"}`), []),
   submitAssignment: (assignmentId, data) =>
-    handleRequest(() => api.post(`/student/assignments/${assignmentId}/submit`, data), { success: true }),
+    handleMutationRequest(() => api.post(`/student/assignments/${assignmentId}/submit`, data)),
   getResults: (enrollmentNo) =>
     handleRequest(() => api.get(`/student/results?enrollmentNo=${enrollmentNo || "2024MCA001"}`), {}),
   getMarksheet: (enrollmentNo) =>
@@ -83,11 +95,11 @@ export const studentApi = {
   getLeaveRequests: (enrollmentNo) =>
     handleRequest(() => api.get(`/student/leave-requests?enrollmentNo=${enrollmentNo || "2024MCA001"}`), []),
   submitLeaveRequest: (data) =>
-    handleRequest(() => api.post("/student/leave-requests", data), { success: true }),
+    handleMutationRequest(() => api.post("/student/leave-requests", data)),
   getDoubts: (enrollmentNo) =>
     handleRequest(() => api.get(`/student/doubts?enrollmentNo=${enrollmentNo || "2024MCA001"}`), []),
   askDoubt: (data) =>
-    handleRequest(() => api.post("/student/doubts", data), { success: true }),
+    handleMutationRequest(() => api.post("/student/doubts", data)),
   getStudyMaterials: () =>
     handleRequest(() => api.get("/student/study-materials"), []),
   getOldQuestionPapers: () =>
@@ -109,43 +121,43 @@ export const teacherApi = {
   getDashboard: (teacherId) =>
     handleRequest(() => api.get(`/teacher/dashboard?teacherId=${teacherId || "teach-demo-id"}`), {}),
   markAttendance: (attendanceData) =>
-    handleRequest(() => api.post("/teacher/attendance/mark", attendanceData), { success: true }),
+    handleMutationRequest(() => api.post("/teacher/attendance/mark", attendanceData)),
   getStudents: () =>
     handleRequest(() => api.get("/teacher/students"), []),
   getAssignments: (teacherId) =>
     handleRequest(() => api.get(`/teacher/assignments?teacherId=${teacherId || "teach-demo-id"}`), []),
   createAssignment: (data) =>
-    handleRequest(() => api.post("/teacher/assignments", data), { success: true }),
+    handleMutationRequest(() => api.post("/teacher/assignments", data)),
   getPendingGrades: (teacherId) =>
     handleRequest(() => api.get(`/teacher/grades?teacherId=${teacherId || "teach-demo-id"}`), []),
   submitGrades: (data) =>
-    handleRequest(() => api.post("/teacher/grades", data), { success: true }),
+    handleMutationRequest(() => api.post("/teacher/grades", data)),
   getLeaveRequests: () =>
     handleRequest(() => api.get("/teacher/leave-requests"), []),
   updateLeaveStatus: (id, status) =>
-    handleRequest(() => api.put(`/teacher/leave-requests/${id}`, { status }), { success: true }),
+    handleMutationRequest(() => api.put(`/teacher/leave-requests/${id}`, { status })),
   getDoubts: () =>
     handleRequest(() => api.get("/teacher/doubts"), []),
   replyDoubt: (id, reply) =>
-    handleRequest(() => api.post(`/teacher/doubts/${id}/reply`, { reply }), { success: true }),
+    handleMutationRequest(() => api.post(`/teacher/doubts/${id}/reply`, { reply })),
   getStudyMaterials: () =>
     handleRequest(() => api.get("/teacher/study-materials"), []),
   uploadStudyMaterial: (data) =>
-    handleRequest(() => api.post("/teacher/study-materials", data), { success: true }),
+    handleMutationRequest(() => api.post("/teacher/study-materials", data)),
   getOldQuestionPapers: () =>
     handleRequest(() => api.get("/teacher/question-papers"), []),
   getQuizzes: () =>
     handleRequest(() => api.get("/teacher/quizzes"), []),
   createQuiz: (data) =>
-    handleRequest(() => api.post("/teacher/quizzes", data), { success: true }),
+    handleMutationRequest(() => api.post("/teacher/quizzes", data)),
   getWeeklyTests: () =>
     handleRequest(() => api.get("/teacher/weekly-tests"), []),
   createWeeklyTest: (data) =>
-    handleRequest(() => api.post("/teacher/weekly-tests", data), { success: true }),
+    handleMutationRequest(() => api.post("/teacher/weekly-tests", data)),
   getProfile: (teacherId) =>
     handleRequest(() => api.get(`/teacher/profile?teacherId=${teacherId || "teach-demo-id"}`), {}),
   sendParentEmail: (data) =>
-    handleRequest(() => api.post("/teacher/parent-email", data), { success: true }),
+    handleMutationRequest(() => api.post("/teacher/parent-email", data)),
 };
 
 // Admin Endpoints
@@ -155,59 +167,53 @@ export const adminApi = {
   getUsers: () =>
     handleRequest(() => api.get("/admin/users"), []),
   createUser: (userData) =>
-    handleRequest(() => api.post("/admin/users", userData), {}),
-  createStudent: (studentData) =>
-    handleRequest(() => api.post("/admin/students", studentData), {}),
-  updateStudent: (id, studentData) =>
-    handleRequest(() => api.put(`/admin/students/${id}`, studentData), {}),
-  deleteStudent: (id) =>
-    handleRequest(() => api.delete(`/admin/students/${id}`), { success: true }),
+    handleMutationRequest(() => api.post("/admin/users", userData)),
   updateUser: (id, userData) =>
-    handleRequest(() => api.put(`/admin/users/${id}`, userData), {}),
+    handleMutationRequest(() => api.put(`/admin/users/${id}`, userData)),
   deleteUser: (id) =>
-    handleRequest(() => api.delete(`/admin/users/${id}`), { success: true }),
+    handleMutationRequest(() => api.delete(`/admin/users/${id}`)),
   getCourses: () =>
     handleRequest(() => api.get("/admin/courses"), []),
   createCourse: (courseData) =>
-    handleRequest(() => api.post("/admin/courses", courseData), {}),
+    handleMutationRequest(() => api.post("/admin/courses", courseData)),
   getInstitutes: () =>
     handleRequest(() => api.get("/admin/institutes"), []),
   createInstitute: (data) =>
-    handleRequest(() => api.post("/admin/institutes", data), {}),
+    handleMutationRequest(() => api.post("/admin/institutes", data)),
   updateInstitute: (id, data) =>
-    handleRequest(() => api.put(`/admin/institutes/${id}`, data), {}),
+    handleMutationRequest(() => api.put(`/admin/institutes/${id}`, data)),
   deleteInstitute: (id) =>
-    handleRequest(() => api.delete(`/admin/institutes/${id}`), { success: true }),
+    handleMutationRequest(() => api.delete(`/admin/institutes/${id}`)),
   getDepartments: () =>
     handleRequest(() => api.get("/admin/departments"), []),
   createDepartment: (data) =>
-    handleRequest(() => api.post("/admin/departments", data), {}),
+    handleMutationRequest(() => api.post("/admin/departments", data)),
   updateDepartment: (id, data) =>
-    handleRequest(() => api.put(`/admin/departments/${id}`, data), {}),
+    handleMutationRequest(() => api.put(`/admin/departments/${id}`, data)),
   deleteDepartment: (id) =>
-    handleRequest(() => api.delete(`/admin/departments/${id}`), { success: true }),
+    handleMutationRequest(() => api.delete(`/admin/departments/${id}`)),
   getPrograms: () =>
     handleRequest(() => api.get("/admin/departments"), []),
   createProgram: (data) =>
-    handleRequest(() => api.post("/admin/departments", data), {}),
+    handleMutationRequest(() => api.post("/admin/departments", data)),
   updateProgram: (id, data) =>
-    handleRequest(() => api.put(`/admin/departments/${id}`, data), {}),
+    handleMutationRequest(() => api.put(`/admin/departments/${id}`, data)),
   deleteProgram: (id) =>
-    handleRequest(() => api.delete(`/admin/departments/${id}`), { success: true }),
+    handleMutationRequest(() => api.delete(`/admin/departments/${id}`)),
   getSemesters: () =>
     handleRequest(() => api.get("/admin/semesters"), []),
   createSemester: (data) =>
-    handleRequest(() => api.post("/admin/semesters", data), {}),
+    handleMutationRequest(() => api.post("/admin/semesters", data)),
   updateSemester: (id, data) =>
-    handleRequest(() => api.put(`/admin/semesters/${id}`, data), {}),
+    handleMutationRequest(() => api.put(`/admin/semesters/${id}`, data)),
   deleteSemester: (id) =>
-    handleRequest(() => api.delete(`/admin/semesters/${id}`), { success: true }),
+    handleMutationRequest(() => api.delete(`/admin/semesters/${id}`)),
   toggleSemesterStatus: (id) =>
-    handleRequest(() => api.patch(`/admin/semesters/${id}/toggle-status`), {}),
+    handleMutationRequest(() => api.patch(`/admin/semesters/${id}/toggle-status`)),
   getSubjects: () =>
     handleRequest(() => api.get("/admin/subjects"), []),
   createSubject: (data) =>
-    handleRequest(() => api.post("/admin/subjects", data), {}),
+    handleMutationRequest(() => api.post("/admin/subjects", data)),
   getReports: () =>
     handleRequest(() => api.get("/admin/reports"), {}),
   getProfile: () =>
@@ -215,34 +221,33 @@ export const adminApi = {
   getSystemSettings: () =>
     handleRequest(() => api.get("/admin/settings"), {}),
   updateSystemSettings: (data) =>
-    handleRequest(() => api.put("/admin/settings", data), { success: true }),
+    handleMutationRequest(() => api.put("/admin/settings", data)),
   getBatches: () =>
     handleRequest(() => api.get("/admin/batches"), []),
   createBatch: (data) =>
-    handleRequest(() => api.post("/admin/batches", data), {}),
+    handleMutationRequest(() => api.post("/admin/batches", data)),
   updateBatch: (id, data) =>
-    handleRequest(() => api.put(`/admin/batches/${id}`, data), {}),
+    handleMutationRequest(() => api.put(`/admin/batches/${id}`, data)),
   deleteBatch: (id) =>
-    handleRequest(() => api.delete(`/admin/batches/${id}`), { success: true }),
+    handleMutationRequest(() => api.delete(`/admin/batches/${id}`)),
   toggleBatchStatus: (id) =>
-    handleRequest(() => api.patch(`/admin/batches/${id}/toggle-status`), {}),
+    handleMutationRequest(() => api.patch(`/admin/batches/${id}/toggle-status`)),
   getFaculty: () =>
     handleRequest(() => api.get("/admin/teachers"), []),
   createFaculty: (data) =>
-    handleRequest(() => api.post("/admin/teachers", data), {}),
+    handleMutationRequest(() => api.post("/admin/teachers", data)),
   updateFaculty: (id, data) =>
-    handleRequest(() => api.put(`/admin/teachers/${id}`, data), {}),
+    handleMutationRequest(() => api.put(`/admin/teachers/${id}`, data)),
   deleteFaculty: (id) =>
-    handleRequest(() => api.delete(`/admin/teachers/${id}`), { success: true }),
+    handleMutationRequest(() => api.delete(`/admin/teachers/${id}`)),
   getStudents: () =>
     handleRequest(() => api.get("/admin/students"), []),
   createStudent: (data) =>
-    handleRequest(() => api.post("/admin/students", data), {}),
+    handleMutationRequest(() => api.post("/admin/students", data)),
   updateStudent: (id, data) =>
-    handleRequest(() => api.put(`/admin/students/${id}`, data), {}),
+    handleMutationRequest(() => api.put(`/admin/students/${id}`, data)),
   deleteStudent: (id) =>
-    handleRequest(() => api.delete(`/admin/students/${id}`), { success: true }),
+    handleMutationRequest(() => api.delete(`/admin/students/${id}`)),
 };
 
 export default api;
-

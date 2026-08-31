@@ -30,7 +30,7 @@ const AdminReports = () => {
       try {
         const [usersRes, progsRes, semsRes, subsRes, reportsRes] = await Promise.all([
           adminApi.getUsers(),
-          adminApi.getPrograms(),
+          adminApi.getDepartments(),
           adminApi.getSemesters(),
           adminApi.getSubjects(),
           adminApi.getReports(),

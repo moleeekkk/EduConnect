@@ -25,17 +25,11 @@ public class AdminService {
 
     public Map<String, Object> getAdminDashboard() {
         Map<String, Object> data = new HashMap<>();
-        data.put("totalStudents", studentRepository.count() > 0 ? studentRepository.count() : 1420);
-        data.put("totalFaculty", teacherRepository.count() > 0 ? teacherRepository.count() : 84);
-        data.put("activeCourses", subjectRepository.count() > 0 ? subjectRepository.count() : 36);
+        data.put("totalStudents", studentRepository.count());
+        data.put("totalFaculty", teacherRepository.count());
+        data.put("activeCourses", subjectRepository.count());
         data.put("systemUptime", "99.98%");
-
-        List<Map<String, String>> recentLogs = Arrays.asList(
-                Map.of("action", "Student Record Created", "user", "Admin (System)", "target", "2024MCA001 (Alex Johnson)", "time", "10 mins ago"),
-                Map.of("action", "Faculty Permissions Granted", "user", "Super Admin", "target", "Dr. Sarah Jenkins (CS Dept)", "time", "45 mins ago"),
-                Map.of("action", "OTP Service Gateway Health", "user", "Automated Check", "target", "SMS Gateway Operational", "time", "2 hours ago")
-        );
-        data.put("recentLogs", recentLogs);
+        data.put("recentLogs", Collections.emptyList());
 
         return data;
     }
@@ -54,7 +48,7 @@ public class AdminService {
                 .build()));
 
         teacherRepository.findAll().forEach(t -> users.add(UserDto.builder()
-                .id(t.getTeacherId().toString().substring(0, 8))
+                .id(t.getTeacherId() != null ? t.getTeacherId().toString().substring(0, Math.min(8, t.getTeacherId().toString().length())) : "")
                 .name(t.getFirstName() + " " + t.getLastName())
                 .email(t.getEmail())
                 .role("Teacher")
@@ -62,13 +56,6 @@ public class AdminService {
                 .status(t.getIsActive() ? "Active" : "Inactive")
                 .identifier(t.getEmail())
                 .build()));
-
-        if (users.isEmpty()) {
-            users.add(UserDto.builder().id("2024MCA001").name("Alex Johnson").email("alex@educonnect.ac.in").role("Student").department("Computer Applications").status("Active").identifier("2024MCA001").build());
-            users.add(UserDto.builder().id("2024MCA002").name("Beatrix Kiddo").email("beatrix@educonnect.ac.in").role("Student").department("Computer Applications").status("Active").identifier("2024MCA002").build());
-            users.add(UserDto.builder().id("FAC-8092").name("Dr. Sarah Jenkins").email("teacher@educonnect.ac.in").role("Teacher").department("Computer Science").status("Active").identifier("teacher@educonnect.ac.in").build());
-            users.add(UserDto.builder().id("ADM-001").name("System Administrator").email("admin@educonnect.ac.in").role("Admin").department("IT & Systems").status("Active").identifier("admin@educonnect.ac.in").build());
-        }
 
         return users;
     }
@@ -113,19 +100,24 @@ public class AdminService {
 
     public List<Map<String, Object>> getCourses() {
         List<Map<String, Object>> courses = new ArrayList<>();
-        courses.add(Map.of("code", "MCA301", "name", "Advanced Web Technologies", "credits", 4, "type", "Theory & Practical", "semester", 3));
-        courses.add(Map.of("code", "MCA302", "name", "Cloud Infrastructure & DevOps", "credits", 4, "type", "Theory", "semester", 3));
-        courses.add(Map.of("code", "MCA303", "name", "Database Architecture Practical", "credits", 3, "type", "Practical", "semester", 3));
-        courses.add(Map.of("code", "MCA304", "name", "Software Engineering & Testing", "credits", 4, "type", "Theory", "semester", 3));
+        subjectRepository.findAll().forEach(s -> {
+            courses.add(Map.of(
+                    "code", s.getSubjectCode() != null ? s.getSubjectCode() : "",
+                    "name", s.getSubjectName() != null ? s.getSubjectName() : "",
+                    "credits", s.getCredits() != null ? s.getCredits() : 4,
+                    "type", s.getSubjectType() != null ? s.getSubjectType() : "Theory",
+                    "semester", s.getSemesterNo() != null ? s.getSemesterNo() : 1
+            ));
+        });
         return courses;
     }
 
     public Map<String, Object> createCourse(Map<String, Object> courseData) {
         String code = (String) courseData.getOrDefault("code", "MCA" + (System.currentTimeMillis() % 1000));
-        String name = (String) courseData.getOrDefault("name", "New Computer Science Course");
+        String name = (String) courseData.getOrDefault("name", "New Course");
 
         Subject subject = Subject.builder()
-                .programId(UUID.randomUUID())
+                .departmentId(UUID.randomUUID())
                 .subjectCode(code)
                 .subjectName(name)
                 .credits(4)

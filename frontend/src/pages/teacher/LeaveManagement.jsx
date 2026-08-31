@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { BadgeAlert, CheckCircle2, XCircle, Clock, X } from "lucide-react";
 import Button from "../../components/common/Button";
 import { teacherApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const TeacherLeaveManagement = () => {
   const [requests, setRequests] = useState([]);
@@ -25,22 +26,35 @@ const TeacherLeaveManagement = () => {
     fetchData();
   }, []);
 
-  const handleReview = (status) => {
+  const handleReview = async (status) => {
     if (!selectedReq) return;
-    setRequests(
-      requests.map((r) =>
-        r.leave_request_id === selectedReq.leave_request_id
-          ? {
-            ...r,
-            status,
-            reviewed_by: "teach-001",
-            reviewed_date: new Date().toISOString().split("T")[0],
-            remarks: remarksText || (status === "Approved" ? "Approved." : "Rejected."),
-          }
-          : r
-      )
-    );
-    setSelectedReq(null);
+    try {
+      const id = selectedReq.leave_request_id;
+      await teacherApi.updateLeaveStatus(id, status);
+      setRequests(
+        requests.map((r) =>
+          r.leave_request_id === id
+            ? {
+              ...r,
+              status,
+              reviewed_by: "teach-001",
+              reviewed_date: new Date().toISOString().split("T")[0],
+              remarks: remarksText || (status === "Approved" ? "Approved." : "Rejected."),
+            }
+            : r
+        )
+      );
+      if (status === "Approved") {
+        notifySuccess("Leave application Approved and status updated in database!");
+      } else {
+        notifySuccess("Leave application Rejected and record updated!");
+      }
+      setSelectedReq(null);
+    } catch (err) {
+      console.error("Update leave error:", err);
+      const msg = err.response?.data?.error || err.message || "Failed to update leave status.";
+      notifyError(`Failed to update leave request: ${msg}`);
+    }
   };
 
   return (

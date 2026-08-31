@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Send, CheckCircle2, MessageSquare, Plus, Clock } from "lucide-react";
 import Button from "../../components/common/Button";
 import { studentApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const StudentAskDoubts = () => {
   const [doubts, setDoubts] = useState([]);
@@ -27,27 +28,40 @@ const StudentAskDoubts = () => {
     fetchData();
   }, []);
 
-  const handlePostDoubt = (e) => {
+  const handlePostDoubt = async (e) => {
     e.preventDefault();
-    const created = {
-      doubt_id: `doubt-00${doubts.length + 1}`,
-      student_id: "stu-001",
-      teacher_subject_id: "ts-001",
-      title: newTitle,
-      description: newDesc,
-      reply: null,
-      replied_at: null,
-      status: "Pending",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+    try {
+      const payload = {
+        title: newTitle,
+        description: newDesc,
+        teacher_subject_id: "ts-001",
+      };
+      await studentApi.askDoubt(payload);
+      const created = {
+        doubt_id: `doubt-00${doubts.length + 1}`,
+        student_id: "stu-001",
+        teacher_subject_id: "ts-001",
+        title: newTitle,
+        description: newDesc,
+        reply: null,
+        replied_at: null,
+        status: "Pending",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
 
-    setDoubts([created, ...doubts]);
-    setShowModal(false);
-    setNewTitle("");
-    setNewDesc("");
-    setSuccessMsg(true);
-    setTimeout(() => setSuccessMsg(false), 3000);
+      setDoubts([created, ...doubts]);
+      setShowModal(false);
+      setNewTitle("");
+      setNewDesc("");
+      setSuccessMsg(true);
+      notifySuccess("Doubt submitted to teacher and saved to database successfully!");
+      setTimeout(() => setSuccessMsg(false), 3000);
+    } catch (err) {
+      console.error("Post doubt error:", err);
+      const msg = err.response?.data?.error || err.message || "Failed to submit doubt.";
+      notifyError(`Failed to submit doubt: ${msg}`);
+    }
   };
 
   return (
