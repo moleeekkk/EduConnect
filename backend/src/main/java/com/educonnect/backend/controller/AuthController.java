@@ -47,4 +47,27 @@ public class AuthController {
         }
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/forgot-password/send-code")
+    public ResponseEntity<AuthResponse> sendPasswordResetCode(@RequestBody java.util.Map<String, String> body) {
+        String email = body.get("email");
+        String role = body.get("role");
+        AuthResponse response = authService.sendPasswordResetCode(email, role);
+        if (!response.isSuccess()) {
+            return ResponseEntity.badRequest().body(response);
+        }
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<AuthResponse> resetPasswordWithCode(@RequestBody java.util.Map<String, String> body) {
+        String email = body.get("email");
+        String code = body.get("code") != null ? body.get("code") : body.get("otp");
+        String newPassword = body.get("newPassword") != null ? body.get("newPassword") : body.get("new_password");
+        AuthResponse response = authService.resetPasswordWithCode(email, code, newPassword);
+        if (!response.isSuccess()) {
+            return ResponseEntity.badRequest().body(response);
+        }
+        return ResponseEntity.ok(response);
+    }
 }

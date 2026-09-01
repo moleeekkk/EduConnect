@@ -8,6 +8,7 @@ import com.educonnect.backend.entity.Semester;
 import com.educonnect.backend.entity.Student;
 import com.educonnect.backend.entity.Subject;
 import com.educonnect.backend.entity.Teacher;
+import com.educonnect.backend.entity.TeacherSubject;
 import com.educonnect.backend.service.AdminService;
 import com.educonnect.backend.service.BatchService;
 import com.educonnect.backend.service.DepartmentService;
@@ -244,5 +245,39 @@ public class AdminController {
     public ResponseEntity<Map<String, String>> deleteSubject(@PathVariable UUID id) {
         departmentService.deleteSubject(id);
         return ResponseEntity.ok(Map.of("message", "Subject deleted successfully"));
+    }
+
+    // --- Teacher Subject Allocation Endpoints ---
+    @GetMapping("/teacher-subjects")
+    public ResponseEntity<List<TeacherSubject>> getTeacherSubjects() {
+        return ResponseEntity.ok(teacherService.getAllTeacherSubjects());
+    }
+
+    @PostMapping("/teacher-subjects")
+    public ResponseEntity<?> assignTeacherSubject(@RequestBody TeacherSubject allocation) {
+        try {
+            return ResponseEntity.ok(teacherService.assignTeacherSubject(allocation));
+        } catch (Exception e) {
+            System.err.println("Assign teacher subject error: " + e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage() != null ? e.getMessage() : e.toString()));
+        }
+    }
+
+    @PostMapping("/teacher-subjects/toggle")
+    public ResponseEntity<?> toggleTeacherSubject(@RequestBody Map<String, String> body) {
+        try {
+            UUID teacherId = UUID.fromString(body.get("teacher_id"));
+            UUID subjectId = UUID.fromString(body.get("subject_id"));
+            return ResponseEntity.ok(teacherService.toggleTeacherSubject(teacherId, subjectId));
+        } catch (Exception e) {
+            System.err.println("Toggle teacher subject error: " + e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage() != null ? e.getMessage() : e.toString()));
+        }
+    }
+
+    @DeleteMapping("/teacher-subjects/{id}")
+    public ResponseEntity<Map<String, String>> deleteTeacherSubject(@PathVariable UUID id) {
+        teacherService.deleteTeacherSubject(id);
+        return ResponseEntity.ok(Map.of("message", "Teacher subject allocation removed successfully"));
     }
 }

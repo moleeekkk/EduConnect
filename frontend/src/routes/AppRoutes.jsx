@@ -53,6 +53,7 @@ import AdminInstituteManagement from "../pages/admin/InstituteManagement";
 import AdminDepartmentManagement from "../pages/admin/DepartmentManagement";
 import AdminSemesterManagement from "../pages/admin/SemesterManagement";
 import AdminSubjectManagement from "../pages/admin/SubjectManagement";
+import AdminTeacherSubjectAllocation from "../pages/admin/TeacherSubjectAllocation";
 import AdminReports from "../pages/admin/Reports";
 
 const AppRoutes = () => {
@@ -122,6 +123,8 @@ const AppRoutes = () => {
         <Route path="terms" element={<AdminSemesterManagement />} />
         <Route path="courses" element={<AdminDepartmentManagement />} />
         <Route path="subjects" element={<AdminSubjectManagement />} />
+        <Route path="teacher-subjects" element={<AdminTeacherSubjectAllocation />} />
+        <Route path="subject-allocation" element={<AdminTeacherSubjectAllocation />} />
         <Route path="reports" element={<AdminReports />} />
       </Route>
 

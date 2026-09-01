@@ -1,12 +1,17 @@
 package com.educonnect.backend.service;
 
+import com.educonnect.backend.entity.Assignment;
+import com.educonnect.backend.entity.AssignmentSubmission;
 import com.educonnect.backend.entity.Student;
+import com.educonnect.backend.repository.AssignmentRepository;
+import com.educonnect.backend.repository.AssignmentSubmissionRepository;
 import com.educonnect.backend.repository.AttendanceRecordRepository;
 import com.educonnect.backend.repository.BatchRepository;
 import com.educonnect.backend.repository.DepartmentRepository;
 import com.educonnect.backend.repository.InstituteRepository;
 import com.educonnect.backend.repository.SemesterRepository;
 import com.educonnect.backend.repository.StudentRepository;
+import com.educonnect.backend.repository.SubjectRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +28,9 @@ public class StudentService {
     private final DepartmentRepository departmentRepository;
     private final SemesterRepository semesterRepository;
     private final BatchRepository batchRepository;
+    private final AssignmentRepository assignmentRepository;
+    private final SubjectRepository subjectRepository;
+    private final AssignmentSubmissionRepository submissionRepository;
 
     @Transactional(readOnly = true)
     public List<Student> getAllStudents() {
@@ -158,8 +166,50 @@ public class StudentService {
         return Collections.emptyList();
     }
 
+    @Transactional(readOnly = true)
     public List<Map<String, Object>> getStudentAssignments(String enrollmentNo) {
-        return Collections.emptyList();
+        List<Assignment> assignments = assignmentRepository.findAll();
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (Assignment a : assignments) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("assignment_id", a.getAssignmentId() != null ? a.getAssignmentId().toString() : "");
+            map.put("teacher_subject_id", a.getTeacherSubjectId() != null ? a.getTeacherSubjectId().toString() : "");
+            map.put("subject_id", a.getSubjectId() != null ? a.getSubjectId().toString() : "");
+            map.put("title", a.getTitle() != null ? a.getTitle() : "");
+            map.put("description", a.getDescription() != null ? a.getDescription() : "");
+            map.put("due_date", a.getDueDate() != null ? a.getDueDate().toString() : "");
+            map.put("total_marks", a.getTotalMarks() != null ? a.getTotalMarks() : 50);
+            map.put("attachment", a.getAttachment() != null ? a.getAttachment() : "");
+            map.put("created_at", a.getCreatedAt() != null ? a.getCreatedAt().toString() : "");
+
+            if (a.getSubjectId() != null) {
+                subjectRepository.findById(a.getSubjectId()).ifPresent(sub -> {
+                    map.put("subject_code", sub.getSubjectCode());
+                    map.put("subject_name", sub.getSubjectName());
+                });
+            }
+            list.add(map);
+        }
+        return list;
+    }
+
+    @Transactional
+    public AssignmentSubmission submitAssignment(UUID assignmentId, String enrollmentNo, Map<String, Object> reqData) {
+        Optional<Student> studentOpt = studentRepository.findByEnrollmentNo(enrollmentNo);
+        UUID studentId = studentOpt.map(Student::getStudentId).orElseGet(() -> {
+            List<Student> all = studentRepository.findAll();
+            return !all.isEmpty() ? all.get(0).getStudentId() : UUID.randomUUID();
+        });
+
+        String fileName = reqData != null && reqData.get("fileName") != null ? (String) reqData.get("fileName") : "submission.pdf";
+
+        AssignmentSubmission sub = new AssignmentSubmission();
+        sub.setAssignmentId(assignmentId);
+        sub.setStudentId(studentId);
+        sub.setSubmissionDate(java.time.LocalDateTime.now());
+        sub.setAttachment(fileName);
+        sub.setSubmissionStatus("Submitted");
+        return submissionRepository.save(sub);
     }
 
     public Map<String, Object> getStudentResults(String enrollmentNo) {

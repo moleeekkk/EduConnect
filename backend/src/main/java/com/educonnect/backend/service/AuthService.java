@@ -9,6 +9,7 @@ import com.educonnect.backend.repository.StudentRepository;
 import com.educonnect.backend.repository.TeacherRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
@@ -25,6 +26,7 @@ public class AuthService {
     private final TeacherRepository teacherRepository;
     private final AdminRepository adminRepository;
     private final EmailService emailService;
+    private final PasswordEncoder passwordEncoder;
 
     // In-memory OTP storage: enrollmentNo -> OTP
     private final Map<String, String> otpStore = new ConcurrentHashMap<>();
@@ -118,28 +120,48 @@ public class AuthService {
     }
 
     public AuthResponse teacherLogin(LoginRequest request) {
+        if (request == null || request.getEmail() == null || request.getPassword() == null) {
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Please enter email and password.")
+                    .build();
+        }
+
         String email = request.getEmail().trim().toLowerCase();
-        String password = request.getPassword();
+        String rawPassword = request.getPassword().trim();
 
         Optional<Teacher> teacherOpt = teacherRepository.findByEmail(email);
 
         if (teacherOpt.isPresent()) {
             Teacher teacher = teacherOpt.get();
-            if (password.equals(teacher.getPassword()) || "teacher123".equals(password)) {
+            String storedHash = teacher.getPassword();
+
+            boolean matches = isPasswordMatching(rawPassword, storedHash, "teacher123", () -> {
+                // Auto-upgrade legacy plain text password to BCrypt hash
+                teacher.setPassword(passwordEncoder.encode(rawPassword));
+                teacherRepository.save(teacher);
+            });
+
+            if (matches) {
                 return AuthResponse.builder()
                         .success(true)
                         .message("Teacher login successful")
                         .token("jwt-teacher-token-" + System.currentTimeMillis())
                         .role("Teacher")
                         .userId(teacher.getTeacherId().toString())
-                        .name(teacher.getFirstName() + " " + teacher.getLastName())
+                        .name(((teacher.getFirstName() != null ? teacher.getFirstName() : "") + " " + (teacher.getLastName() != null ? teacher.getLastName() : "")).trim())
                         .identifier(teacher.getEmail())
+                        .build();
+            } else {
+                return AuthResponse.builder()
+                        .success(false)
+                        .message("Invalid email address or password. Please enter correct credentials.")
                         .build();
             }
         }
 
         // Demo Fallback
-        if ("teacher@educonnect.ac.in".equalsIgnoreCase(email) && "teacher123".equals(password)) {
+        if ("teacher@educonnect.ac.in".equalsIgnoreCase(email) && "teacher123".equals(rawPassword)) {
             return AuthResponse.builder()
                     .success(true)
                     .message("Teacher login successful")
@@ -153,33 +175,53 @@ public class AuthService {
 
         return AuthResponse.builder()
                 .success(false)
-                .message("Invalid email or password. Please try again.")
+                .message("Invalid email address or password. Please try again.")
                 .build();
     }
 
     public AuthResponse adminLogin(LoginRequest request) {
+        if (request == null || request.getEmail() == null || request.getPassword() == null) {
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Please enter email and password.")
+                    .build();
+        }
+
         String email = request.getEmail().trim().toLowerCase();
-        String password = request.getPassword();
+        String rawPassword = request.getPassword().trim();
 
         Optional<Admin> adminOpt = adminRepository.findByEmail(email);
 
         if (adminOpt.isPresent()) {
             Admin admin = adminOpt.get();
-            if (password.equals(admin.getPassword()) || "admin123".equals(password)) {
+            String storedHash = admin.getPassword();
+
+            boolean matches = isPasswordMatching(rawPassword, storedHash, "admin123", () -> {
+                // Auto-upgrade legacy plain text password to BCrypt hash
+                admin.setPassword(passwordEncoder.encode(rawPassword));
+                adminRepository.save(admin);
+            });
+
+            if (matches) {
                 return AuthResponse.builder()
                         .success(true)
                         .message("Admin login successful")
                         .token("jwt-admin-token-" + System.currentTimeMillis())
                         .role("Admin")
                         .userId(admin.getAdminId().toString())
-                        .name(admin.getFirstName() + " " + admin.getLastName())
+                        .name(((admin.getFirstName() != null ? admin.getFirstName() : "") + " " + (admin.getLastName() != null ? admin.getLastName() : "")).trim())
                         .identifier(admin.getEmail())
+                        .build();
+            } else {
+                return AuthResponse.builder()
+                        .success(false)
+                        .message("Invalid email address or password. Please enter correct credentials.")
                         .build();
             }
         }
 
         // Demo Fallback
-        if ("admin@educonnect.ac.in".equalsIgnoreCase(email) && "admin123".equals(password)) {
+        if ("admin@educonnect.ac.in".equalsIgnoreCase(email) && "admin123".equals(rawPassword)) {
             return AuthResponse.builder()
                     .success(true)
                     .message("Admin login successful")
@@ -200,5 +242,139 @@ public class AuthService {
     private String maskPhoneNumber(String phone) {
         if (phone == null || phone.length() < 10) return "+91 98*** **421";
         return phone.substring(0, 5) + "*** **" + phone.substring(phone.length() - 3);
+    }
+
+    // In-memory Password Reset Code storage: email -> code
+    private final Map<String, String> resetCodeStore = new ConcurrentHashMap<>();
+
+    public AuthResponse sendPasswordResetCode(String email, String role) {
+        if (email == null || email.trim().isEmpty() || !email.contains("@")) {
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Please enter a valid registered email address.")
+                    .build();
+        }
+
+        String cleanEmail = email.trim().toLowerCase();
+
+        String recipientName = "EduConnect User";
+        boolean userFound = false;
+
+        Optional<Teacher> teacherOpt = teacherRepository.findByEmail(cleanEmail);
+        if (teacherOpt.isPresent()) {
+            userFound = true;
+            Teacher t = teacherOpt.get();
+            recipientName = (t.getFirstName() + " " + (t.getLastName() != null ? t.getLastName() : "")).trim();
+        } else {
+            Optional<Admin> adminOpt = adminRepository.findByEmail(cleanEmail);
+            if (adminOpt.isPresent()) {
+                userFound = true;
+                Admin a = adminOpt.get();
+                recipientName = (a.getFirstName() + " " + (a.getLastName() != null ? a.getLastName() : "")).trim();
+            } else {
+                Optional<Student> studentOpt = studentRepository.findAll().stream()
+                        .filter(s -> s.getEmail() != null && s.getEmail().equalsIgnoreCase(cleanEmail))
+                        .findFirst();
+                if (studentOpt.isPresent()) {
+                    userFound = true;
+                    Student s = studentOpt.get();
+                    recipientName = (s.getFirstName() + " " + (s.getLastName() != null ? s.getLastName() : "")).trim();
+                }
+            }
+        }
+
+        if (!userFound && !"teacher@educonnect.ac.in".equalsIgnoreCase(cleanEmail) && !"admin@educonnect.ac.in".equalsIgnoreCase(cleanEmail)) {
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("No account found matching email address: " + cleanEmail)
+                    .build();
+        }
+
+        // Generate 6-digit reset code
+        String resetCode = String.format("%06d", random.nextInt(1000000));
+        resetCodeStore.put(cleanEmail, resetCode);
+
+        log.info("Password Reset Code generated for {}: {}", cleanEmail, resetCode);
+
+        // Send email with reset code
+        emailService.sendResetEmail(cleanEmail, recipientName, resetCode);
+
+        return AuthResponse.builder()
+                .success(true)
+                .message("Password reset code sent to your registered email address!")
+                .identifier(cleanEmail)
+                .name(recipientName)
+                .build();
+    }
+
+    public AuthResponse resetPasswordWithCode(String email, String code, String newPassword) {
+        if (email == null || code == null || newPassword == null) {
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Email, verification code, and new password are required.")
+                    .build();
+        }
+
+        String cleanEmail = email.trim().toLowerCase();
+        String inputCode = code.trim();
+
+        String cachedCode = resetCodeStore.get(cleanEmail);
+        boolean isValid = cachedCode != null && cachedCode.equals(inputCode);
+
+        if (!isValid) {
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Invalid verification code. Please check your email and try again.")
+                    .build();
+        }
+
+        // Clean up reset code
+        resetCodeStore.remove(cleanEmail);
+
+        // Update password in DB
+        Optional<Teacher> teacherOpt = teacherRepository.findByEmail(cleanEmail);
+        if (teacherOpt.isPresent()) {
+            Teacher t = teacherOpt.get();
+            t.setPassword(newPassword.trim());
+            teacherRepository.save(t);
+        }
+
+        Optional<Admin> adminOpt = adminRepository.findByEmail(cleanEmail);
+        if (adminOpt.isPresent()) {
+            Admin a = adminOpt.get();
+            a.setPassword(newPassword.trim());
+            adminRepository.save(a);
+        }
+
+        return AuthResponse.builder()
+                .success(true)
+                .message("Password reset successfully! You can now log in with your new password.")
+                .identifier(cleanEmail)
+                .build();
+    }
+
+    private boolean isPasswordMatching(String rawPassword, String storedHash, String defaultFallback, Runnable autoUpgradeCallback) {
+        if (storedHash == null || storedHash.trim().isEmpty()) {
+            storedHash = defaultFallback;
+        }
+
+        // Check if stored string is BCrypt hash (starts with $2a$, $2b$, $2y$)
+        if (storedHash.startsWith("$2a$") || storedHash.startsWith("$2b$") || storedHash.startsWith("$2y$")) {
+            return passwordEncoder.matches(rawPassword, storedHash);
+        }
+
+        // Legacy plain text matching
+        if (rawPassword.equals(storedHash)) {
+            if (autoUpgradeCallback != null) {
+                try {
+                    autoUpgradeCallback.run();
+                } catch (Exception e) {
+                    log.warn("Failed auto-upgrading password to BCrypt hash: {}", e.getMessage());
+                }
+            }
+            return true;
+        }
+
+        return false;
     }
 }

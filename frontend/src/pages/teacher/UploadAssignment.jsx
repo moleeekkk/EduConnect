@@ -6,6 +6,7 @@ import {
 import Button from "../../components/common/Button";
 import { teacherApi } from "../../services/api";
 import { notifySuccess, notifyError } from "../../utils/toast";
+import { openFileDocument } from "../../utils/fileViewer";
 
 
 const defaultSubmissions = [
@@ -86,6 +87,8 @@ const defaultSubmissions = [
 const TeacherUploadAssignment = () => {
   const [assignments, setAssignments] = useState([]);
   const [submissions, setSubmissions] = useState(defaultSubmissions);
+  const [assignedSubjects, setAssignedSubjects] = useState([]);
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
 
   // Submissions Pop-up Modal State
   const [viewSubmissionsAssignment, setViewSubmissionsAssignment] = useState(null);
@@ -108,6 +111,34 @@ const TeacherUploadAssignment = () => {
   const [gradeFeedback, setGradeFeedback] = useState("Good work");
   const [reminderSentId, setReminderSentId] = useState(null);
 
+  useEffect(() => {
+    const fetchData = async () => {
+      const userStr = localStorage.getItem("educonnect_user");
+      const loggedUser = userStr ? JSON.parse(userStr) : null;
+      const identifier = loggedUser?.identifier || loggedUser?.email || loggedUser?.userId;
+
+      try {
+        const [subData, asgnData] = await Promise.all([
+          teacherApi.getAssignedSubjects(identifier),
+          teacherApi.getAssignments(identifier),
+        ]);
+
+        if (Array.isArray(subData)) {
+          setAssignedSubjects(subData);
+          if (subData.length > 0) {
+            setSelectedSubjectId(subData[0].subject_id || "");
+          }
+        }
+        if (Array.isArray(asgnData)) {
+          setAssignments(asgnData);
+        }
+      } catch (err) {
+        console.error("Teacher upload assignment data load error:", err);
+      }
+    };
+    fetchData();
+  }, []);
+
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -122,6 +153,9 @@ const TeacherUploadAssignment = () => {
     setNewDueDate("2026-08-25");
     setNewMarks(50);
     setRefFileName("");
+    if (assignedSubjects.length > 0) {
+      setSelectedSubjectId(assignedSubjects[0].subject_id || "");
+    }
     setShowAddModal(true);
   };
 
@@ -132,17 +166,25 @@ const TeacherUploadAssignment = () => {
     setNewDueDate(asgn.due_date);
     setNewMarks(asgn.total_marks);
     setRefFileName(asgn.attachment ? asgn.attachment.replace("/uploads/assignments/", "") : "");
+    setSelectedSubjectId(asgn.subject_id || (assignedSubjects[0]?.subject_id || ""));
     setShowAddModal(true);
   };
 
-  const handleDeleteAssignment = (id) => {
-    if (window.confirm("Are you sure you want to delete this assignment?")) {
-      setAssignments(assignments.filter((a) => a.assignment_id !== id));
-      setSubmissions(submissions.filter((s) => s.assignment_id !== id));
+  const handleDeleteAssignment = async (id) => {
+    if (window.confirm("Are you sure you want to delete this assignment from database?")) {
+      try {
+        await teacherApi.deleteAssignment(id);
+        setAssignments(assignments.filter((a) => a.assignment_id !== id));
+        setSubmissions(submissions.filter((s) => s.assignment_id !== id));
+        notifySuccess("Assignment deleted successfully from database!");
+      } catch (err) {
+        console.error("Error deleting assignment:", err);
+        notifyError("Failed to delete assignment from database.");
+      }
     }
   };
 
-  const handleSaveAssignment = (e) => {
+  const handleSaveAssignment = async (e) => {
     e.preventDefault();
     const attachmentPath = refFileName
       ? refFileName.startsWith("/")
@@ -150,38 +192,38 @@ const TeacherUploadAssignment = () => {
         : `/uploads/assignments/${refFileName}`
       : null;
 
-    if (editingAssignmentId) {
-      setAssignments(
-        assignments.map((a) =>
-          a.assignment_id === editingAssignmentId
-            ? {
-                ...a,
-                title: newTitle,
-                description: newDesc,
-                due_date: newDueDate,
-                total_marks: Number(newMarks),
-                attachment: attachmentPath,
-                updated_at: new Date().toISOString(),
-              }
-            : a
-        )
-      );
-      notifySuccess(`Assignment '${newTitle}' updated successfully!`);
-    } else {
-      const newAsgnId = `asgn-00${assignments.length + 1}`;
-      const created = {
-        assignment_id: newAsgnId,
-        teacher_subject_id: "ts-001",
-        title: newTitle,
-        description: newDesc,
-        due_date: newDueDate,
-        total_marks: Number(newMarks),
-        attachment: attachmentPath,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      setAssignments([created, ...assignments]);
-      notifySuccess(`Assignment '${newTitle}' created and saved to database successfully!`);
+    const selectedSubObj = assignedSubjects.find((s) => String(s.subject_id) === String(selectedSubjectId));
+    const subName = selectedSubObj ? `${selectedSubObj.subject_code} - ${selectedSubObj.subject_name}` : "Assigned Subject";
+
+    const payload = {
+      subject_id: selectedSubjectId,
+      title: newTitle,
+      description: newDesc,
+      due_date: newDueDate,
+      total_marks: Number(newMarks),
+      attachment: attachmentPath,
+    };
+
+    try {
+      if (editingAssignmentId) {
+        await teacherApi.updateAssignment(editingAssignmentId, payload);
+        notifySuccess(`Assignment '${newTitle}' updated in database successfully!`);
+      } else {
+        await teacherApi.createAssignment(payload);
+        notifySuccess(`Assignment '${newTitle}' published and saved to database successfully!`);
+      }
+
+      // Refresh assignment list from database
+      const userStr = localStorage.getItem("educonnect_user");
+      const loggedUser = userStr ? JSON.parse(userStr) : null;
+      const identifier = loggedUser?.identifier || loggedUser?.email || loggedUser?.userId;
+      const dbAsgns = await teacherApi.getAssignments(identifier);
+      if (Array.isArray(dbAsgns)) {
+        setAssignments(dbAsgns);
+      }
+    } catch (err) {
+      console.error("Error saving assignment to database:", err);
+      notifyError("Failed to save assignment to database.");
     }
 
     setShowAddModal(false);
@@ -307,17 +349,9 @@ const TeacherUploadAssignment = () => {
                   {asgn.attachment && (
                     <div className="pt-1">
                       <button
-                        onClick={() =>
-                          setViewFileModal({
-                            attachment: asgn.attachment,
-                            student_name: "Faculty Published Reference File",
-                            enrollment_no: "Class Spec Doc",
-                            submission_date: `Due Date: ${asgn.due_date}`,
-                            submission_status: "Published Reference Document",
-                          })
-                        }
+                        onClick={() => openFileDocument(asgn.attachment, asgn.title)}
                         className="inline-flex items-center gap-1.5 font-mono font-bold text-xs text-[#14B8A6] bg-[#14B8A6]/10 hover:bg-[#14B8A6] hover:text-white px-3 py-1 rounded-lg border border-[#14B8A6]/20 transition-all cursor-pointer"
-                        title="Click to view reference document"
+                        title="Click to open reference document"
                       >
                         <Paperclip className="w-3.5 h-3.5" /> Ref File: {asgn.attachment}
                       </button>
@@ -570,6 +604,30 @@ const TeacherUploadAssignment = () => {
             </div>
 
             <form onSubmit={handleSaveAssignment} className="space-y-3 text-xs">
+              {/* Assigned Subject Selector */}
+              <div>
+                <label className="block text-[#64748B] mb-1 font-semibold">Select Assigned Subject *</label>
+                {assignedSubjects.length > 0 ? (
+                  <select
+                    required
+                    value={selectedSubjectId}
+                    onChange={(e) => setSelectedSubjectId(e.target.value)}
+                    className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-semibold text-[#1E293B] outline-none focus:border-[#2563EB] text-xs cursor-pointer"
+                  >
+                    <option value="">-- Choose Assigned Subject --</option>
+                    {assignedSubjects.map((sub) => (
+                      <option key={sub.subject_id} value={sub.subject_id}>
+                        {sub.subject_code} - {sub.subject_name} {sub.subject_type ? `(${sub.subject_type})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-lg text-[#EF4444] text-xs font-semibold">
+                    No subjects assigned to you yet. Please contact Administrator for subject allocation.
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-[#64748B] mb-1 font-medium">Assignment Title</label>
                 <input
@@ -671,9 +729,9 @@ const TeacherUploadAssignment = () => {
                   <span className="text-[10px] font-bold text-[#64748B] uppercase block">Submitted File Attachment</span>
                   {selectedSub.attachment ? (
                     <button
-                      onClick={() => setViewFileModal(selectedSub)}
+                      onClick={() => openFileDocument(selectedSub.attachment, selectedSub.student_name)}
                       className="font-mono font-bold text-[#2563EB] text-xs hover:underline cursor-pointer flex items-center gap-1 mt-0.5"
-                      title="Click file name to view document"
+                      title="Click file name to open document"
                     >
                       <Paperclip className="w-3.5 h-3.5" /> {selectedSub.attachment}
                     </button>
@@ -764,7 +822,7 @@ const TeacherUploadAssignment = () => {
                     variant="accent"
                     size="sm"
                     icon={Paperclip}
-                    onClick={() => alert(`Downloading student file: ${viewFileModal.attachment}...`)}
+                    onClick={() => openFileDocument(viewFileModal.attachment, viewFileModal.student_name)}
                     className="text-xs"
                   >
                     Download Attachment
@@ -773,7 +831,7 @@ const TeacherUploadAssignment = () => {
                     variant="outline"
                     size="sm"
                     icon={Eye}
-                    onClick={() => alert(`Opening ${viewFileModal.attachment} in full screen viewer...`)}
+                    onClick={() => openFileDocument(viewFileModal.attachment, viewFileModal.student_name)}
                     className="text-xs"
                   >
                     Open Document Preview

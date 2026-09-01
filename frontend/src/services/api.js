@@ -74,6 +74,14 @@ export const authApi = {
     }
     return response.data;
   },
+  sendPasswordResetCode: async (email, role) => {
+    const response = await api.post("/auth/forgot-password/send-code", { email, role });
+    return response.data;
+  },
+  resetPassword: async (email, code, newPassword) => {
+    const response = await api.post("/auth/forgot-password/reset", { email, code, newPassword, new_password: newPassword });
+    return response.data;
+  },
 };
 
 // Student Endpoints
@@ -124,10 +132,20 @@ export const teacherApi = {
     handleMutationRequest(() => api.post("/teacher/attendance/mark", attendanceData)),
   getStudents: () =>
     handleRequest(() => api.get("/teacher/students"), []),
-  getAssignments: (teacherId) =>
-    handleRequest(() => api.get(`/teacher/assignments?teacherId=${teacherId || "teach-demo-id"}`), []),
+  getDepartments: () =>
+    handleRequest(() => api.get("/teacher/departments"), []),
+  getSemesters: () =>
+    handleRequest(() => api.get("/teacher/semesters"), []),
+  getAssignedSubjects: (identifier) =>
+    handleRequest(() => api.get(`/teacher/assigned-subjects?email=${encodeURIComponent(identifier || "")}&teacherId=${encodeURIComponent(identifier || "")}`), []),
+  getAssignments: (identifier) =>
+    handleRequest(() => api.get(`/teacher/assignments?email=${encodeURIComponent(identifier || "")}&teacherId=${encodeURIComponent(identifier || "")}`), []),
   createAssignment: (data) =>
     handleMutationRequest(() => api.post("/teacher/assignments", data)),
+  updateAssignment: (id, data) =>
+    handleMutationRequest(() => api.put(`/teacher/assignments/${id}`, data)),
+  deleteAssignment: (id) =>
+    handleMutationRequest(() => api.delete(`/teacher/assignments/${id}`)),
   getPendingGrades: (teacherId) =>
     handleRequest(() => api.get(`/teacher/grades?teacherId=${teacherId || "teach-demo-id"}`), []),
   submitGrades: (data) =>
@@ -154,8 +172,10 @@ export const teacherApi = {
     handleRequest(() => api.get("/teacher/weekly-tests"), []),
   createWeeklyTest: (data) =>
     handleMutationRequest(() => api.post("/teacher/weekly-tests", data)),
-  getProfile: (teacherId) =>
-    handleRequest(() => api.get(`/teacher/profile?teacherId=${teacherId || "teach-demo-id"}`), {}),
+  getProfile: (identifier) =>
+    handleRequest(() => api.get(`/teacher/profile?email=${encodeURIComponent(identifier || "")}&teacherId=${encodeURIComponent(identifier || "")}`), {}),
+  updateProfile: (data) =>
+    handleMutationRequest(() => api.put("/teacher/profile", data)),
   sendParentEmail: (data) =>
     handleMutationRequest(() => api.post("/teacher/parent-email", data)),
 };
@@ -214,6 +234,23 @@ export const adminApi = {
     handleRequest(() => api.get("/admin/subjects"), []),
   createSubject: (data) =>
     handleMutationRequest(() => api.post("/admin/subjects", data)),
+  updateSubject: (id, data) =>
+    handleMutationRequest(() => api.put(`/admin/subjects/${id}`, data)),
+  deleteSubject: (id) =>
+    handleMutationRequest(() => api.delete(`/admin/subjects/${id}`)),
+  getTeacherSubjects: () =>
+    handleRequest(() => api.get("/admin/teacher-subjects"), []),
+  assignTeacherSubject: (data) =>
+    handleMutationRequest(() => api.post("/admin/teacher-subjects", data)),
+  toggleTeacherSubject: (teacherId, subjectId) =>
+    handleMutationRequest(() =>
+      api.post("/admin/teacher-subjects/toggle", {
+        teacher_id: teacherId,
+        subject_id: subjectId,
+      })
+    ),
+  deleteTeacherSubject: (id) =>
+    handleMutationRequest(() => api.delete(`/admin/teacher-subjects/${id}`)),
   getReports: () =>
     handleRequest(() => api.get("/admin/reports"), {}),
   getProfile: () =>

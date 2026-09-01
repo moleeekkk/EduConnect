@@ -9,6 +9,7 @@ import com.educonnect.backend.repository.TeacherRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -21,6 +22,7 @@ public class DataInitializer implements CommandLineRunner {
     private final AdminRepository adminRepository;
     private final TeacherRepository teacherRepository;
     private final StudentRepository studentRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     public void run(String... args) throws Exception {
@@ -33,7 +35,7 @@ public class DataInitializer implements CommandLineRunner {
                         .firstName("Super")
                         .lastName("Administrator")
                         .email("admin@educonnect.ac.in")
-                        .password("admin123")
+                        .password(passwordEncoder.encode("admin123"))
                         .mobile("+91 9876543210")
                         .gender("Male")
                         .dateOfBirth(LocalDate.of(1985, 1, 1))
@@ -41,7 +43,7 @@ public class DataInitializer implements CommandLineRunner {
                         .isActive(true)
                         .build();
                 adminRepository.save(admin);
-                log.info("Demo Admin Created: admin@educonnect.ac.in / admin123");
+                log.info("Demo Admin Created with BCrypt Hashed Password: admin@educonnect.ac.in");
             }
 
             // Seed Teacher if not exists
@@ -50,7 +52,7 @@ public class DataInitializer implements CommandLineRunner {
                         .firstName("Sarah")
                         .lastName("Jenkins")
                         .email("teacher@educonnect.ac.in")
-                        .password("teacher123")
+                        .password(passwordEncoder.encode("teacher123"))
                         .mobile("+91 9876543211")
                         .gender("Female")
                         .designation("Associate Professor")
@@ -59,7 +61,7 @@ public class DataInitializer implements CommandLineRunner {
                         .isActive(true)
                         .build();
                 teacherRepository.save(teacher);
-                log.info("Demo Teacher Created: teacher@educonnect.ac.in / teacher123");
+                log.info("Demo Teacher Created with BCrypt Hashed Password: teacher@educonnect.ac.in");
             }
 
             // Seed Student if not exists

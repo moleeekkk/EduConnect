@@ -9,6 +9,7 @@ import com.educonnect.backend.repository.StudentRepository;
 import com.educonnect.backend.repository.SubjectRepository;
 import com.educonnect.backend.repository.TeacherRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -22,6 +23,7 @@ public class AdminService {
     private final TeacherRepository teacherRepository;
     private final AdminRepository adminRepository;
     private final SubjectRepository subjectRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public Map<String, Object> getAdminDashboard() {
         Map<String, Object> data = new HashMap<>();
@@ -83,7 +85,7 @@ public class AdminService {
                     .firstName(nameParts[0])
                     .lastName(nameParts.length > 1 ? nameParts[1] : "Faculty")
                     .email(dto.getEmail() != null ? dto.getEmail() : "faculty" + System.currentTimeMillis() % 1000 + "@educonnect.ac.in")
-                    .password("teacher123")
+                    .password(passwordEncoder.encode("teacher123"))
                     .mobile("+91 9876543210")
                     .gender("Female")
                     .designation("Assistant Professor")

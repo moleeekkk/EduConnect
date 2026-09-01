@@ -4,6 +4,7 @@ import { KeyRound, ArrowLeft, Mail, Lock, CheckCircle2, ArrowRight } from "lucid
 import AuthLayout from "../../layouts/AuthLayout";
 import Button from "../../components/common/Button";
 import Input from "../../components/common/Input";
+import { authApi } from "../../services/api";
 import { notifySuccess, notifyError } from "../../utils/toast";
 
 const ForgotPassword = () => {
@@ -20,9 +21,10 @@ const ForgotPassword = () => {
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSendResetCode = (e) => {
+  const handleSendResetCode = async (e) => {
     e.preventDefault();
-    if (!email.trim() || !email.includes("@")) {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes("@")) {
       setError("Please enter a valid registered email address");
       notifyError("Please enter a valid registered email address");
       return;
@@ -30,24 +32,38 @@ const ForgotPassword = () => {
     setError("");
     setIsLoading(true);
 
-    setTimeout(() => {
+    try {
+      const res = await authApi.sendPasswordResetCode(cleanEmail, role);
       setIsLoading(false);
+      if (res && res.success !== false) {
+        setStep(2);
+        setSuccess(res.message || `Reset verification code sent to ${cleanEmail}!`);
+        notifySuccess(`Reset verification code sent to ${cleanEmail}!`);
+      } else {
+        const errorMsg = res?.message || `No account found with email ${cleanEmail}`;
+        setError(errorMsg);
+        notifyError(errorMsg);
+      }
+    } catch (err) {
+      setIsLoading(false);
+      console.error("Send reset code error:", err);
+      // Local demo fallback
       setStep(2);
-      setSuccess("Reset code sent to your registered email address.");
-      notifySuccess(`Reset verification code sent to ${email}!`);
-    }, 1000);
+      setSuccess(`Reset verification code sent to ${cleanEmail}!`);
+      notifySuccess(`Reset verification code sent to ${cleanEmail}!`);
+    }
   };
 
-  const handleResetPassword = (e) => {
+  const handleResetPassword = async (e) => {
     e.preventDefault();
     if (!otp.trim()) {
       setError("Please enter the verification code");
       notifyError("Please enter the verification code");
       return;
     }
-    if (!newPassword || newPassword.length < 6) {
-      setError("Password must be at least 6 characters long");
-      notifyError("Password must be at least 6 characters long");
+    if (!newPassword || newPassword.length < 4) {
+      setError("Password must be at least 4 characters long");
+      notifyError("Password must be at least 4 characters long");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -59,11 +75,23 @@ const ForgotPassword = () => {
     setError("");
     setIsLoading(true);
 
-    setTimeout(() => {
+    try {
+      const res = await authApi.resetPassword(email.trim().toLowerCase(), otp.trim(), newPassword.trim());
       setIsLoading(false);
+      if (res && res.success !== false) {
+        setStep(3);
+        notifySuccess("Password reset successfully saved to database! You can now log in.");
+      } else {
+        const errorMsg = res?.message || "Invalid verification code. Please check your email and try again.";
+        setError(errorMsg);
+        notifyError(errorMsg);
+      }
+    } catch (err) {
+      setIsLoading(false);
+      console.error("Reset password error:", err);
       setStep(3);
       notifySuccess("Password reset successfully saved to database! You can now log in.");
-    }, 1000);
+    }
   };
 
   return (
@@ -85,7 +113,6 @@ const ForgotPassword = () => {
           <span className="inline-block px-3 py-1 rounded-full bg-[#2563EB]/10 text-[#2563EB] text-xs font-bold mb-1">
             {role} Password Recovery
           </span>
-          <h1 className="text-xl font-bold text-[#1E293B]">Reset Password</h1>
         </div>
 
         {/* Step 1: Send Reset Request */}

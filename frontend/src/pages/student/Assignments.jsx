@@ -3,6 +3,7 @@ import { BookOpenCheck, Upload, CheckCircle2, Clock, AlertCircle, FileText, Down
 import Button from "../../components/common/Button";
 import { studentApi } from "../../services/api";
 import { notifySuccess, notifyError } from "../../utils/toast";
+import { openFileDocument } from "../../utils/fileViewer";
 
 
 const StudentAssignments = () => {
@@ -15,8 +16,12 @@ const StudentAssignments = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+      const userStr = localStorage.getItem("educonnect_user");
+      const loggedUser = userStr ? JSON.parse(userStr) : null;
+      const enrollmentNo = loggedUser?.enrollment_no || loggedUser?.enrollmentNo || loggedUser?.identifier || "2024MCA001";
+
       try {
-        const data = await studentApi.getAssignments();
+        const data = await studentApi.getAssignments(enrollmentNo);
         if (Array.isArray(data)) {
           setAssignments(data);
         }
@@ -126,17 +131,9 @@ const StudentAssignments = () => {
                 {asgn.attachment && (
                   <div className="pt-1">
                     <button
-                      onClick={() =>
-                        setViewFileModal({
-                          attachment: asgn.attachment,
-                          student_name: "Teacher / Faculty Spec Reference Doc",
-                          enrollment_no: "Assignment Spec Doc",
-                          submission_date: `Due Date: ${asgn.due_date}`,
-                          submission_status: "Teacher Reference Document",
-                        })
-                      }
+                      onClick={() => openFileDocument(asgn.attachment, asgn.title)}
                       className="inline-flex items-center gap-1.5 text-[11px] font-mono text-[#2563EB] bg-[#2563EB]/10 hover:bg-[#2563EB] hover:text-white px-3 py-1 rounded-lg border border-[#2563EB]/20 font-bold cursor-pointer transition-all"
-                      title="Click file name to view teacher reference document"
+                      title="Click file name to open teacher reference document"
                     >
                       <Paperclip className="w-3.5 h-3.5" /> Teacher File: {asgn.attachment}
                     </button>
@@ -149,7 +146,7 @@ const StudentAssignments = () => {
                     <div className="space-y-0.5">
                       <span className="text-[10px] font-bold text-[#64748B] uppercase block">Your Uploaded File</span>
                       <button
-                        onClick={() => setViewFileModal(submission)}
+                        onClick={() => openFileDocument(submission.attachment, "My Submission Document")}
                         className="font-mono font-bold text-[#2563EB] text-xs hover:underline cursor-pointer flex items-center gap-1 mt-0.5"
                         title="Click file name to open document"
                       >
@@ -320,7 +317,7 @@ const StudentAssignments = () => {
                     variant="accent"
                     size="sm"
                     icon={Download}
-                    onClick={() => alert(`Downloading your file: ${viewFileModal.attachment}...`)}
+                    onClick={() => openFileDocument(viewFileModal.attachment, "Download Attachment")}
                     className="text-xs"
                   >
                     Download My File
@@ -329,7 +326,7 @@ const StudentAssignments = () => {
                     variant="outline"
                     size="sm"
                     icon={Eye}
-                    onClick={() => alert(`Opening ${viewFileModal.attachment} in document viewer...`)}
+                    onClick={() => openFileDocument(viewFileModal.attachment, "Document Preview")}
                     className="text-xs"
                   >
                     Open Document Preview

@@ -22,13 +22,26 @@ const TeacherDashboard = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+      const userStr = localStorage.getItem("educonnect_user");
+      const loggedUser = userStr ? JSON.parse(userStr) : null;
+      const identifier = loggedUser?.identifier || loggedUser?.email || loggedUser?.userId;
+
       try {
-        const res = await teacherApi.getDashboard(dashData.employee_id);
-        if (res) {
+        const [dashRes, profileRes] = await Promise.all([
+          teacherApi.getDashboard(identifier),
+          teacherApi.getProfile(identifier),
+        ]);
+
+        if (profileRes && (profileRes.first_name || profileRes.email)) {
           setDashData((prev) => ({
             ...prev,
-            ...res,
-            sessions: Array.isArray(res.sessions) ? res.sessions : prev.sessions,
+            ...profileRes,
+            sessions: Array.isArray(dashRes?.sessions) ? dashRes.sessions : prev.sessions,
+          }));
+        } else if (dashRes) {
+          setDashData((prev) => ({
+            ...prev,
+            ...dashRes,
           }));
         }
       } catch (err) {
@@ -36,7 +49,7 @@ const TeacherDashboard = () => {
       }
     };
     fetchData();
-  }, [dashData.employee_id]);
+  }, []);
 
   const teacher = {
     employee_id: dashData.employee_id,
@@ -59,9 +72,6 @@ const TeacherDashboard = () => {
       {/* Faculty Welcome Banner */}
       <div className="bg-gradient-to-r from-[#14B8A6] to-[#2563EB] rounded-2xl p-6 text-white shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-white/20 text-xs font-semibold mb-2">
-            Employee ID: {teacher.employee_id}
-          </span>
           <h1 className="text-2xl font-bold tracking-tight">
             Welcome, {teacher.first_name} {teacher.last_name}!
           </h1>
