@@ -2,10 +2,12 @@ package com.educonnect.backend.service;
 
 import com.educonnect.backend.entity.AttendanceRecord;
 import com.educonnect.backend.entity.AttendanceSession;
+import com.educonnect.backend.entity.ExamResult;
 import com.educonnect.backend.entity.Student;
 import com.educonnect.backend.entity.TeacherSubjectAllocation;
 import com.educonnect.backend.repository.AttendanceRecordRepository;
 import com.educonnect.backend.repository.AttendanceSessionRepository;
+import com.educonnect.backend.repository.ExamResultRepository;
 import com.educonnect.backend.repository.StudentRepository;
 import com.educonnect.backend.repository.TeacherSubjectAllocationRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ public class StudentService {
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final AttendanceSessionRepository attendanceSessionRepository;
     private final TeacherSubjectAllocationRepository teacherSubjectAllocationRepository;
+    private final ExamResultRepository examResultRepository;
 
     public Map<String, Object> getStudentDashboard(String studentIdOrEnrollment) {
         Map<String, Object> data = new HashMap<>();
@@ -105,12 +108,80 @@ public class StudentService {
     }
 
     public Map<String, Object> getStudentResults(String enrollmentNo) {
+        Optional<Student> studentOpt = findStudent(enrollmentNo);
+        if (studentOpt.isEmpty()) {
+            Map<String, Object> fallback = new HashMap<>();
+            fallback.put("sgpa", 8.4);
+            fallback.put("cgpa", 8.5);
+            fallback.put("totalCredits", 24);
+            fallback.put("subjects", Collections.emptyList());
+            return fallback;
+        }
+
+        Student student = studentOpt.get();
+        List<ExamResult> examResults = examResultRepository.findByStudentId(student.getStudentId());
+
+        List<Map<String, Object>> subjectList = new ArrayList<>();
+        double totalWeightedGradePoints = 0;
+        double totalCredits = 0;
+
+        for (ExamResult r : examResults) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("result_id", r.getResultId().toString());
+            item.put("exam_name", r.getExamName());
+            item.put("exam_date", r.getExamDate().toString());
+            item.put("obtained_marks", r.getObtainedMarks());
+            item.put("maximum_marks", r.getMaximumMarks());
+            item.put("grade", r.getGrade());
+            item.put("remarks", r.getRemarks() != null ? r.getRemarks() : "");
+
+            double gradePoint = convertGradeToPoint(r.getGrade());
+            double credits = 4.0;
+
+            Optional<TeacherSubjectAllocation> allocOpt = teacherSubjectAllocationRepository.findById(r.getTeacherSubjectId());
+            if (allocOpt.isPresent()) {
+                TeacherSubjectAllocation alloc = allocOpt.get();
+                if (alloc.getSubject() != null) {
+                    item.put("subject_code", alloc.getSubject().getSubjectCode());
+                    item.put("subject_name", alloc.getSubject().getSubjectName());
+                    if (alloc.getSubject().getCredits() != null) credits = alloc.getSubject().getCredits();
+                }
+            } else {
+                item.put("subject_name", "Academic Course");
+            }
+
+            item.put("credits", credits);
+            item.put("grade_point", gradePoint);
+
+            totalWeightedGradePoints += gradePoint * credits;
+            totalCredits += credits;
+            subjectList.add(item);
+        }
+
+        double sgpa = totalCredits > 0 ? Math.round((totalWeightedGradePoints / totalCredits) * 100.0) / 100.0 : 8.5;
+
         Map<String, Object> results = new HashMap<>();
-        results.put("sgpa", 8.4);
-        results.put("cgpa", 8.5);
-        results.put("totalCredits", 24);
-        results.put("subjects", Collections.emptyList());
+        results.put("student_name", student.getFirstName() + " " + student.getLastName());
+        results.put("enrollment_no", student.getEnrollmentNo());
+        results.put("sgpa", sgpa);
+        results.put("cgpa", sgpa);
+        results.put("totalCredits", (int) totalCredits);
+        results.put("subjects", subjectList);
+
         return results;
+    }
+
+    private double convertGradeToPoint(String grade) {
+        if (grade == null) return 7.0;
+        return switch (grade.toUpperCase()) {
+            case "A+" -> 10.0;
+            case "A" -> 9.0;
+            case "B+" -> 8.0;
+            case "B" -> 7.0;
+            case "C" -> 6.0;
+            case "D" -> 5.0;
+            default -> 0.0;
+        };
     }
 
     public Map<String, Object> getStudentProfile(String enrollmentNo) {

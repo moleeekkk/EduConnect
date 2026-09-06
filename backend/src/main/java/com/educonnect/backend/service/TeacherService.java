@@ -2,10 +2,12 @@ package com.educonnect.backend.service;
 
 import com.educonnect.backend.dto.AssignmentDto;
 import com.educonnect.backend.dto.AttendanceMarkRequest;
+import com.educonnect.backend.dto.ExamResultDto;
 import com.educonnect.backend.entity.Assignment;
 import com.educonnect.backend.entity.AssignmentSubmission;
 import com.educonnect.backend.entity.AttendanceRecord;
 import com.educonnect.backend.entity.AttendanceSession;
+import com.educonnect.backend.entity.ExamResult;
 import com.educonnect.backend.entity.Student;
 import com.educonnect.backend.entity.Teacher;
 import com.educonnect.backend.entity.TeacherSubjectAllocation;
@@ -13,6 +15,7 @@ import com.educonnect.backend.repository.AssignmentRepository;
 import com.educonnect.backend.repository.AssignmentSubmissionRepository;
 import com.educonnect.backend.repository.AttendanceRecordRepository;
 import com.educonnect.backend.repository.AttendanceSessionRepository;
+import com.educonnect.backend.repository.ExamResultRepository;
 import com.educonnect.backend.repository.StudentRepository;
 import com.educonnect.backend.repository.TeacherRepository;
 import com.educonnect.backend.repository.TeacherSubjectAllocationRepository;
@@ -37,6 +40,7 @@ public class TeacherService {
     private final TeacherRepository teacherRepository;
     private final AssignmentRepository assignmentRepository;
     private final AssignmentSubmissionRepository submissionRepository;
+    private final ExamResultRepository examResultRepository;
 
     // --- SECURITY RESOLVER ---
     public Teacher getAuthenticatedTeacher(Principal principal) {
@@ -558,6 +562,39 @@ public class TeacherService {
         return list;
     }
 
+    public Map<String, Object> getAssignmentById(UUID assignmentId, Principal principal) {
+        Teacher authenticatedTeacher = getAuthenticatedTeacher(principal);
+
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "404 Not Found: Assignment not found"));
+
+        TeacherSubjectAllocation alloc = allocationRepository.findById(assignment.getTeacherSubjectId()).orElse(null);
+        if (alloc == null || !alloc.getTeacher().getTeacherId().equals(authenticatedTeacher.getTeacherId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "403 Forbidden: You are not authorized to view another teacher's assignment");
+        }
+
+        List<AssignmentSubmission> subs = submissionRepository.findByAssignmentId(assignmentId);
+
+        Map<String, Object> m = new HashMap<>();
+        m.put("assignment_id", assignment.getAssignmentId().toString());
+        m.put("assignmentId", assignment.getAssignmentId().toString());
+        m.put("title", assignment.getTitle());
+        m.put("description", assignment.getDescription() != null ? assignment.getDescription() : "");
+        m.put("due_date", assignment.getDueDate().toString());
+        m.put("dueDate", assignment.getDueDate().toString());
+        m.put("total_marks", assignment.getTotalMarks());
+        m.put("totalMarks", assignment.getTotalMarks());
+        m.put("attachment", assignment.getAttachment() != null ? assignment.getAttachment() : "");
+        m.put("status", "Active");
+        m.put("submissionCount", subs.size());
+        m.put("subject_name", alloc.getSubject() != null ? alloc.getSubject().getSubjectName() : "");
+        m.put("subject_code", alloc.getSubject() != null ? alloc.getSubject().getSubjectCode() : "");
+        m.put("program_name", alloc.getProgram() != null ? alloc.getProgram().getProgramName() : "");
+        m.put("semester_name", alloc.getSemester() != null ? alloc.getSemester().getSemesterName() : "");
+
+        return m;
+    }
+
     public Map<String, Object> createAssignment(AssignmentDto dto, Principal principal) {
         Teacher authenticatedTeacher = getAuthenticatedTeacher(principal);
 
@@ -567,25 +604,26 @@ public class TeacherService {
 
         TeacherSubjectAllocation allocation = null;
         if (allocObj != null && !allocObj.toString().isBlank()) {
+            UUID parsedId;
             try {
-                UUID parsedId = UUID.fromString(allocObj.toString());
-                Optional<TeacherSubjectAllocation> allocOpt = allocationRepository.findById(parsedId);
-                if (allocOpt.isPresent()) {
-                    allocation = allocOpt.get();
-                }
-            } catch (Exception ignored) {}
-        }
+                parsedId = UUID.fromString(allocObj.toString().trim());
+            } catch (Exception e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "400 Bad Request: Invalid subject/allocation ID format");
+            }
 
-        List<TeacherSubjectAllocation> teacherAllocations = allocationRepository.findByTeacher_TeacherId(authenticatedTeacher.getTeacherId());
+            allocation = allocationRepository.findById(parsedId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "404 Not Found: Subject allocation not found"));
 
-        if (allocation != null) {
             if (!allocation.getTeacher().getTeacherId().equals(authenticatedTeacher.getTeacherId())) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "403 Forbidden: You are not authorized to create assignments for another teacher's subject");
             }
-        } else if (!teacherAllocations.isEmpty()) {
-            allocation = teacherAllocations.get(0);
         } else {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "403 Forbidden: You do not have any assigned subjects to create assignments for");
+            List<TeacherSubjectAllocation> teacherAllocations = allocationRepository.findByTeacher_TeacherId(authenticatedTeacher.getTeacherId());
+            if (!teacherAllocations.isEmpty()) {
+                allocation = teacherAllocations.get(0);
+            } else {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "403 Forbidden: You do not have any assigned subjects to create assignments for");
+            }
         }
 
         LocalDate dueDate = LocalDate.now().plusDays(7);
@@ -755,6 +793,226 @@ public class TeacherService {
         res.put("obtained_marks", updated.getObtainedMarks());
         res.put("feedback", updated.getFeedback());
         return res;
+    }
+
+    // --- MARKS & EXAM EVALUATION MANAGEMENT ---
+    public Map<String, Object> saveExamMarks(ExamResultDto dto, Principal principal) {
+        Teacher authenticatedTeacher = getAuthenticatedTeacher(principal);
+
+        Object idObj = dto.getTeacherSubjectId();
+        if (idObj == null) idObj = dto.getAllocationId();
+        if (idObj == null) idObj = dto.getSubjectId();
+
+        TeacherSubjectAllocation allocation = null;
+        UUID targetId = null;
+
+        if (idObj != null && !idObj.toString().isBlank()) {
+            try {
+                UUID parsedId = UUID.fromString(idObj.toString());
+                Optional<TeacherSubjectAllocation> allocOpt = allocationRepository.findById(parsedId);
+                if (allocOpt.isPresent()) {
+                    allocation = allocOpt.get();
+                    targetId = allocation.getAllocationId();
+                } else {
+                    targetId = parsedId;
+                }
+            } catch (Exception e) {
+                targetId = UUID.nameUUIDFromBytes(idObj.toString().getBytes());
+            }
+        }
+
+        List<TeacherSubjectAllocation> teacherAllocations = allocationRepository.findByTeacher_TeacherId(authenticatedTeacher.getTeacherId());
+
+        if (allocation != null) {
+            if (!allocation.getTeacher().getTeacherId().equals(authenticatedTeacher.getTeacherId())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "403 Forbidden: You are not authorized to enter marks for another teacher's allocation");
+            }
+        } else if (!teacherAllocations.isEmpty()) {
+            allocation = teacherAllocations.get(0);
+            targetId = allocation.getAllocationId();
+        } else {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "403 Forbidden: You do not have any assigned subjects to enter marks for");
+        }
+
+        String examName = dto.getExamName();
+        if (examName == null) examName = dto.getExam_name();
+        if (examName == null) examName = dto.getExam();
+        if (examName == null || examName.isBlank()) examName = "Mid Sem Exam";
+
+        Double maxMarks = dto.getMaximumMarks();
+        if (maxMarks == null) maxMarks = dto.getMaximum_marks();
+        if (maxMarks == null) maxMarks = dto.getTotal_marks();
+        if (maxMarks == null || maxMarks <= 0) maxMarks = 100.0;
+
+        LocalDate examDate = LocalDate.now();
+        String dateStr = dto.getExamDate() != null ? dto.getExamDate() : dto.getExam_date();
+        if (dateStr != null && !dateStr.isBlank()) {
+            try {
+                examDate = LocalDate.parse(dateStr);
+            } catch (Exception ignored) {}
+        }
+
+        List<Student> authorizedStudents = Collections.emptyList();
+        if (allocation.getProgram() != null && allocation.getSemester() != null) {
+            authorizedStudents = studentRepository.findByProgram_ProgramIdAndSemester_SemesterId(
+                    allocation.getProgram().getProgramId(), allocation.getSemester().getSemesterId());
+        } else {
+            authorizedStudents = studentRepository.findAll();
+        }
+
+        Map<UUID, Student> authorizedStudentMap = new HashMap<>();
+        authorizedStudents.forEach(s -> authorizedStudentMap.put(s.getStudentId(), s));
+
+        int savedCount = 0;
+
+        // Process Single Student Entry
+        Double singleObtained = dto.getObtainedMarks();
+        if (singleObtained == null) singleObtained = dto.getObtained_marks();
+        if (singleObtained == null) singleObtained = dto.getMarks();
+
+        UUID singleStudentId = dto.getStudentId();
+        if (singleStudentId == null && dto.getStudent_id() != null && !dto.getStudent_id().isBlank()) {
+            try { singleStudentId = UUID.fromString(dto.getStudent_id()); } catch (Exception ignored) {}
+        }
+        if (singleStudentId == null && dto.getStudentIdStr() != null && !dto.getStudentIdStr().isBlank()) {
+            try { singleStudentId = UUID.fromString(dto.getStudentIdStr()); } catch (Exception ignored) {}
+        }
+
+        if (singleStudentId != null && singleObtained != null) {
+            validateMarks(singleObtained, maxMarks);
+            if (authorizedStudentMap.containsKey(singleStudentId)) {
+                upsertExamResult(targetId, singleStudentId, examName, examDate, singleObtained, maxMarks, dto.getRemarks());
+                savedCount++;
+            }
+        }
+
+        // Process List of Student Marks
+        if (dto.getStudentMarks() != null && !dto.getStudentMarks().isEmpty()) {
+            for (ExamResultDto.StudentMarkItem item : dto.getStudentMarks()) {
+                UUID stId = item.getStudentId();
+                if (stId == null && item.getStudent_id() != null && !item.getStudent_id().isBlank()) {
+                    try { stId = UUID.fromString(item.getStudent_id()); } catch (Exception ignored) {}
+                }
+                if (stId == null && item.getStudentIdStr() != null && !item.getStudentIdStr().isBlank()) {
+                    try { stId = UUID.fromString(item.getStudentIdStr()); } catch (Exception ignored) {}
+                }
+
+                Double obt = item.getObtainedMarks();
+                if (obt == null) obt = item.getObtained_marks();
+                if (obt == null) obt = item.getMarks();
+
+                if (stId != null && obt != null && authorizedStudentMap.containsKey(stId)) {
+                    validateMarks(obt, maxMarks);
+                    upsertExamResult(targetId, stId, examName, examDate, obt, maxMarks, item.getRemarks());
+                    savedCount++;
+                }
+            }
+        }
+
+        Map<String, Object> res = new HashMap<>();
+        res.put("success", true);
+        res.put("message", "Exam marks and grades saved successfully in PostgreSQL");
+        res.put("recordsSaved", savedCount);
+        res.put("examName", examName);
+        res.put("maximumMarks", maxMarks);
+        return res;
+    }
+
+    private void validateMarks(double obtained, double max) {
+        if (obtained < 0 || obtained > max) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, 
+                    "Validation Error: Obtained marks (" + obtained + ") must be between 0 and maximum marks (" + max + ")");
+        }
+    }
+
+    private void upsertExamResult(UUID teacherSubjectId, UUID studentId, String examName, LocalDate examDate, double obtained, double max, String remarks) {
+        Optional<ExamResult> existingOpt = examResultRepository.findByTeacherSubjectIdAndStudentIdAndExamName(teacherSubjectId, studentId, examName);
+        
+        String calculatedGrade = calculateGrade(obtained, max);
+
+        ExamResult result;
+        if (existingOpt.isPresent()) {
+            result = existingOpt.get();
+            result.setExamDate(examDate);
+            result.setObtainedMarks(obtained);
+            result.setMaximumMarks(max);
+            result.setGrade(calculatedGrade);
+            if (remarks != null) result.setRemarks(remarks);
+        } else {
+            result = ExamResult.builder()
+                    .teacherSubjectId(teacherSubjectId)
+                    .studentId(studentId)
+                    .examName(examName)
+                    .examDate(examDate)
+                    .obtainedMarks(obtained)
+                    .maximumMarks(max)
+                    .grade(calculatedGrade)
+                    .remarks(remarks)
+                    .build();
+        }
+        examResultRepository.save(result);
+    }
+
+    public static String calculateGrade(double obtained, double max) {
+        if (max <= 0) return "F";
+        double pct = (obtained / max) * 100.0;
+        if (pct >= 90) return "A+";
+        if (pct >= 80) return "A";
+        if (pct >= 70) return "B+";
+        if (pct >= 60) return "B";
+        if (pct >= 50) return "C";
+        if (pct >= 40) return "D";
+        return "F";
+    }
+
+    public List<Map<String, Object>> getTeacherExamResults(String allocationIdStr, String examNameStr, Principal principal) {
+        Teacher authenticatedTeacher = getAuthenticatedTeacher(principal);
+
+        List<TeacherSubjectAllocation> allocations = allocationRepository.findByTeacher_TeacherId(authenticatedTeacher.getTeacherId());
+        List<UUID> allocIds = allocations.stream().map(TeacherSubjectAllocation::getAllocationId).toList();
+
+        if (allocIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<ExamResult> results = examResultRepository.findByTeacherSubjectIdIn(allocIds);
+        List<Map<String, Object>> list = new ArrayList<>();
+
+        for (ExamResult r : results) {
+            if (allocationIdStr != null && !allocationIdStr.isBlank() && !r.getTeacherSubjectId().toString().equalsIgnoreCase(allocationIdStr.trim())) {
+                continue;
+            }
+            if (examNameStr != null && !examNameStr.isBlank() && !r.getExamName().equalsIgnoreCase(examNameStr.trim())) {
+                continue;
+            }
+
+            Optional<Student> studentOpt = studentRepository.findById(r.getStudentId());
+
+            Map<String, Object> m = new HashMap<>();
+            m.put("result_id", r.getResultId().toString());
+            m.put("resultId", r.getResultId().toString());
+            m.put("exam_name", r.getExamName());
+            m.put("examName", r.getExamName());
+            m.put("exam_date", r.getExamDate().toString());
+            m.put("obtained_marks", r.getObtainedMarks());
+            m.put("obtainedMarks", r.getObtainedMarks());
+            m.put("maximum_marks", r.getMaximumMarks());
+            m.put("maximumMarks", r.getMaximumMarks());
+            m.put("grade", r.getGrade());
+            m.put("remarks", r.getRemarks() != null ? r.getRemarks() : "");
+
+            if (studentOpt.isPresent()) {
+                Student s = studentOpt.get();
+                m.put("student_id", s.getStudentId().toString());
+                m.put("studentId", s.getStudentId().toString());
+                m.put("student_name", s.getFirstName() + " " + s.getLastName());
+                m.put("enrollment_no", s.getEnrollmentNo());
+            }
+
+            list.add(m);
+        }
+
+        return list;
     }
 
     public List<Map<String, Object>> getPendingGrades(String teacherId) {

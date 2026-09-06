@@ -124,11 +124,17 @@ export const teacherApi = {
     const response = await api.get(`/teacher/assignments/${assignmentId}/submissions`);
     return response.data;
   },
-  gradeSubmission: async (submissionId, gradeData) => {
-    const response = await api.post(`/teacher/submissions/${submissionId}/grade`, gradeData);
+  saveExamMarks: async (marksData) => {
+    const response = await api.post("/teacher/exam-marks", marksData);
+    return response.data;
+  },
+  getExamResults: async (allocationId, examName) => {
+    const query = new URLSearchParams({ allocationId: allocationId || "", examName: examName || "" }).toString();
+    const response = await api.get(`/teacher/exam-marks?${query}`);
     return response.data;
   },
 };
+
 
 
 

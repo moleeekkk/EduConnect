@@ -2,6 +2,7 @@ package com.educonnect.backend.controller;
 
 import com.educonnect.backend.dto.AssignmentDto;
 import com.educonnect.backend.dto.AttendanceMarkRequest;
+import com.educonnect.backend.dto.ExamResultDto;
 import com.educonnect.backend.service.TeacherService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -53,7 +54,7 @@ public class TeacherController {
         return ResponseEntity.ok(list);
     }
 
-    // --- ASSIGNED STUDENTS FOR ATTENDANCE ---
+    // --- ASSIGNED STUDENTS FOR ATTENDANCE & MARKS ---
     @GetMapping({"/students", "/attendance/students"})
     public ResponseEntity<List<Map<String, Object>>> getAssignedStudents(
             @RequestParam(required = false) String teacherId,
@@ -71,7 +72,7 @@ public class TeacherController {
         return ResponseEntity.ok(list);
     }
 
-    // --- SAVE / CREATE ATTENDANCE ---
+    // --- ATTENDANCE ---
     @PostMapping({"/attendance", "/attendances", "/attendance/mark", "/attendance/save", "/attendance/record", "/attendance/records"})
     public ResponseEntity<Map<String, Object>> saveAttendance(
             @RequestBody AttendanceMarkRequest request,
@@ -80,7 +81,6 @@ public class TeacherController {
         return ResponseEntity.ok(response);
     }
 
-    // --- UPDATE ATTENDANCE ---
     @PutMapping({"/attendance", "/attendances", "/attendance/mark", "/attendance/update", "/attendance/{sessionId}"})
     public ResponseEntity<Map<String, Object>> updateAttendance(
             @RequestBody AttendanceMarkRequest request,
@@ -89,7 +89,6 @@ public class TeacherController {
         return ResponseEntity.ok(response);
     }
 
-    // --- ATTENDANCE HISTORY ---
     @GetMapping({"/attendance", "/attendances", "/attendance/history", "/attendance/records"})
     public ResponseEntity<List<Map<String, Object>>> getAttendanceHistory(
             @RequestParam(required = false) String allocationId,
@@ -106,6 +105,14 @@ public class TeacherController {
     public ResponseEntity<List<Map<String, Object>>> getTeacherAssignments(Principal principal) {
         List<Map<String, Object>> list = teacherService.getTeacherAssignments(principal);
         return ResponseEntity.ok(list);
+    }
+
+    @GetMapping("/assignments/{assignmentId}")
+    public ResponseEntity<Map<String, Object>> getAssignmentById(
+            @PathVariable UUID assignmentId,
+            Principal principal) {
+        Map<String, Object> detail = teacherService.getAssignmentById(assignmentId, principal);
+        return ResponseEntity.ok(detail);
     }
 
     @PostMapping({"/assignments", "/upload-assignment"})
@@ -155,6 +162,26 @@ public class TeacherController {
         UUID targetSubId = submissionId != null ? submissionId : (dto.getSubmissionId() != null ? dto.getSubmissionId() : UUID.nameUUIDFromBytes((dto.getSubmission_id() != null ? dto.getSubmission_id() : "").getBytes()));
         Map<String, Object> result = teacherService.gradeSubmission(targetSubId, dto, principal);
         return ResponseEntity.ok(result);
+    }
+
+    // --- EXAM MARKS / RESULT ENTRY ---
+    @PostMapping({"/exam-marks", "/marks", "/results"})
+    public ResponseEntity<Map<String, Object>> saveExamMarks(
+            @RequestBody ExamResultDto dto,
+            Principal principal) {
+        Map<String, Object> result = teacherService.saveExamMarks(dto, principal);
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping({"/exam-marks", "/marks", "/results"})
+    public ResponseEntity<List<Map<String, Object>>> getTeacherExamResults(
+            @RequestParam(required = false) String allocationId,
+            @RequestParam(required = false) String subjectId,
+            @RequestParam(required = false) String examName,
+            Principal principal) {
+        String targetAllocation = allocationId != null ? allocationId : subjectId;
+        List<Map<String, Object>> results = teacherService.getTeacherExamResults(targetAllocation, examName, principal);
+        return ResponseEntity.ok(results);
     }
 
     // --- GRADES ---
