@@ -1,15 +1,26 @@
-import React, { useState } from "react";
-import { Plus, CheckCircle2, Send, Calendar, X } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { BadgeAlert, Plus, CheckCircle2, Clock, XCircle, Send, Calendar, X } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockLeaveRequests } from "../../data/mockData";
+import { studentApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const StudentLeaveRequest = () => {
-  const userStr = localStorage.getItem("educonnect_user");
-  const loggedUser = userStr ? JSON.parse(userStr) : null;
-  const currentStudentId = loggedUser?.userId || loggedUser?.identifier || "";
-
-  const [requests, setRequests] = useState(mockLeaveRequests || []);
+  const [requests, setRequests] = useState([]);
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    const fetchLeaves = async () => {
+      try {
+        const data = await studentApi.getLeaveRequests();
+        if (Array.isArray(data)) {
+          setRequests(data);
+        }
+      } catch (err) {
+        console.error("Leave requests load error:", err);
+      }
+    };
+    fetchLeaves();
+  }, []);
 
   const todayStr = new Date().toISOString().split("T")[0];
 
@@ -21,6 +32,7 @@ const StudentLeaveRequest = () => {
   });
   const [successMsg, setSuccessMsg] = useState(false);
 
+  // Helper to calculate total leave days
   const getLeaveDaysCount = (fromDateStr, toDateStr) => {
     if (!fromDateStr || !toDateStr) return 0;
     const start = new Date(fromDateStr);
@@ -33,33 +45,41 @@ const StudentLeaveRequest = () => {
 
   const currentLeaveDays = getLeaveDaysCount(newForm.from_date, newForm.to_date);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (currentLeaveDays <= 0) {
-      alert("To Date cannot be earlier than From Date.");
+      notifyError("To Date cannot be earlier than From Date.");
       return;
     }
 
-    const created = {
-      leave_request_id: `leave-${Date.now()}`,
-      student_id: currentStudentId,
-      leave_type: newForm.leave_type,
-      from_date: newForm.from_date,
-      to_date: newForm.to_date,
-      reason: newForm.reason,
-      status: "Pending",
-      reviewed_by: null,
-      reviewed_date: null,
-      remarks: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+    try {
+      await studentApi.submitLeaveRequest(newForm);
+      const created = {
+        leave_request_id: `leave-00${requests.length + 1}`,
+        student_id: "stu-001",
+        leave_type: newForm.leave_type,
+        from_date: newForm.from_date,
+        to_date: newForm.to_date,
+        reason: newForm.reason,
+        status: "Pending",
+        reviewed_by: null,
+        reviewed_date: null,
+        remarks: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
 
-    setRequests([created, ...requests]);
-    setShowModal(false);
-    setNewForm({ leave_type: "Sick", from_date: todayStr, to_date: todayStr, reason: "" });
-    setSuccessMsg(true);
-    setTimeout(() => setSuccessMsg(false), 3000);
+      setRequests([created, ...requests]);
+      setShowModal(false);
+      setNewForm({ leave_type: "Sick", from_date: todayStr, to_date: todayStr, reason: "" });
+      setSuccessMsg(true);
+      notifySuccess("Leave request submitted to database successfully!");
+      setTimeout(() => setSuccessMsg(false), 3000);
+    } catch (err) {
+      console.error("Submit leave request error:", err);
+      const msg = err.response?.data?.error || err.message || "Failed to submit leave request.";
+      notifyError(`Failed to submit leave request: ${msg}`);
+    }
   };
 
   return (
@@ -70,6 +90,7 @@ const StudentLeaveRequest = () => {
           <h1 className="text-xl font-bold text-[#1E293B]">Leave Management</h1>
         </div>
 
+        {/* Compact reduced-width Apply Leave button */}
         <Button
           variant="accent"
           size="sm"
@@ -110,40 +131,32 @@ const StudentLeaveRequest = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
-              {requests && requests.length > 0 ? (
-                requests.map((req) => {
-                  const totalDays = getLeaveDaysCount(req.from_date, req.to_date);
-                  return (
-                    <tr key={req.leave_request_id} className="hover:bg-[#F8FAFC] transition-colors">
-                      <td className="p-3.5 font-bold text-[#2563EB]">{req.leave_type}</td>
-                      <td className="p-3.5 font-mono">{req.from_date} to {req.to_date}</td>
-                      <td className="p-3.5 font-bold text-[#14B8A6]">
-                        {totalDays} {totalDays === 1 ? "Day" : "Days"}
-                      </td>
-                      <td className="p-3.5 max-w-xs truncate">{req.reason}</td>
-                      <td className="p-3.5">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${req.status === "Approved"
-                            ? "bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20"
-                            : req.status === "Rejected"
-                              ? "bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/20"
-                              : "bg-[#F59E0B]/10 text-[#F59E0B] border border-[#F59E0B]/20"
-                            }`}
-                        >
-                          {req.status}
-                        </span>
-                      </td>
-                      <td className="p-3.5 text-[#64748B] font-medium">{req.remarks || "-"}</td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan={6} className="p-6 text-center text-xs text-[#64748B]">
-                    No leave applications submitted.
-                  </td>
-                </tr>
-              )}
+              {requests.map((req) => {
+                const totalDays = getLeaveDaysCount(req.from_date, req.to_date);
+                return (
+                  <tr key={req.leave_request_id} className="hover:bg-[#F8FAFC] transition-colors">
+                    <td className="p-3.5 font-bold text-[#2563EB]">{req.leave_type}</td>
+                    <td className="p-3.5 font-mono">{req.from_date} to {req.to_date}</td>
+                    <td className="p-3.5 font-bold text-[#14B8A6]">
+                      {totalDays} {totalDays === 1 ? "Day" : "Days"}
+                    </td>
+                    <td className="p-3.5 max-w-xs truncate">{req.reason}</td>
+                    <td className="p-3.5">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${req.status === "Approved"
+                          ? "bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20"
+                          : req.status === "Rejected"
+                            ? "bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/20"
+                            : "bg-[#F59E0B]/10 text-[#F59E0B] border border-[#F59E0B]/20"
+                          }`}
+                      >
+                        {req.status}
+                      </span>
+                    </td>
+                    <td className="p-3.5 text-[#64748B] font-medium">{req.remarks || "-"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -160,6 +173,7 @@ const StudentLeaveRequest = () => {
               <button
                 onClick={() => setShowModal(false)}
                 className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
+                title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -180,6 +194,7 @@ const StudentLeaveRequest = () => {
                 </select>
               </div>
 
+              {/* Date Selection with Min Date Protection */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block font-semibold text-[#64748B] mb-1">From Date</label>
@@ -212,6 +227,7 @@ const StudentLeaveRequest = () => {
                 </div>
               </div>
 
+              {/* Live Leave Days Calculation Summary */}
               {currentLeaveDays > 0 && (
                 <div className="p-2.5 rounded-lg bg-[#2563EB]/10 border border-[#2563EB]/20 text-[#2563EB] font-bold flex items-center justify-between text-xs">
                   <span className="flex items-center gap-1.5">

@@ -5,19 +5,25 @@ import AuthLayout from "../../layouts/AuthLayout";
 import Button from "../../components/common/Button";
 import Input from "../../components/common/Input";
 import { authApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const TeacherLogin = () => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("teacher@educonnect.ac.in");
-  const [password, setPassword] = useState("teacher123");
+  const [email, setEmail] = useState("maulikdabhiofficial@gmail.com");
+  const [password, setPassword] = useState("maulik123");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) {
-      setError("Please enter both Email and Password");
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail || !cleanPassword) {
+      const msg = "Please enter both Email Address and Password";
+      setError(msg);
+      // notifyError(msg);
       return;
     }
 
@@ -25,12 +31,24 @@ const TeacherLogin = () => {
     setIsLoading(true);
 
     try {
-      const res = await authApi.teacherLogin(email, password);
+      const res = await authApi.teacherLogin(cleanEmail, cleanPassword);
       setIsLoading(false);
-      navigate("/teacher/dashboard");
+      if (res && res.success !== false) {
+        localStorage.setItem("educonnect_user", JSON.stringify(res));
+        notifySuccess(`Teacher login successful! Welcome back, ${res.name || "Faculty"}.`);
+        navigate("/teacher/dashboard");
+      } else {
+        const errorMsg = res?.message || "Invalid email address or password. Please enter correct credentials.";
+        setError(errorMsg);
+        notifyError(errorMsg);
+      }
     } catch (err) {
       setIsLoading(false);
-      navigate("/teacher/dashboard");
+      console.error("Teacher login error:", err);
+      const serverMsg = err.response?.data?.message || err.response?.data?.error;
+      const errorMsg = serverMsg || "Invalid email address or password. Please enter correct credentials.";
+      setError(errorMsg);
+      notifyError(errorMsg);
     }
   };
 

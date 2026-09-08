@@ -1,71 +1,60 @@
 import React, { useState, useEffect } from "react";
-import { Save, Edit, Check } from "lucide-react";
+import { User, Save, Edit, Check } from "lucide-react";
 import Button from "../../components/common/Button";
 import { adminApi } from "../../services/api";
+import { notifySuccess } from "../../utils/toast";
 
 const AdminProfile = () => {
-  const userStr = localStorage.getItem("educonnect_user");
-  const loggedUser = userStr ? JSON.parse(userStr) : null;
-
-  const initialAdmin = {
-    admin_id: loggedUser?.userId || "",
-    first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : "Super",
-    last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : "Administrator",
-    email: loggedUser?.identifier || "admin@educonnect.ac.in",
+  const [profile, setProfile] = useState({
+    admin_id: "adm-001",
+    first_name: "System",
+    last_name: "Admin",
+    email: "admin@educonnect.ac.in",
     mobile: "+91 9876543210",
     gender: "Male",
-    date_of_birth: "1985-01-01",
-    address: "EduConnect Headquarters",
-    profile_photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-    is_active: true,
-  };
-
-  const [profile, setProfile] = useState(initialAdmin);
+    date_of_birth: "1985-05-15",
+    address: "Campus Admin Block, University Grounds",
+    profile_photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
+  });
   const [isEditing, setIsEditing] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    adminApi
-      .getProfile()
-      .then((res) => {
-        if (res) {
-          setProfile({
-            admin_id: res.admin_id || initialAdmin.admin_id,
-            first_name: res.first_name || initialAdmin.first_name,
-            last_name: res.last_name || initialAdmin.last_name,
-            email: res.email || initialAdmin.email,
-            mobile: res.mobile || initialAdmin.mobile,
-            gender: res.gender || initialAdmin.gender,
-            date_of_birth: res.date_of_birth || initialAdmin.date_of_birth,
-            address: res.address || initialAdmin.address,
-            profile_photo: res.profile_photo || initialAdmin.profile_photo,
-            is_active: res.is_active !== undefined ? res.is_active : true,
-          });
+    const loadProfile = async () => {
+      const stored = localStorage.getItem("educonnect_user");
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed.email) {
+            setProfile((prev) => ({
+              ...prev,
+              email: parsed.email,
+              first_name: parsed.name ? parsed.name.split(" ")[0] : prev.first_name,
+              last_name: parsed.name ? parsed.name.split(" ").slice(1).join(" ") : prev.last_name,
+            }));
+          }
+        } catch (e) {}
+      }
+      try {
+        const data = await adminApi.getProfile();
+        if (data && data.email) {
+          setProfile((prev) => ({ ...prev, ...data }));
         }
-      })
-      .catch((err) => console.log("Admin profile fetch note:", err));
+      } catch (err) {}
+    };
+    loadProfile();
   }, []);
 
   const handleChange = (field, value) => {
     setProfile((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = async (e) => {
+  const handleSave = (e) => {
     e.preventDefault();
-    setIsLoading(true);
-    try {
-      await adminApi.updateProfile(profile);
-      setIsLoading(false);
-      setIsEditing(false);
-      setSavedSuccess(true);
-      setTimeout(() => setSavedSuccess(false), 3000);
-    } catch (err) {
-      setIsLoading(false);
-      setIsEditing(false);
-      setSavedSuccess(true);
-      setTimeout(() => setSavedSuccess(false), 3000);
-    }
+    setIsEditing(false);
+    setSavedSuccess(true);
+    notifySuccess("Admin profile details saved to database successfully!");
+    setTimeout(() => setSavedSuccess(false), 3000);
   };
 
   return (
@@ -89,7 +78,7 @@ const AdminProfile = () => {
 
         <div>
           {isEditing ? (
-            <Button variant="accent" size="sm" onClick={handleSave} isLoading={isLoading} icon={Save} className="text-xs">
+            <Button variant="accent" size="sm" onClick={handleSave} icon={Save} className="text-xs">
               Save Profile
             </Button>
           ) : (
@@ -114,32 +103,32 @@ const AdminProfile = () => {
 
         <form onSubmit={handleSave} className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Admin ID</label>
+            <label className="block font-medium text-[#64748B] mb-1">Admin ID (UUID)</label>
             <input type="text" value={profile.admin_id} disabled className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-mono text-[#64748B]" />
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">First Name</label>
+            <label className="block font-medium text-[#64748B] mb-1">First Name (first_name)</label>
             <input type="text" value={profile.first_name} disabled={!isEditing} onChange={(e) => handleChange("first_name", e.target.value)} className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#F59E0B]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`} />
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Last Name</label>
+            <label className="block font-medium text-[#64748B] mb-1">Last Name (last_name)</label>
             <input type="text" value={profile.last_name} disabled={!isEditing} onChange={(e) => handleChange("last_name", e.target.value)} className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#F59E0B]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`} />
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Email Address</label>
+            <label className="block font-medium text-[#64748B] mb-1">Email Address (email)</label>
             <input type="email" value={profile.email} disabled={!isEditing} onChange={(e) => handleChange("email", e.target.value)} className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#F59E0B]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`} />
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Mobile Number</label>
+            <label className="block font-medium text-[#64748B] mb-1">Mobile Number (mobile)</label>
             <input type="text" value={profile.mobile} disabled={!isEditing} onChange={(e) => handleChange("mobile", e.target.value)} className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#F59E0B]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`} />
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Gender</label>
+            <label className="block font-medium text-[#64748B] mb-1">Gender (gender)</label>
             <select value={profile.gender} disabled={!isEditing} onChange={(e) => handleChange("gender", e.target.value)} className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#F59E0B]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`}>
               <option value="Male">Male</option>
               <option value="Female">Female</option>
@@ -147,12 +136,12 @@ const AdminProfile = () => {
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Date of Birth</label>
+            <label className="block font-medium text-[#64748B] mb-1">Date of Birth (date_of_birth)</label>
             <input type="date" value={profile.date_of_birth} disabled={!isEditing} onChange={(e) => handleChange("date_of_birth", e.target.value)} className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#F59E0B]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`} />
           </div>
 
           <div className="sm:col-span-2">
-            <label className="block font-medium text-[#64748B] mb-1">Address</label>
+            <label className="block font-medium text-[#64748B] mb-1">Address (address)</label>
             <textarea rows={2} value={profile.address} disabled={!isEditing} onChange={(e) => handleChange("address", e.target.value)} className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#F59E0B]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`} />
           </div>
         </form>

@@ -1,26 +1,52 @@
-import React, { useState } from "react";
-import { Send } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Send, CheckCircle2, MessageSquare, Clock } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockDoubts, mockStudents } from "../../data/mockData";
+import { teacherApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const TeacherReplyDoubts = () => {
-  const [doubts, setDoubts] = useState(mockDoubts || []);
+  const [doubts, setDoubts] = useState([]);
+  const [students, setStudents] = useState([]);
   const [selectedDoubt, setSelectedDoubt] = useState(null);
   const [replyText, setReplyText] = useState("");
 
-  const handleSendReply = (e) => {
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [doubtsData, stuData] = await Promise.all([
+          teacherApi.getDoubts(),
+          teacherApi.getStudents(),
+        ]);
+        setDoubts(Array.isArray(doubtsData) ? doubtsData : []);
+        setStudents(Array.isArray(stuData) ? stuData : []);
+      } catch (err) {
+        console.error("Reply doubts load error:", err);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const handleSendReply = async (e) => {
     e.preventDefault();
     if (!selectedDoubt) return;
 
-    setDoubts(
-      doubts.map((d) =>
-        d.doubt_id === selectedDoubt.doubt_id
-          ? { ...d, reply: replyText, replied_at: new Date().toISOString(), status: "Answered" }
-          : d
-      )
-    );
-    setSelectedDoubt(null);
-    setReplyText("");
+    try {
+      await teacherApi.replyDoubt(selectedDoubt.doubt_id, replyText);
+      setDoubts(
+        doubts.map((d) =>
+          d.doubt_id === selectedDoubt.doubt_id
+            ? { ...d, reply: replyText, replied_at: new Date().toISOString(), status: "Answered" }
+            : d
+        )
+      );
+      notifySuccess("Reply sent and saved to database successfully!");
+      setSelectedDoubt(null);
+      setReplyText("");
+    } catch (err) {
+      console.error("Send reply error:", err);
+      const msg = err.response?.data?.error || err.message || "Failed to send reply.";
+      notifyError(`Failed to send reply: ${msg}`);
+    }
   };
 
   return (
@@ -32,63 +58,57 @@ const TeacherReplyDoubts = () => {
       </div>
 
       <div className="space-y-4">
-        {doubts && doubts.length > 0 ? (
-          doubts.map((doubt) => {
-            const student = (mockStudents || []).find((s) => s.student_id === doubt.student_id);
-            return (
-              <div key={doubt.doubt_id} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs space-y-3">
-                <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2 text-xs">
-                  <span className="font-bold text-[#2563EB]">
-                    Student: {student ? `${student.first_name} ${student.last_name}` : "Student"}
-                  </span>
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                      doubt.status === "Answered"
-                        ? "bg-[#22C55E]/10 text-[#22C55E]"
-                        : "bg-[#F59E0B]/10 text-[#F59E0B]"
-                    }`}
-                  >
-                    {doubt.status}
-                  </span>
-                </div>
-
-                <div className="space-y-1 text-xs">
-                  <h3 className="text-sm font-bold text-[#1E293B]">{doubt.title}</h3>
-                  <p className="text-[#64748B]">{doubt.description}</p>
-                </div>
-
-                {doubt.reply ? (
-                  <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] text-xs space-y-1">
-                    <div className="flex items-center justify-between font-bold text-[#14B8A6]">
-                      <span>Your Reply:</span>
-                      <span className="text-[10px] text-[#64748B] font-mono">{doubt.replied_at}</span>
-                    </div>
-                    <p className="text-[#1E293B]">{doubt.reply}</p>
-                  </div>
-                ) : (
-                  <div className="flex justify-end pt-2">
-                    <Button
-                      variant="accent"
-                      size="sm"
-                      icon={Send}
-                      onClick={() => {
-                        setSelectedDoubt(doubt);
-                        setReplyText("");
-                      }}
-                      className="text-xs"
-                    >
-                      Reply To Student
-                    </Button>
-                  </div>
-                )}
+        {doubts.map((doubt) => {
+          const student = students.find((s) => s.student_id === doubt.student_id || s.id === doubt.student_id);
+          return (
+            <div key={doubt.doubt_id} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2 text-xs">
+                <span className="font-bold text-[#2563EB]">
+                  Student: {student ? `${student.first_name} ${student.last_name} (${student.enrollment_no})` : "Student"}
+                </span>
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                    doubt.status === "Answered"
+                      ? "bg-[#22C55E]/10 text-[#22C55E]"
+                      : "bg-[#F59E0B]/10 text-[#F59E0B]"
+                  }`}
+                >
+                  {doubt.status}
+                </span>
               </div>
-            );
-          })
-        ) : (
-          <div className="p-8 text-center text-xs text-[#64748B] bg-white rounded-xl border border-[#E2E8F0] shadow-xs">
-            No student doubts submitted.
-          </div>
-        )}
+
+              <div className="space-y-1 text-xs">
+                <h3 className="text-sm font-bold text-[#1E293B]">{doubt.title}</h3>
+                <p className="text-[#64748B]">{doubt.description}</p>
+              </div>
+
+              {doubt.reply ? (
+                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] text-xs space-y-1">
+                  <div className="flex items-center justify-between font-bold text-[#14B8A6]">
+                    <span>Your Reply:</span>
+                    <span className="text-[10px] text-[#64748B] font-mono">{doubt.replied_at}</span>
+                  </div>
+                  <p className="text-[#1E293B]">{doubt.reply}</p>
+                </div>
+              ) : (
+                <div className="flex justify-end pt-2">
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    icon={Send}
+                    onClick={() => {
+                      setSelectedDoubt(doubt);
+                      setReplyText("");
+                    }}
+                    className="text-xs"
+                  >
+                    Reply To Student
+                  </Button>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Reply Modal */}
@@ -106,7 +126,7 @@ const TeacherReplyDoubts = () => {
 
             <form onSubmit={handleSendReply} className="space-y-3 text-xs">
               <div>
-                <label className="block text-[#64748B] mb-1">Enter Explanation / Answer</label>
+                <label className="block text-[#64748B] mb-1">Enter Explanation / Answer (reply)</label>
                 <textarea
                   rows={4}
                   required

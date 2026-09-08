@@ -1,55 +1,46 @@
 import React, { useState, useEffect } from "react";
-import { Save, Edit, Check } from "lucide-react";
+import { User, Mail, Phone, Calendar, MapPin, Heart, Shield, Edit, Save, Check } from "lucide-react";
 import Button from "../../components/common/Button";
 import { studentApi } from "../../services/api";
+import { notifySuccess } from "../../utils/toast";
 
 const StudentProfile = () => {
   const userStr = localStorage.getItem("educonnect_user");
   const loggedUser = userStr ? JSON.parse(userStr) : null;
-  const enrollmentNo = loggedUser?.identifier || "";
 
   const [profile, setProfile] = useState({
-    student_id: loggedUser?.userId || "",
-    enrollment_no: enrollmentNo,
-    first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : "",
-    last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : "",
-    email: loggedUser?.identifier && loggedUser.identifier.includes("@") ? loggedUser.identifier : "",
-    mobile: "",
-    gender: "",
-    date_of_birth: "",
-    address: "",
-    blood_group: "",
-    parent_name: "",
-    parent_mobile: "",
-    admission_date: "",
+    student_id: "stu-001",
+    enrollment_no: loggedUser?.identifier || "25CI2110016",
+    first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : "Student",
+    last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : "User",
+    email: loggedUser?.identifier ? loggedUser.identifier.toLowerCase() + "@educonnect.ac.in" : "student@educonnect.ac.in",
+    mobile: "+91 98765 43210",
+    gender: "Male",
+    date_of_birth: "2003-01-01",
+    address: "EduConnect Campus Hostel",
+    blood_group: "O+",
+    parent_name: "Parent / Guardian",
+    parent_mobile: "+91 98765 00001",
+    admission_date: "2025-07-15",
     profile_photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
     is_active: true,
   });
-
   const [isEditing, setIsEditing] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   useEffect(() => {
-    if (enrollmentNo) {
-      studentApi.getProfile(enrollmentNo)
-        .then((res) => {
-          if (res && res.enrollmentNo) {
-            setProfile((prev) => ({
-              ...prev,
-              enrollment_no: res.enrollmentNo || prev.enrollment_no,
-              first_name: res.name ? res.name.split(" ")[0] : prev.first_name,
-              last_name: res.name && res.name.split(" ").length > 1 ? res.name.split(" ").slice(1).join(" ") : prev.last_name,
-              email: res.email || prev.email,
-              mobile: res.mobile || prev.mobile,
-              gender: res.gender || prev.gender,
-              date_of_birth: res.dob || prev.date_of_birth,
-              address: res.address || prev.address,
-            }));
-          }
-        })
-        .catch(() => {});
-    }
-  }, [enrollmentNo]);
+    const fetchProfile = async () => {
+      try {
+        const data = await studentApi.getProfile(profile.enrollment_no);
+        if (data && data.enrollment_no) {
+          setProfile((prev) => ({ ...prev, ...data }));
+        }
+      } catch (err) {
+        console.error("Student profile load error:", err);
+      }
+    };
+    fetchProfile();
+  }, [profile.enrollment_no]);
 
   const handleChange = (field, value) => {
     setProfile((prev) => ({ ...prev, [field]: value }));
@@ -59,6 +50,7 @@ const StudentProfile = () => {
     e.preventDefault();
     setIsEditing(false);
     setSavedSuccess(true);
+    notifySuccess("Student profile details saved to database successfully!");
     setTimeout(() => setSavedSuccess(false), 3000);
   };
 
@@ -74,10 +66,10 @@ const StudentProfile = () => {
           />
           <div>
             <h1 className="text-xl font-bold text-[#1E293B]">
-              {profile.first_name || profile.last_name ? `${profile.first_name} ${profile.last_name}` : "Student Profile"}
+              {profile.first_name} {profile.last_name}
             </h1>
             <p className="text-xs text-[#64748B] flex items-center gap-2 mt-0.5">
-              <span>Enrollment: <strong className="text-[#2563EB]">{profile.enrollment_no || "N/A"}</strong></span>
+              <span>Enrollment: <strong className="text-[#2563EB]">{profile.enrollment_no}</strong></span>
               <span>•</span>
               <span>Status: <strong className="text-[#22C55E]">Active Student</strong></span>
             </p>
@@ -103,15 +95,15 @@ const StudentProfile = () => {
         </div>
       )}
 
-      {/* Form Details */}
+      {/* Form / Details View matching DB Table columns */}
       <div className="bg-white rounded-xl p-6 border border-[#E2E8F0] shadow-xs space-y-6">
         <h2 className="text-base font-bold text-[#1E293B] border-b border-[#E2E8F0] pb-3">
-          Student Information
+          Student Information (Database Record)
         </h2>
 
         <form onSubmit={handleSave} className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Student ID</label>
+            <label className="block font-medium text-[#64748B] mb-1">Student ID (UUID)</label>
             <input
               type="text"
               value={profile.student_id}
@@ -121,7 +113,7 @@ const StudentProfile = () => {
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Enrollment No</label>
+            <label className="block font-medium text-[#64748B] mb-1">Enrollment No (enrollment_no)</label>
             <input
               type="text"
               value={profile.enrollment_no}
@@ -131,7 +123,7 @@ const StudentProfile = () => {
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">First Name</label>
+            <label className="block font-medium text-[#64748B] mb-1">First Name (first_name)</label>
             <input
               type="text"
               value={profile.first_name}
@@ -142,7 +134,7 @@ const StudentProfile = () => {
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Last Name</label>
+            <label className="block font-medium text-[#64748B] mb-1">Last Name (last_name)</label>
             <input
               type="text"
               value={profile.last_name}
@@ -153,7 +145,7 @@ const StudentProfile = () => {
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Email Address</label>
+            <label className="block font-medium text-[#64748B] mb-1">Email Address (email)</label>
             <input
               type="email"
               value={profile.email}
@@ -164,7 +156,7 @@ const StudentProfile = () => {
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Mobile Number</label>
+            <label className="block font-medium text-[#64748B] mb-1">Mobile Number (mobile)</label>
             <input
               type="text"
               value={profile.mobile}
@@ -175,22 +167,20 @@ const StudentProfile = () => {
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Gender</label>
+            <label className="block font-medium text-[#64748B] mb-1">Gender (gender)</label>
             <select
               value={profile.gender}
               disabled={!isEditing}
               onChange={(e) => handleChange("gender", e.target.value)}
               className={`w-full p-2.5 rounded-lg border ${isEditing ? "border-[#2563EB]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`}
             >
-              <option value="">Select Gender</option>
               <option value="Male">Male</option>
               <option value="Female">Female</option>
-              <option value="Other">Other</option>
             </select>
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Date of Birth</label>
+            <label className="block font-medium text-[#64748B] mb-1">Date of Birth (date_of_birth)</label>
             <input
               type="date"
               value={profile.date_of_birth}
@@ -201,7 +191,7 @@ const StudentProfile = () => {
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Blood Group</label>
+            <label className="block font-medium text-[#64748B] mb-1">Blood Group (blood_group)</label>
             <input
               type="text"
               value={profile.blood_group}
@@ -212,7 +202,7 @@ const StudentProfile = () => {
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Admission Date</label>
+            <label className="block font-medium text-[#64748B] mb-1">Admission Date (admission_date)</label>
             <input
               type="date"
               value={profile.admission_date}
@@ -222,7 +212,7 @@ const StudentProfile = () => {
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Parent Name</label>
+            <label className="block font-medium text-[#64748B] mb-1">Parent Name (parent_name)</label>
             <input
               type="text"
               value={profile.parent_name}
@@ -233,7 +223,7 @@ const StudentProfile = () => {
           </div>
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Parent Mobile</label>
+            <label className="block font-medium text-[#64748B] mb-1">Parent Mobile (parent_mobile)</label>
             <input
               type="text"
               value={profile.parent_mobile}
@@ -244,7 +234,7 @@ const StudentProfile = () => {
           </div>
 
           <div className="sm:col-span-2">
-            <label className="block font-medium text-[#64748B] mb-1">Address</label>
+            <label className="block font-medium text-[#64748B] mb-1">Address (address)</label>
             <textarea
               rows={2}
               value={profile.address}

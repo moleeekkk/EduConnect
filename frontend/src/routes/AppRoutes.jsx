@@ -46,10 +46,14 @@ import TeacherParentEmail from "../pages/teacher/ParentEmail";
 // Admin Pages
 import AdminDashboard from "../pages/admin/Dashboard";
 import AdminProfile from "../pages/admin/Profile";
-import AdminUserManagement from "../pages/admin/UserManagement";
+import AdminStudentManagement from "../pages/admin/StudentManagement";
+import AdminFacultyManagement from "../pages/admin/FacultyManagement";
+import AdminBatchManagement from "../pages/admin/BatchManagement";
 import AdminInstituteManagement from "../pages/admin/InstituteManagement";
-import AdminProgramManagement from "../pages/admin/ProgramManagement";
+import AdminDepartmentManagement from "../pages/admin/DepartmentManagement";
+import AdminSemesterManagement from "../pages/admin/SemesterManagement";
 import AdminSubjectManagement from "../pages/admin/SubjectManagement";
+import AdminTeacherSubjectAllocation from "../pages/admin/TeacherSubjectAllocation";
 import AdminReports from "../pages/admin/Reports";
 
 const AppRoutes = () => {
@@ -106,15 +110,21 @@ const AppRoutes = () => {
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<AdminDashboard />} />
+        <Route path="batches" element={<AdminBatchManagement />} />
         <Route path="profile" element={<AdminProfile />} />
-        <Route path="students" element={<AdminUserManagement key="students-mgmt" initialTab="students" />} />
-        <Route path="teachers" element={<AdminUserManagement key="teachers-mgmt" initialTab="teachers" />} />
-        <Route path="users" element={<AdminUserManagement key="users-mgmt" initialTab="students" />} />
-        <Route path="faculty" element={<AdminUserManagement key="faculty-mgmt" initialTab="teachers" />} />
+        <Route path="students" element={<AdminStudentManagement />} />
+        <Route path="teachers" element={<AdminFacultyManagement />} />
+        <Route path="faculty" element={<AdminFacultyManagement />} />
+        <Route path="users" element={<AdminStudentManagement />} />
         <Route path="institutes" element={<AdminInstituteManagement />} />
-        <Route path="programs" element={<AdminProgramManagement />} />
-        <Route path="courses" element={<AdminProgramManagement />} />
+        <Route path="departments" element={<AdminDepartmentManagement />} />
+        <Route path="programs" element={<AdminDepartmentManagement />} />
+        <Route path="semesters" element={<AdminSemesterManagement />} />
+        <Route path="terms" element={<AdminSemesterManagement />} />
+        <Route path="courses" element={<AdminDepartmentManagement />} />
         <Route path="subjects" element={<AdminSubjectManagement />} />
+        <Route path="teacher-subjects" element={<AdminTeacherSubjectAllocation />} />
+        <Route path="subject-allocation" element={<AdminTeacherSubjectAllocation />} />
         <Route path="reports" element={<AdminReports />} />
       </Route>
 

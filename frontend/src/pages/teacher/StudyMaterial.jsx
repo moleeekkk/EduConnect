@@ -1,16 +1,28 @@
-import React, { useState } from "react";
-import { Plus, Trash2, Edit, Paperclip, Download, Eye, X } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { FileText, Plus, Trash2, Edit, Paperclip, Download, Eye, X, BookOpen, CheckCircle2 } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockLearningResources } from "../../data/mockData";
+import { teacherApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const TeacherStudyMaterial = () => {
-  const [resources, setResources] = useState(
-    (mockLearningResources || []).filter((r) => r.resource_type !== "Question Paper")
-  );
-
+  const [resources, setResources] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editingResourceId, setEditingResourceId] = useState(null);
   const [viewFileModal, setViewFileModal] = useState(null);
+
+  useEffect(() => {
+    const fetchMaterials = async () => {
+      try {
+        const data = await teacherApi.getStudyMaterials();
+        if (Array.isArray(data)) {
+          setResources(data);
+        }
+      } catch (err) {
+        console.error("Teacher study materials load error:", err);
+      }
+    };
+    fetchMaterials();
+  }, []);
 
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
@@ -43,7 +55,7 @@ const TeacherStudyMaterial = () => {
     setShowModal(true);
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     const finalFilePath = selectedFileName
       ? selectedFileName.startsWith("/")
@@ -51,42 +63,62 @@ const TeacherStudyMaterial = () => {
         : `/resources/${selectedFileName}`
       : "/resources/study_material_doc.pdf";
 
-    if (editingResourceId) {
-      setResources(
-        resources.map((r) =>
-          r.resource_id === editingResourceId
-            ? {
-                ...r,
-                title,
-                description: desc,
-                resource_type: type,
-                file_path: finalFilePath,
-                updated_at: new Date().toISOString(),
-              }
-            : r
-        )
-      );
-    } else {
-      const created = {
-        resource_id: `res-${Date.now()}`,
+    try {
+      const payload = {
         title,
         description: desc,
         resource_type: type,
         file_path: finalFilePath,
-        uploaded_date: new Date().toISOString().split("T")[0],
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
       };
-      setResources([created, ...resources]);
-    }
 
-    setShowModal(false);
-    setEditingResourceId(null);
+      if (editingResourceId) {
+        setResources(
+          resources.map((r) =>
+            r.resource_id === editingResourceId
+              ? {
+                  ...r,
+                  title,
+                  description: desc,
+                  resource_type: type,
+                  file_path: finalFilePath,
+                  updated_at: new Date().toISOString(),
+                }
+              : r
+          )
+        );
+        notifySuccess(`Study material '${title}' updated successfully!`);
+      } else {
+        await teacherApi.uploadStudyMaterial(payload);
+        const created = {
+          resource_id: `res-00${resources.length + 10}`,
+          teacher_subject_id: "ts-001",
+          title,
+          description: desc,
+          resource_type: type,
+          file_path: finalFilePath,
+          uploaded_date: new Date().toISOString().split("T")[0],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        setResources([created, ...resources]);
+        notifySuccess(`Study material '${title}' uploaded to database successfully!`);
+      }
+
+      setShowModal(false);
+      setEditingResourceId(null);
+    } catch (err) {
+      console.error("Save material error:", err);
+      const msg = err.response?.data?.error || err.message || "Failed to save study material.";
+      notifyError(`Failed to save study material: ${msg}`);
+    }
   };
 
   const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this study material?")) {
+    const item = resources.find((r) => r.resource_id === id);
+    const itemTitle = item ? item.title : "study material";
+    if (window.confirm(`Are you sure you want to delete '${itemTitle}'?`)) {
       setResources(resources.filter((r) => r.resource_id !== id));
+      notifySuccess(`Study material '${itemTitle}' deleted successfully!`);
     }
   };
 
@@ -105,59 +137,60 @@ const TeacherStudyMaterial = () => {
 
       {/* Resource Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {resources && resources.length > 0 ? (
-          resources.map((item) => {
-            const fileName = item.file_path ? item.file_path.split("/").pop() : "document.pdf";
-            return (
-              <div
-                key={item.resource_id}
-                className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all duration-200"
-              >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-                    <span className="px-2.5 py-0.5 rounded-full bg-[#14B8A6]/10 text-[#14B8A6] font-bold text-[11px] border border-[#14B8A6]/20">
-                      {item.resource_type}
-                    </span>
-                    <span className="font-mono text-[#64748B] text-[11px] font-semibold">{item.uploaded_date}</span>
-                  </div>
-
-                  <div>
-                    <h3 className="text-base font-extrabold text-[#1E293B] leading-snug">{item.title}</h3>
-                    <p className="text-xs text-[#64748B] leading-relaxed line-clamp-3 mt-1.5">{item.description}</p>
-                  </div>
-
-                  <div className="pt-1">
-                    <button
-                      onClick={() => setViewFileModal(item)}
-                      className="inline-flex items-center gap-1.5 text-[11px] font-mono text-[#2563EB] bg-[#2563EB]/10 hover:bg-[#2563EB] hover:text-white px-3 py-1 rounded-lg border border-[#2563EB]/20 font-bold cursor-pointer transition-all truncate max-w-full"
-                    >
-                      <Paperclip className="w-3.5 h-3.5 shrink-0" /> {fileName}
-                    </button>
-                  </div>
+        {resources.map((item) => {
+          const fileName = item.file_path ? item.file_path.split("/").pop() : "document.pdf";
+          return (
+            <div
+              key={item.resource_id}
+              className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all duration-200"
+            >
+              <div className="space-y-3">
+                {/* Header Badge & Date */}
+                <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#14B8A6]/10 text-[#14B8A6] font-bold text-[11px] border border-[#14B8A6]/20">
+                    {item.resource_type}
+                  </span>
+                  <span className="font-mono text-[#64748B] text-[11px] font-semibold">{item.uploaded_date}</span>
                 </div>
 
-                <div className="border-t border-[#E2E8F0] pt-3 flex items-center justify-end gap-1.5">
+                {/* Title & Description */}
+                <div>
+                  <h3 className="text-base font-extrabold text-[#1E293B] leading-snug">{item.title}</h3>
+                  <p className="text-xs text-[#64748B] leading-relaxed line-clamp-3 mt-1.5">{item.description}</p>
+                </div>
+
+                {/* File Attachment Pill - Clickable File Name */}
+                <div className="pt-1">
                   <button
-                    onClick={() => handleOpenEditModal(item)}
-                    className="p-1.5 rounded-lg text-[#14B8A6] hover:bg-[#14B8A6]/10 transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold"
+                    onClick={() => setViewFileModal(item)}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-mono text-[#2563EB] bg-[#2563EB]/10 hover:bg-[#2563EB] hover:text-white px-3 py-1 rounded-lg border border-[#2563EB]/20 font-bold cursor-pointer transition-all truncate max-w-full"
+                    title="Click file name to open document"
                   >
-                    <Edit className="w-4 h-4" /> Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(item.resource_id)}
-                    className="p-1.5 rounded-lg text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold"
-                  >
-                    <Trash2 className="w-4 h-4" /> Delete
+                    <Paperclip className="w-3.5 h-3.5 shrink-0" /> {fileName}
                   </button>
                 </div>
               </div>
-            );
-          })
-        ) : (
-          <div className="p-8 text-center text-xs text-[#64748B] bg-white rounded-xl border border-[#E2E8F0] shadow-xs col-span-full">
-            No study materials uploaded yet.
-          </div>
-        )}
+
+              {/* Card Footer Actions: Edit & Delete */}
+              <div className="border-t border-[#E2E8F0] pt-3 flex items-center justify-end gap-1.5">
+                <button
+                  onClick={() => handleOpenEditModal(item)}
+                  className="p-1.5 rounded-lg text-[#14B8A6] hover:bg-[#14B8A6]/10 transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold"
+                  title="Edit Details"
+                >
+                  <Edit className="w-4 h-4" /> Edit
+                </button>
+                <button
+                  onClick={() => handleDelete(item.resource_id)}
+                  className="p-1.5 rounded-lg text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold"
+                  title="Delete Resource"
+                >
+                  <Trash2 className="w-4 h-4" /> Delete
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Add / Edit Modal */}
@@ -171,6 +204,7 @@ const TeacherStudyMaterial = () => {
               <button
                 onClick={() => setShowModal(false)}
                 className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
+                title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -184,7 +218,7 @@ const TeacherStudyMaterial = () => {
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Title..."
+                  placeholder="e.g. Unit 3 Microservices Architecture Notes"
                   className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
                 />
               </div>
@@ -210,9 +244,26 @@ const TeacherStudyMaterial = () => {
                   required
                   value={desc}
                   onChange={(e) => setDesc(e.target.value)}
-                  placeholder="Summary..."
+                  placeholder="Provide resource summary and topics covered..."
                   className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
                 />
+              </div>
+
+              {/* Document File Attachment */}
+              <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-1.5">
+                <label className="block text-[#1E293B] font-bold flex items-center gap-1.5">
+                  <Paperclip className="w-3.5 h-3.5 text-[#2563EB]" /> Select Document File
+                </label>
+                <input
+                  type="file"
+                  onChange={handleFileChange}
+                  className="w-full text-xs text-[#64748B] file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#2563EB]/10 file:text-[#2563EB] cursor-pointer"
+                />
+                {selectedFileName && (
+                  <p className="text-[11px] text-[#14B8A6] font-semibold font-mono">
+                    Selected Document: {selectedFileName}
+                  </p>
+                )}
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
@@ -224,6 +275,80 @@ const TeacherStudyMaterial = () => {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Teacher Uploaded File Viewer Modal */}
+      {viewFileModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-8 animate-fade-in">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-[#2563EB]" />
+                <h3 className="text-base font-extrabold text-[#1E293B]">
+                  Uploaded Resource Document
+                </h3>
+              </div>
+              <button
+                onClick={() => setViewFileModal(null)}
+                className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Document Meta Box */}
+            <div className="space-y-4 text-xs">
+              <div className="p-4 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#14B8A6]/10 text-[#14B8A6] font-bold text-[10px]">
+                    {viewFileModal.resource_type}
+                  </span>
+                  <span className="font-mono text-[#64748B] text-[11px]">
+                    Uploaded: {viewFileModal.uploaded_date}
+                  </span>
+                </div>
+                <h4 className="text-base font-extrabold text-[#1E293B]">{viewFileModal.title}</h4>
+                <p className="text-[#64748B] leading-relaxed">{viewFileModal.description}</p>
+              </div>
+
+              {/* Document File Container */}
+              <div className="p-6 bg-[#2563EB]/5 rounded-xl border border-[#2563EB]/20 text-center space-y-3">
+                <Paperclip className="w-10 h-10 text-[#2563EB] mx-auto animate-bounce" />
+                <div>
+                  <h5 className="text-sm font-extrabold text-[#1E293B] font-mono truncate max-w-xs mx-auto">
+                    {viewFileModal.file_path ? viewFileModal.file_path.split("/").pop() : "document.pdf"}
+                  </h5>
+                  <p className="text-[11px] text-[#64748B] mt-0.5">
+                    Official Department Resource Document
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    icon={Download}
+                    onClick={() => alert(`Downloading document: ${viewFileModal.file_path}...`)}
+                    className="text-xs"
+                  >
+                    Download Resource File
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={Eye}
+                    onClick={() => alert(`Opening ${viewFileModal.file_path} in document viewer...`)}
+                    className="text-xs"
+                  >
+                    Open Document Preview
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

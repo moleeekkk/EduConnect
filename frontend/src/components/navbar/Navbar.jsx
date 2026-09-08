@@ -1,19 +1,22 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Search, Bell, User, LogOut, ChevronDown, Sparkles, GraduationCap, Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Search, Bell, User, LogOut, ChevronDown, Sparkles, GraduationCap, Menu, PanelLeftClose, PanelLeftOpen, CalendarRange } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useBatch } from "../../context/BatchContext";
 
 const Navbar = ({
   role = "Student",
   userName,
   userDetail,
   isCollapsed = false,
-  onToggleCollapse = () => {},
-  onToggleMobile = () => {},
+  onToggleCollapse = () => { },
+  onToggleMobile = () => { },
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
+
+  const { batches, selectedBatch, setSelectedBatch } = useBatch();
 
   const userStr = localStorage.getItem("educonnect_user");
   const loggedUser = userStr ? JSON.parse(userStr) : null;
@@ -58,16 +61,6 @@ const Navbar = ({
           <Menu className="w-5 h-5" />
         </button>
 
-        {/* Desktop Sidebar Expand/Collapse Toggle Button */}
-        <button
-          onClick={onToggleCollapse}
-          className="hidden lg:flex p-2 rounded-xl text-[#64748B] hover:text-[#1E293B] hover:bg-[#F8FAFC] border border-[#E2E8F0] transition-colors cursor-pointer shrink-0"
-          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-          aria-label="Toggle Sidebar"
-        >
-          {isCollapsed ? <PanelLeftOpen className="w-4 h-4 text-[#2563EB]" /> : <PanelLeftClose className="w-4 h-4 text-[#64748B]" />}
-        </button>
-
         {/* Search Input Container */}
         <div className="relative w-full">
           <Search className="w-4 h-4 text-[#64748B] absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -80,7 +73,35 @@ const Navbar = ({
       </div>
 
       {/* Right User Actions */}
-      <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {/* Batch Selector Dropdown */}
+        {(role === "Admin" || role === "Teacher") && batches && batches.length > 0 && (
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs font-semibold text-[#1E293B]">
+            <CalendarRange className="w-3.5 h-3.5 text-[#F59E0B]" />
+            <span className="text-[11px] text-[#64748B] font-medium hidden lg:inline">Active Batch:</span>
+            <select
+              value={selectedBatch?.batch_id || selectedBatch?.batchId || ""}
+              onChange={(e) => {
+                const found = batches.find(
+                  (b) => (b.batch_id || b.batchId) === e.target.value
+                );
+                if (found) setSelectedBatch(found);
+              }}
+              className="bg-transparent text-xs font-bold text-[#1E293B] focus:outline-none cursor-pointer pr-1"
+            >
+              {batches.map((b) => {
+                const bId = b.batch_id || b.batchId;
+                const bName = b.batch_name || b.batchName;
+                return (
+                  <option key={bId} value={bId}>
+                    {bName}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        )}
+
         {/* Role Badge */}
         <span className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold ${roleColors[role] || roleColors.Student}`}>
           <Sparkles className="w-3 h-3" />

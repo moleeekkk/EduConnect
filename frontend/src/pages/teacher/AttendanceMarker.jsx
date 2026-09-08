@@ -1,116 +1,78 @@
 import React, { useState, useEffect } from "react";
-import { Save, CheckCircle2, UserCheck, UserX, RefreshCw } from "lucide-react";
+import { CalendarCheck, Save, CheckCircle2, UserCheck, UserX } from "lucide-react";
 import Button from "../../components/common/Button";
-import { teacherApi } from "../../services/api";
+import { teacherApi, adminApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const TeacherAttendanceMarker = () => {
-  const [subjects, setSubjects] = useState([]);
-  const [selectedSubject, setSelectedSubject] = useState("");
-  const [students, setStudents] = useState([]);
-  const [loadingSubjects, setLoadingSubjects] = useState(true);
-  const [loadingStudents, setLoadingStudents] = useState(false);
-
+  const [selectedSubject, setSelectedSubject] = useState("subj-101");
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split("T")[0]);
   const [lectureNo, setLectureNo] = useState(1);
   const [startTime, setStartTime] = useState("09:30");
   const [endTime, setEndTime] = useState("11:00");
-  const [topic, setTopic] = useState("");
+  const [topic, setTopic] = useState("State Management & Custom Hooks Architecture");
 
+  const [students, setStudents] = useState([]);
+  const [subjects, setSubjects] = useState([]);
   const [studentStatus, setStudentStatus] = useState({});
-  const [saveMsg, setSaveMsg] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [saveMsg, setSaveMsg] = useState(false);
 
-  // Load Assigned Subjects for current teacher
-  const loadAssignedSubjects = async () => {
-    try {
-      setLoadingSubjects(true);
-      const data = await teacherApi.getMyAssignedSubjects();
-      const list = Array.isArray(data) ? data : [];
-      setSubjects(list);
-
-      if (list.length > 0) {
-        const defaultSubId = list[0].allocation_id || list[0].allocationId || list[0].subject_id;
-        setSelectedSubject(defaultSubId);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [stuData, subData] = await Promise.all([
+          teacherApi.getStudents(),
+          adminApi.getSubjects(),
+        ]);
+        if (Array.isArray(stuData)) {
+          setStudents(stuData);
+          const initialStatus = {};
+          stuData.forEach((s) => {
+            initialStatus[s.student_id || s.id] = "Present";
+          });
+          setStudentStatus(initialStatus);
+        }
+        if (Array.isArray(subData)) {
+          setSubjects(subData);
+          if (subData[0]?.subject_id) setSelectedSubject(subData[0].subject_id);
+        }
+      } catch (err) {
+        console.error("AttendanceMarker load error:", err);
       }
-    } catch (err) {
-      console.log("Error fetching assigned subjects:", err);
-      setSubjects([]);
-    } finally {
-      setLoadingSubjects(false);
-    }
-  };
-
-  // Load Authorized Students for selected subject/allocation
-  const loadStudentsForSubject = async (allocId) => {
-    if (!allocId) return;
-    try {
-      setLoadingStudents(true);
-      const data = await teacherApi.getApplicableStudentsForAllocation(allocId);
-      const list = Array.isArray(data) ? data : [];
-      setStudents(list);
-
-      // Default all to Present
-      const initialStatus = {};
-      list.forEach((s) => {
-        const sId = s.student_id || s.studentId;
-        initialStatus[sId] = "Present";
-      });
-      setStudentStatus(initialStatus);
-    } catch (err) {
-      console.log("Error loading students for subject:", err);
-      setStudents([]);
-    } finally {
-      setLoadingStudents(false);
-    }
-  };
-
-  useEffect(() => {
-    loadAssignedSubjects();
+    };
+    fetchData();
   }, []);
-
-  useEffect(() => {
-    if (selectedSubject) {
-      loadStudentsForSubject(selectedSubject);
-    }
-  }, [selectedSubject]);
 
   const toggleStatus = (id) => {
     setStudentStatus((prev) => ({
       ...prev,
-      [id]: prev[id] === "Absent" ? "Present" : "Absent",
+      [id]: prev[id] === "Present" ? "Absent" : "Present",
     }));
   };
 
   const handleSaveAttendance = async (e) => {
-    if (e) e.preventDefault();
-    if (!selectedSubject) return;
-
+    e.preventDefault();
     try {
-      setIsSubmitting(true);
-      const studentStatusesList = Object.entries(studentStatus).map(([studentId, status]) => ({
-        studentId: studentId,
-        status: status,
-      }));
-
-      const payload = {
-        allocationId: selectedSubject,
-        teacherSubjectId: selectedSubject,
-        sessionDate: sessionDate,
-        lectureNo: parseInt(lectureNo) || 1,
-        startTime: startTime,
-        endTime: endTime,
-        topic: topic.trim() || "Lecture Session",
-        studentStatuses: studentStatusesList,
-        studentStatusMap: studentStatus,
+      const attendanceData = {
+        subject_id: selectedSubject,
+        session_date: sessionDate,
+        lecture_number: lectureNo,
+        start_time: startTime,
+        end_time: endTime,
+        topic_covered: topic,
+        records: Object.entries(studentStatus).map(([student_id, status]) => ({
+          student_id,
+          status,
+        })),
       };
-
-      const res = await teacherApi.markAttendance(payload);
-      setSaveMsg(res.message || "Lecture session and attendance saved successfully in PostgreSQL!");
-      setTimeout(() => setSaveMsg(""), 4000);
+      await teacherApi.markAttendance(attendanceData);
+      setSaveMsg(true);
+      notifySuccess(`Attendance for ${students.length || 0} students recorded & saved to database!`);
+      setTimeout(() => setSaveMsg(false), 3000);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save attendance record");
-    } finally {
-      setIsSubmitting(false);
+      console.error("Save attendance error:", err);
+      const msg = err.response?.data?.error || err.message || "Failed to save attendance.";
+      notifyError(`Failed to save attendance to database: ${msg}`);
     }
   };
 
@@ -119,17 +81,16 @@ const TeacherAttendanceMarker = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
           <h1 className="text-xl font-bold text-[#1E293B]">Attendance Marker</h1>
-          <p className="text-xs text-[#64748B] mt-0.5">Record and save class attendance directly to PostgreSQL database.</p>
         </div>
 
-        <Button variant="accent" size="sm" icon={Save} onClick={handleSaveAttendance} disabled={isSubmitting} className="text-xs">
-          {isSubmitting ? "Saving to DB..." : "Save Attendance Record"}
+        <Button variant="accent" size="sm" icon={Save} onClick={handleSaveAttendance} className="text-xs">
+          Save Attendance Record
         </Button>
       </div>
 
       {saveMsg && (
         <div className="p-3 rounded-xl bg-[#22C55E]/10 border border-[#22C55E]/20 text-[#22C55E] text-xs font-semibold flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4" /> {saveMsg}
+          <CheckCircle2 className="w-4 h-4" /> Lecture session and attendance saved successfully!
         </div>
       )}
 
@@ -138,28 +99,22 @@ const TeacherAttendanceMarker = () => {
         <h2 className="text-sm font-bold text-[#1E293B] border-b border-[#E2E8F0] pb-2">Session Parameters</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <div>
-            <label className="block text-[#64748B] mb-1 font-semibold">Assigned Subject</label>
+            <label className="block text-[#64748B] mb-1">Subject</label>
             <select
               value={selectedSubject}
               onChange={(e) => setSelectedSubject(e.target.value)}
               className="w-full p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
             >
-              {loadingSubjects ? (
-                <option value="">Loading assigned subjects...</option>
-              ) : subjects && subjects.length > 0 ? (
-                subjects.map((s) => (
-                  <option key={s.allocation_id || s.subject_id} value={s.allocation_id || s.subject_id}>
-                    {s.subject_name || s.subjectName} ({s.subject_code || s.subjectCode}) • Sem {s.semester_number || s.semesterNumber}
-                  </option>
-                ))
-              ) : (
-                <option value="">No Assigned Subjects Found</option>
-              )}
+              {subjects.map((s) => (
+                <option key={s.subject_id || s.id} value={s.subject_id || s.id}>
+                  {s.subject_name || s.name} ({s.subject_code || s.code})
+                </option>
+              ))}
             </select>
           </div>
 
           <div>
-            <label className="block text-[#64748B] mb-1 font-semibold">Lecture Date</label>
+            <label className="block text-[#64748B] mb-1">Lecture Date (session_date)</label>
             <input
               type="date"
               value={sessionDate}
@@ -169,7 +124,7 @@ const TeacherAttendanceMarker = () => {
           </div>
 
           <div>
-            <label className="block text-[#64748B] mb-1 font-semibold">Lecture No</label>
+            <label className="block text-[#64748B] mb-1">Lecture No (lecture_no)</label>
             <input
               type="number"
               value={lectureNo}
@@ -179,7 +134,7 @@ const TeacherAttendanceMarker = () => {
           </div>
 
           <div>
-            <label className="block text-[#64748B] mb-1 font-semibold">Start Time</label>
+            <label className="block text-[#64748B] mb-1">Start Time (start_time)</label>
             <input
               type="time"
               value={startTime}
@@ -189,7 +144,7 @@ const TeacherAttendanceMarker = () => {
           </div>
 
           <div>
-            <label className="block text-[#64748B] mb-1 font-semibold">End Time</label>
+            <label className="block text-[#64748B] mb-1">End Time (end_time)</label>
             <input
               type="time"
               value={endTime}
@@ -200,11 +155,10 @@ const TeacherAttendanceMarker = () => {
         </div>
 
         <div>
-          <label className="block text-[#64748B] mb-1 font-semibold">Lecture Topic Covered</label>
+          <label className="block text-[#64748B] mb-1">Lecture Topic Covered (topic)</label>
           <input
             type="text"
             value={topic}
-            placeholder="e.g. React hooks & State Management..."
             onChange={(e) => setTopic(e.target.value)}
             className="w-full p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
           />
@@ -214,53 +168,45 @@ const TeacherAttendanceMarker = () => {
       {/* Student Roster List for Marking */}
       <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs overflow-hidden">
         <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between">
-          <h2 className="text-sm font-bold text-[#1E293B]">Class Student Roster ({students.length} Enrolled Students)</h2>
+          <h2 className="text-sm font-bold text-[#1E293B]">Class Student Roster</h2>
+          <span className="text-xs text-[#64748B]">Click on any student card to toggle Present / Absent</span>
         </div>
 
-        {loadingStudents ? (
-          <div className="p-8 text-center text-xs text-[#64748B] flex items-center justify-center gap-2">
-            <RefreshCw className="w-4 h-4 animate-spin text-[#14B8A6]" /> Loading authorized student roster from database...
-          </div>
-        ) : students && students.length > 0 ? (
-          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {students.map((stu) => {
-              const sId = stu.student_id || stu.studentId;
-              const status = studentStatus[sId] || "Present";
-              const isPresent = status === "Present";
-              return (
-                <div
-                  key={sId}
-                  onClick={() => toggleStatus(sId)}
-                  className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
-                    isPresent
-                      ? "bg-[#22C55E]/5 border-[#22C55E]/30"
-                      : "bg-[#EF4444]/5 border-[#EF4444]/30"
+        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {students.map((stu) => {
+            const stuId = stu.student_id || stu.id;
+            const status = studentStatus[stuId] || "Present";
+            const isPresent = status === "Present";
+            return (
+              <div
+                key={stuId}
+                onClick={() => toggleStatus(stuId)}
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                  isPresent
+                    ? "bg-[#22C55E]/5 border-[#22C55E]/30"
+                    : "bg-[#EF4444]/5 border-[#EF4444]/30"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <img src={stu.profile_photo} alt="" className="w-9 h-9 rounded-full object-cover" />
+                  <div>
+                    <h4 className="text-xs font-bold text-[#1E293B]">{stu.first_name} {stu.last_name}</h4>
+                    <p className="text-[10px] text-[#64748B] font-mono">{stu.enrollment_no}</p>
+                  </div>
+                </div>
+
+                <span
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                    isPresent ? "bg-[#22C55E] text-white" : "bg-[#EF4444] text-white"
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <h4 className="text-xs font-bold text-[#1E293B]">{stu.name || `${stu.first_name || ""} ${stu.last_name || ""}`}</h4>
-                      <p className="text-[10px] text-[#64748B] font-mono">{stu.enrollment_no || stu.enrollmentNo}</p>
-                    </div>
-                  </div>
-
-                  <span
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                      isPresent ? "bg-[#22C55E] text-white" : "bg-[#EF4444] text-white"
-                    }`}
-                  >
-                    {isPresent ? <UserCheck className="w-3 h-3" /> : <UserX className="w-3 h-3" />}
-                    {status}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="p-8 text-center text-xs text-[#64748B]">
-            No authorized students found in this assigned class roster.
-          </div>
-        )}
+                  {isPresent ? <UserCheck className="w-3 h-3" /> : <UserX className="w-3 h-3" />}
+                  {status}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

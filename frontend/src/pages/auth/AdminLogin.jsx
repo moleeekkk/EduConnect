@@ -5,6 +5,7 @@ import AuthLayout from "../../layouts/AuthLayout";
 import Button from "../../components/common/Button";
 import Input from "../../components/common/Input";
 import { authApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
@@ -16,8 +17,13 @@ const AdminLogin = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) {
-      setError("Please enter both Email and Password");
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail || !cleanPassword) {
+      const msg = "Please enter both Email Address and Password";
+      setError(msg);
+      notifyError(msg);
       return;
     }
 
@@ -25,12 +31,24 @@ const AdminLogin = () => {
     setIsLoading(true);
 
     try {
-      const res = await authApi.adminLogin(email, password);
+      const res = await authApi.adminLogin(cleanEmail, cleanPassword);
       setIsLoading(false);
-      navigate("/admin/dashboard");
+      if (res && res.success !== false) {
+        localStorage.setItem("educonnect_user", JSON.stringify(res));
+        notifySuccess("Admin authentication successful! Welcome to Control Panel.");
+        navigate("/admin/dashboard");
+      } else {
+        const errorMsg = res?.message || "Invalid email address or password. Please enter correct credentials.";
+        setError(errorMsg);
+        notifyError(errorMsg);
+      }
     } catch (err) {
       setIsLoading(false);
-      navigate("/admin/dashboard");
+      console.error("Admin login error:", err);
+      const serverMsg = err.response?.data?.message || err.response?.data?.error;
+      const errorMsg = serverMsg || "Invalid administrator credentials. Please enter correct credentials.";
+      setError(errorMsg);
+      notifyError(errorMsg);
     }
   };
 

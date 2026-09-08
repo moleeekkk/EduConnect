@@ -6,6 +6,7 @@ import {
   BookOpenCheck,
   Award,
   User,
+  UserCheck,
   Users,
   School,
   FileSpreadsheet,
@@ -29,6 +30,8 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  CalendarRange,
+  Layers,
 } from "lucide-react";
 import logoImg from "../../assets/logo/logo.png";
 
@@ -75,10 +78,13 @@ const Sidebar = ({
     Admin: [
       { label: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard },
       { label: "Institute Management", path: "/admin/institutes", icon: Building2 },
-      { label: "Department Management", path: "/admin/programs", icon: FolderTree },
+      { label: "Department Management", path: "/admin/departments", icon: FolderTree },
+      { label: "Semesters Management", path: "/admin/semesters", icon: Layers },
+      { label: "Batches Management", path: "/admin/batches", icon: CalendarRange },
       { label: "Teacher Management", path: "/admin/teachers", icon: School },
       { label: "Student Management", path: "/admin/students", icon: GraduationCap },
       { label: "Subject Management", path: "/admin/subjects", icon: BookOpen },
+      { label: "Subject Allocation", path: "/admin/teacher-subjects", icon: UserCheck },
       { label: "Reports", path: "/admin/reports", icon: BarChart3 },
       { label: "My Profile", path: "/admin/profile", icon: User },
     ],

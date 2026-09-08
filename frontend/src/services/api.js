@@ -1,13 +1,13 @@
 import axios from "axios";
 
-const API_BASE_URL = "http://localhost:8081/api/v1";
+const API_BASE_URL = "http://localhost:8000/api/v1";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 30000,
+  timeout: 10000,
 });
 
 // Interceptor to add Authorization token if present
@@ -22,19 +22,37 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Helper for read queries (safe fallback)
+const handleRequest = async (requestFn, fallbackValue = []) => {
+  try {
+    const response = await requestFn();
+    return response.data;
+  } catch (error) {
+    console.warn("API Query fallback:", error.message);
+    return fallbackValue;
+  }
+};
+
+// Helper for data mutations (creates, updates, deletes, submissions) to propagate errors
+const handleMutationRequest = async (requestFn) => {
+  try {
+    const response = await requestFn();
+    return response.data;
+  } catch (error) {
+    console.error("API Mutation Error:", error);
+    throw error;
+  }
+};
+
 // Auth Endpoints
 export const authApi = {
   sendStudentOtp: async (enrollmentNo) => {
-    const response = await api.post("/auth/student/send-otp", { enrollmentNo }, { timeout: 30000 });
-    return response.data;
-  },
-  resendStudentOtp: async (enrollmentNo) => {
-    const response = await api.post("/auth/student/resend-otp", { enrollmentNo }, { timeout: 30000 });
+    const response = await api.post("/auth/student/send-otp", { enrollmentNo, enrollment_no: enrollmentNo });
     return response.data;
   },
   verifyStudentOtp: async (enrollmentNo, otp) => {
-    const response = await api.post("/auth/student/verify-otp", { enrollmentNo, otp });
-    if (response.data.token) {
+    const response = await api.post("/auth/student/verify-otp", { enrollmentNo, enrollment_no: enrollmentNo, otp });
+    if (response.data?.token) {
       localStorage.setItem("educonnect_token", response.data.token);
       localStorage.setItem("educonnect_user", JSON.stringify(response.data));
     }
@@ -42,7 +60,7 @@ export const authApi = {
   },
   teacherLogin: async (email, password) => {
     const response = await api.post("/auth/teacher/login", { email, password });
-    if (response.data.token) {
+    if (response.data?.token) {
       localStorage.setItem("educonnect_token", response.data.token);
       localStorage.setItem("educonnect_user", JSON.stringify(response.data));
     }
@@ -50,246 +68,223 @@ export const authApi = {
   },
   adminLogin: async (email, password) => {
     const response = await api.post("/auth/admin/login", { email, password });
-    if (response.data.token) {
+    if (response.data?.token) {
       localStorage.setItem("educonnect_token", response.data.token);
       localStorage.setItem("educonnect_user", JSON.stringify(response.data));
     }
+    return response.data;
+  },
+  sendPasswordResetCode: async (email, role) => {
+    const response = await api.post("/auth/forgot-password/send-code", { email, role });
+    return response.data;
+  },
+  resetPassword: async (email, code, newPassword) => {
+    const response = await api.post("/auth/forgot-password/reset", { email, code, newPassword, new_password: newPassword });
     return response.data;
   },
 };
 
 // Student Endpoints
 export const studentApi = {
-  getDashboard: async (enrollmentNo) => {
-    const response = await api.get(`/student/dashboard?enrollmentNo=${enrollmentNo || ""}`);
-    return response.data;
-  },
-  getAttendance: async (enrollmentNo) => {
-    const response = await api.get(`/student/attendance?enrollmentNo=${enrollmentNo || ""}`);
-    return response.data;
-  },
-  getAssignments: async (enrollmentNo) => {
-    const response = await api.get(`/student/assignments?enrollmentNo=${enrollmentNo || ""}`);
-    return response.data;
-  },
-  getResults: async (enrollmentNo) => {
-    const response = await api.get(`/student/results?enrollmentNo=${enrollmentNo || ""}`);
-    return response.data;
-  },
-  getProfile: async (enrollmentNo) => {
-    const response = await api.get(`/student/profile?enrollmentNo=${enrollmentNo || ""}`);
-    return response.data;
-  },
+  getDashboard: (enrollmentNo) =>
+    handleRequest(() => api.get(`/student/dashboard?enrollmentNo=${enrollmentNo || "2024MCA001"}`), {}),
+  getAttendance: (enrollmentNo) =>
+    handleRequest(() => api.get(`/student/attendance?enrollmentNo=${enrollmentNo || "2024MCA001"}`), []),
+  getAssignments: (enrollmentNo) =>
+    handleRequest(() => api.get(`/student/assignments?enrollmentNo=${enrollmentNo || "2024MCA001"}`), []),
+  submitAssignment: (assignmentId, data) =>
+    handleMutationRequest(() => api.post(`/student/assignments/${assignmentId}/submit`, data)),
+  getResults: (enrollmentNo) =>
+    handleRequest(() => api.get(`/student/results?enrollmentNo=${enrollmentNo || "2024MCA001"}`), {}),
+  getMarksheet: (enrollmentNo) =>
+    handleRequest(() => api.get(`/student/marksheet?enrollmentNo=${enrollmentNo || "2024MCA001"}`), {}),
+  getProfile: (enrollmentNo) =>
+    handleRequest(() => api.get(`/student/profile?enrollmentNo=${enrollmentNo || "2024MCA001"}`), {}),
+  getLeaveRequests: (enrollmentNo) =>
+    handleRequest(() => api.get(`/student/leave-requests?enrollmentNo=${enrollmentNo || "2024MCA001"}`), []),
+  submitLeaveRequest: (data) =>
+    handleMutationRequest(() => api.post("/student/leave-requests", data)),
+  getDoubts: (enrollmentNo) =>
+    handleRequest(() => api.get(`/student/doubts?enrollmentNo=${enrollmentNo || "2024MCA001"}`), []),
+  askDoubt: (data) =>
+    handleMutationRequest(() => api.post("/student/doubts", data)),
+  getStudyMaterials: () =>
+    handleRequest(() => api.get("/student/study-materials"), []),
+  getOldQuestionPapers: () =>
+    handleRequest(() => api.get("/student/question-papers"), []),
+  getQuizzes: () =>
+    handleRequest(() => api.get("/student/quizzes"), []),
+  getWeeklyTests: () =>
+    handleRequest(() => api.get("/student/weekly-tests"), []),
+  getTimetable: (enrollmentNo) =>
+    handleRequest(() => api.get(`/student/timetable?enrollmentNo=${enrollmentNo || "2024MCA001"}`), []),
+  getSyllabus: () =>
+    handleRequest(() => api.get("/student/syllabus"), []),
+  getDigitalID: (enrollmentNo) =>
+    handleRequest(() => api.get(`/student/digital-id?enrollmentNo=${enrollmentNo || "2024MCA001"}`), {}),
 };
 
 // Teacher Endpoints
 export const teacherApi = {
-  getDashboard: async (teacherId) => {
-    const response = await api.get(`/teacher/dashboard?teacherId=${teacherId || ""}`);
-    return response.data;
-  },
-  markAttendance: async (attendanceData) => {
-    const response = await api.post("/teacher/attendance/mark", attendanceData);
-    return response.data;
-  },
-  getPendingGrades: async (teacherId) => {
-    const response = await api.get(`/teacher/grades?teacherId=${teacherId || ""}`);
-    return response.data;
-  },
-  getMyAssignedSubjects: async (teacherId) => {
-    const response = await api.get(`/teacher/my-subjects?teacherId=${teacherId || ""}`);
-    return response.data;
-  },
-  getApplicableStudentsForAllocation: async (allocationId) => {
-    const response = await api.get(`/teacher/allocations/${allocationId}/students`);
-    return response.data;
-  },
-  getAssignments: async () => {
-    const response = await api.get("/teacher/assignments");
-    return response.data;
-  },
-  createAssignment: async (assignmentData) => {
-    const response = await api.post("/teacher/assignments", assignmentData);
-    return response.data;
-  },
-  updateAssignment: async (id, assignmentData) => {
-    const response = await api.put(`/teacher/assignments/${id}`, assignmentData);
-    return response.data;
-  },
-  deleteAssignment: async (id) => {
-    const response = await api.delete(`/teacher/assignments/${id}`);
-    return response.data;
-  },
-  getSubmissions: async (assignmentId) => {
-    const response = await api.get(`/teacher/assignments/${assignmentId}/submissions`);
-    return response.data;
-  },
-  saveExamMarks: async (marksData) => {
-    const response = await api.post("/teacher/exam-marks", marksData);
-    return response.data;
-  },
-  getExamResults: async (allocationId, examName) => {
-    const query = new URLSearchParams({ allocationId: allocationId || "", examName: examName || "" }).toString();
-    const response = await api.get(`/teacher/exam-marks?${query}`);
-    return response.data;
-  },
+  getDashboard: (teacherId) =>
+    handleRequest(() => api.get(`/teacher/dashboard?teacherId=${teacherId || "teach-demo-id"}`), {}),
+  markAttendance: (attendanceData) =>
+    handleMutationRequest(() => api.post("/teacher/attendance/mark", attendanceData)),
+  getStudents: () =>
+    handleRequest(() => api.get("/teacher/students"), []),
+  getDepartments: () =>
+    handleRequest(() => api.get("/teacher/departments"), []),
+  getSemesters: () =>
+    handleRequest(() => api.get("/teacher/semesters"), []),
+  getAssignedSubjects: (identifier) =>
+    handleRequest(() => api.get(`/teacher/assigned-subjects?email=${encodeURIComponent(identifier || "")}&teacherId=${encodeURIComponent(identifier || "")}`), []),
+  getAssignments: (identifier) =>
+    handleRequest(() => api.get(`/teacher/assignments?email=${encodeURIComponent(identifier || "")}&teacherId=${encodeURIComponent(identifier || "")}`), []),
+  createAssignment: (data) =>
+    handleMutationRequest(() => api.post("/teacher/assignments", data)),
+  updateAssignment: (id, data) =>
+    handleMutationRequest(() => api.put(`/teacher/assignments/${id}`, data)),
+  deleteAssignment: (id) =>
+    handleMutationRequest(() => api.delete(`/teacher/assignments/${id}`)),
+  getPendingGrades: (teacherId) =>
+    handleRequest(() => api.get(`/teacher/grades?teacherId=${teacherId || "teach-demo-id"}`), []),
+  submitGrades: (data) =>
+    handleMutationRequest(() => api.post("/teacher/grades", data)),
+  getLeaveRequests: () =>
+    handleRequest(() => api.get("/teacher/leave-requests"), []),
+  updateLeaveStatus: (id, status) =>
+    handleMutationRequest(() => api.put(`/teacher/leave-requests/${id}`, { status })),
+  getDoubts: () =>
+    handleRequest(() => api.get("/teacher/doubts"), []),
+  replyDoubt: (id, reply) =>
+    handleMutationRequest(() => api.post(`/teacher/doubts/${id}/reply`, { reply })),
+  getStudyMaterials: () =>
+    handleRequest(() => api.get("/teacher/study-materials"), []),
+  uploadStudyMaterial: (data) =>
+    handleMutationRequest(() => api.post("/teacher/study-materials", data)),
+  getOldQuestionPapers: () =>
+    handleRequest(() => api.get("/teacher/question-papers"), []),
+  getQuizzes: () =>
+    handleRequest(() => api.get("/teacher/quizzes"), []),
+  createQuiz: (data) =>
+    handleMutationRequest(() => api.post("/teacher/quizzes", data)),
+  getWeeklyTests: () =>
+    handleRequest(() => api.get("/teacher/weekly-tests"), []),
+  createWeeklyTest: (data) =>
+    handleMutationRequest(() => api.post("/teacher/weekly-tests", data)),
+  getProfile: (identifier) =>
+    handleRequest(() => api.get(`/teacher/profile?email=${encodeURIComponent(identifier || "")}&teacherId=${encodeURIComponent(identifier || "")}`), {}),
+  updateProfile: (data) =>
+    handleMutationRequest(() => api.put("/teacher/profile", data)),
+  sendParentEmail: (data) =>
+    handleMutationRequest(() => api.post("/teacher/parent-email", data)),
 };
-
-
-
 
 // Admin Endpoints
 export const adminApi = {
-  getDashboard: async () => {
-    const response = await api.get("/admin/dashboard");
-    return response.data;
-  },
-  getProfile: async () => {
-    const response = await api.get("/admin/profile");
-    return response.data;
-  },
-  updateProfile: async (profileData) => {
-    const response = await api.put("/admin/profile", profileData);
-    return response.data;
-  },
-
-  // Teacher Management
-  getTeachers: async (params) => {
-    const query = new URLSearchParams(params || {}).toString();
-    const response = await api.get(`/admin/teachers${query ? "?" + query : ""}`);
-    return response.data;
-  },
-  getTeacherById: async (id) => {
-    const response = await api.get(`/admin/teachers/${id}`);
-    return response.data;
-  },
-  createTeacher: async (teacherData) => {
-    const response = await api.post("/admin/teachers", teacherData);
-    return response.data;
-  },
-  updateTeacher: async (id, teacherData) => {
-    const response = await api.put(`/admin/teachers/${id}`, teacherData);
-    return response.data;
-  },
-  patchTeacherStatus: async (id, isActive) => {
-    const response = await api.patch(`/admin/teachers/${id}/status`, { is_active: isActive });
-    return response.data;
-  },
-  deleteTeacher: async (id) => {
-    const response = await api.delete(`/admin/teachers/${id}`);
-    return response.data;
-  },
-
-  // Students Management
-  getStudents: async (params) => {
-    const query = new URLSearchParams(params || {}).toString();
-    const response = await api.get(`/admin/students${query ? "?" + query : ""}`);
-    return response.data;
-  },
-  getStudentById: async (id) => {
-    const response = await api.get(`/admin/students/${id}`);
-    return response.data;
-  },
-  createStudent: async (studentData) => {
-    const response = await api.post("/admin/students", studentData);
-    return response.data;
-  },
-  updateStudent: async (id, studentData) => {
-    const response = await api.put(`/admin/students/${id}`, studentData);
-    return response.data;
-  },
-  patchStudentStatus: async (id, isActive) => {
-    const response = await api.patch(`/admin/students/${id}/status`, { is_active: isActive });
-    return response.data;
-  },
-  deleteStudent: async (id) => {
-    const response = await api.delete(`/admin/students/${id}`);
-    return response.data;
-  },
-
-  // Institutes
-  getInstitutes: async () => {
-    const response = await api.get("/admin/institutes");
-    return response.data;
-  },
-  createInstitute: async (data) => {
-    const response = await api.post("/admin/institutes", data);
-    return response.data;
-  },
-  updateInstitute: async (id, data) => {
-    const response = await api.put(`/admin/institutes/${id}`, data);
-    return response.data;
-  },
-  deleteInstitute: async (id) => {
-    const response = await api.delete(`/admin/institutes/${id}`);
-    return response.data;
-  },
-
-  // Programs / Departments
-  getPrograms: async () => {
-    const response = await api.get("/admin/programs");
-    return response.data;
-  },
-  createProgram: async (data) => {
-    const response = await api.post("/admin/programs", data);
-    return response.data;
-  },
-  updateProgram: async (id, data) => {
-    const response = await api.put(`/admin/programs/${id}`, data);
-    return response.data;
-  },
-  deleteProgram: async (id) => {
-    const response = await api.delete(`/admin/programs/${id}`);
-    return response.data;
-  },
-
-  // Semesters
-  getSemesters: async (programId) => {
-    const response = await api.get(`/admin/semesters?programId=${programId}`);
-    return response.data;
-  },
-  createSemester: async (data) => {
-    const response = await api.post("/admin/semesters", data);
-    return response.data;
-  },
-  deleteSemester: async (id) => {
-    const response = await api.delete(`/admin/semesters/${id}`);
-    return response.data;
-  },
-
-  // Courses / Subjects
-  getCourses: async () => {
-    const response = await api.get("/admin/courses");
-    return response.data;
-  },
-  createCourse: async (courseData) => {
-    const response = await api.post("/admin/courses", courseData);
-    return response.data;
-  },
-  updateCourse: async (id, courseData) => {
-    const response = await api.put(`/admin/courses/${id}`, courseData);
-    return response.data;
-  },
-  deleteCourse: async (id) => {
-    const response = await api.delete(`/admin/courses/${id}`);
-    return response.data;
-  },
-
-  // Teacher Allocations
-  getTeacherAllocations: async (params) => {
-    const query = new URLSearchParams(params || {}).toString();
-    const response = await api.get(`/admin/teacher-allocations${query ? "?" + query : ""}`);
-    return response.data;
-  },
-  createTeacherAllocation: async (data) => {
-    const response = await api.post("/admin/teacher-allocations", data);
-    return response.data;
-  },
-  deleteTeacherAllocation: async (id) => {
-    const response = await api.delete(`/admin/teacher-allocations/${id}`);
-    return response.data;
-  },
+  getDashboard: () =>
+    handleRequest(() => api.get("/admin/dashboard"), {}),
+  getUsers: () =>
+    handleRequest(() => api.get("/admin/users"), []),
+  createUser: (userData) =>
+    handleMutationRequest(() => api.post("/admin/users", userData)),
+  updateUser: (id, userData) =>
+    handleMutationRequest(() => api.put(`/admin/users/${id}`, userData)),
+  deleteUser: (id) =>
+    handleMutationRequest(() => api.delete(`/admin/users/${id}`)),
+  getCourses: () =>
+    handleRequest(() => api.get("/admin/courses"), []),
+  createCourse: (courseData) =>
+    handleMutationRequest(() => api.post("/admin/courses", courseData)),
+  getInstitutes: () =>
+    handleRequest(() => api.get("/admin/institutes"), []),
+  createInstitute: (data) =>
+    handleMutationRequest(() => api.post("/admin/institutes", data)),
+  updateInstitute: (id, data) =>
+    handleMutationRequest(() => api.put(`/admin/institutes/${id}`, data)),
+  deleteInstitute: (id) =>
+    handleMutationRequest(() => api.delete(`/admin/institutes/${id}`)),
+  getDepartments: () =>
+    handleRequest(() => api.get("/admin/departments"), []),
+  createDepartment: (data) =>
+    handleMutationRequest(() => api.post("/admin/departments", data)),
+  updateDepartment: (id, data) =>
+    handleMutationRequest(() => api.put(`/admin/departments/${id}`, data)),
+  deleteDepartment: (id) =>
+    handleMutationRequest(() => api.delete(`/admin/departments/${id}`)),
+  getPrograms: () =>
+    handleRequest(() => api.get("/admin/departments"), []),
+  createProgram: (data) =>
+    handleMutationRequest(() => api.post("/admin/departments", data)),
+  updateProgram: (id, data) =>
+    handleMutationRequest(() => api.put(`/admin/departments/${id}`, data)),
+  deleteProgram: (id) =>
+    handleMutationRequest(() => api.delete(`/admin/departments/${id}`)),
+  getSemesters: () =>
+    handleRequest(() => api.get("/admin/semesters"), []),
+  createSemester: (data) =>
+    handleMutationRequest(() => api.post("/admin/semesters", data)),
+  updateSemester: (id, data) =>
+    handleMutationRequest(() => api.put(`/admin/semesters/${id}`, data)),
+  deleteSemester: (id) =>
+    handleMutationRequest(() => api.delete(`/admin/semesters/${id}`)),
+  toggleSemesterStatus: (id) =>
+    handleMutationRequest(() => api.patch(`/admin/semesters/${id}/toggle-status`)),
+  getSubjects: () =>
+    handleRequest(() => api.get("/admin/subjects"), []),
+  createSubject: (data) =>
+    handleMutationRequest(() => api.post("/admin/subjects", data)),
+  updateSubject: (id, data) =>
+    handleMutationRequest(() => api.put(`/admin/subjects/${id}`, data)),
+  deleteSubject: (id) =>
+    handleMutationRequest(() => api.delete(`/admin/subjects/${id}`)),
+  getTeacherSubjects: () =>
+    handleRequest(() => api.get("/admin/teacher-subjects"), []),
+  assignTeacherSubject: (data) =>
+    handleMutationRequest(() => api.post("/admin/teacher-subjects", data)),
+  toggleTeacherSubject: (teacherId, subjectId) =>
+    handleMutationRequest(() =>
+      api.post("/admin/teacher-subjects/toggle", {
+        teacher_id: teacherId,
+        subject_id: subjectId,
+      })
+    ),
+  deleteTeacherSubject: (id) =>
+    handleMutationRequest(() => api.delete(`/admin/teacher-subjects/${id}`)),
+  getReports: () =>
+    handleRequest(() => api.get("/admin/reports"), {}),
+  getProfile: () =>
+    handleRequest(() => api.get("/admin/profile"), {}),
+  getSystemSettings: () =>
+    handleRequest(() => api.get("/admin/settings"), {}),
+  updateSystemSettings: (data) =>
+    handleMutationRequest(() => api.put("/admin/settings", data)),
+  getBatches: () =>
+    handleRequest(() => api.get("/admin/batches"), []),
+  createBatch: (data) =>
+    handleMutationRequest(() => api.post("/admin/batches", data)),
+  updateBatch: (id, data) =>
+    handleMutationRequest(() => api.put(`/admin/batches/${id}`, data)),
+  deleteBatch: (id) =>
+    handleMutationRequest(() => api.delete(`/admin/batches/${id}`)),
+  toggleBatchStatus: (id) =>
+    handleMutationRequest(() => api.patch(`/admin/batches/${id}/toggle-status`)),
+  getFaculty: () =>
+    handleRequest(() => api.get("/admin/teachers"), []),
+  createFaculty: (data) =>
+    handleMutationRequest(() => api.post("/admin/teachers", data)),
+  updateFaculty: (id, data) =>
+    handleMutationRequest(() => api.put(`/admin/teachers/${id}`, data)),
+  deleteFaculty: (id) =>
+    handleMutationRequest(() => api.delete(`/admin/teachers/${id}`)),
+  getStudents: () =>
+    handleRequest(() => api.get("/admin/students"), []),
+  createStudent: (data) =>
+    handleMutationRequest(() => api.post("/admin/students", data)),
+  updateStudent: (id, data) =>
+    handleMutationRequest(() => api.put(`/admin/students/${id}`, data)),
+  deleteStudent: (id) =>
+    handleMutationRequest(() => api.delete(`/admin/students/${id}`)),
 };
 
 export default api;
-

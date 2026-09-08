@@ -1,39 +1,67 @@
-import React, { useState } from "react";
-import { Send, CheckCircle2, Plus, Clock } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Send, CheckCircle2, MessageSquare, Plus, Clock } from "lucide-react";
 import Button from "../../components/common/Button";
-import { mockDoubts, mockSubjects } from "../../data/mockData";
+import { studentApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const StudentAskDoubts = () => {
-  const userStr = localStorage.getItem("educonnect_user");
-  const loggedUser = userStr ? JSON.parse(userStr) : null;
-  const currentStudentId = loggedUser?.userId || loggedUser?.identifier || "";
-
-  const [doubts, setDoubts] = useState(mockDoubts || []);
+  const [doubts, setDoubts] = useState([]);
+  const [subjects, setSubjects] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [successMsg, setSuccessMsg] = useState(false);
 
-  const handlePostDoubt = (e) => {
-    e.preventDefault();
-    const created = {
-      doubt_id: `doubt-${Date.now()}`,
-      student_id: currentStudentId,
-      title: newTitle,
-      description: newDesc,
-      reply: null,
-      replied_at: null,
-      status: "Pending",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [doubtsData, syllabusData] = await Promise.all([
+          studentApi.getDoubts(),
+          studentApi.getSyllabus(),
+        ]);
+        setDoubts(Array.isArray(doubtsData) ? doubtsData : []);
+        setSubjects(Array.isArray(syllabusData) ? syllabusData : []);
+      } catch (err) {
+        console.error("Doubts load error:", err);
+      }
     };
+    fetchData();
+  }, []);
 
-    setDoubts([created, ...doubts]);
-    setShowModal(false);
-    setNewTitle("");
-    setNewDesc("");
-    setSuccessMsg(true);
-    setTimeout(() => setSuccessMsg(false), 3000);
+  const handlePostDoubt = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        title: newTitle,
+        description: newDesc,
+        teacher_subject_id: "ts-001",
+      };
+      await studentApi.askDoubt(payload);
+      const created = {
+        doubt_id: `doubt-00${doubts.length + 1}`,
+        student_id: "stu-001",
+        teacher_subject_id: "ts-001",
+        title: newTitle,
+        description: newDesc,
+        reply: null,
+        replied_at: null,
+        status: "Pending",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      setDoubts([created, ...doubts]);
+      setShowModal(false);
+      setNewTitle("");
+      setNewDesc("");
+      setSuccessMsg(true);
+      notifySuccess("Doubt submitted to teacher and saved to database successfully!");
+      setTimeout(() => setSuccessMsg(false), 3000);
+    } catch (err) {
+      console.error("Post doubt error:", err);
+      const msg = err.response?.data?.error || err.message || "Failed to submit doubt.";
+      notifyError(`Failed to submit doubt: ${msg}`);
+    }
   };
 
   return (
@@ -57,48 +85,42 @@ const StudentAskDoubts = () => {
 
       {/* Doubts Feed */}
       <div className="space-y-4">
-        {doubts && doubts.length > 0 ? (
-          doubts.map((doubt) => (
-            <div key={doubt.doubt_id} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs space-y-3">
-              <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2 text-xs">
-                <span className="font-bold text-[#2563EB]">Academic Subject Query</span>
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                    doubt.status === "Answered"
-                      ? "bg-[#22C55E]/10 text-[#22C55E]"
-                      : "bg-[#F59E0B]/10 text-[#F59E0B]"
-                  }`}
-                >
-                  {doubt.status}
-                </span>
-              </div>
-
-              <div className="space-y-1 text-xs">
-                <h3 className="text-sm font-bold text-[#1E293B]">{doubt.title || doubt.doubt_text}</h3>
-                <p className="text-[#64748B]">{doubt.description || doubt.doubt_text}</p>
-              </div>
-
-              {/* Teacher Reply */}
-              {doubt.reply || doubt.reply_text ? (
-                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] text-xs space-y-1">
-                  <div className="flex items-center justify-between font-bold text-[#14B8A6]">
-                    <span>Faculty Reply:</span>
-                    <span className="text-[10px] text-[#64748B] font-mono">{doubt.replied_at || ""}</span>
-                  </div>
-                  <p className="text-[#1E293B]">{doubt.reply || doubt.reply_text}</p>
-                </div>
-              ) : (
-                <div className="p-2.5 bg-[#F59E0B]/10 rounded-lg text-xs text-[#F59E0B] font-medium flex items-center gap-2">
-                  <Clock className="w-4 h-4" /> Awaiting response from faculty mentor.
-                </div>
-              )}
+        {doubts.map((doubt) => (
+          <div key={doubt.doubt_id} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs space-y-3">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2 text-xs">
+              <span className="font-bold text-[#2563EB]">Advanced Web Technologies</span>
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  doubt.status === "Answered"
+                    ? "bg-[#22C55E]/10 text-[#22C55E]"
+                    : "bg-[#F59E0B]/10 text-[#F59E0B]"
+                }`}
+              >
+                {doubt.status}
+              </span>
             </div>
-          ))
-        ) : (
-          <div className="p-8 text-center text-xs text-[#64748B] bg-white rounded-xl border border-[#E2E8F0] shadow-xs">
-            No doubts asked yet.
+
+            <div className="space-y-1 text-xs">
+              <h3 className="text-sm font-bold text-[#1E293B]">{doubt.title}</h3>
+              <p className="text-[#64748B]">{doubt.description}</p>
+            </div>
+
+            {/* Teacher Reply */}
+            {doubt.reply ? (
+              <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] text-xs space-y-1">
+                <div className="flex items-center justify-between font-bold text-[#14B8A6]">
+                  <span>Faculty Reply (Dr. Sarah Jenkins):</span>
+                  <span className="text-[10px] text-[#64748B] font-mono">{doubt.replied_at}</span>
+                </div>
+                <p className="text-[#1E293B]">{doubt.reply}</p>
+              </div>
+            ) : (
+              <div className="p-2.5 bg-[#F59E0B]/10 rounded-lg text-xs text-[#F59E0B] font-medium flex items-center gap-2">
+                <Clock className="w-4 h-4" /> Awaiting response from faculty mentor.
+              </div>
+            )}
           </div>
-        )}
+        ))}
       </div>
 
       {/* Post Modal */}
@@ -106,39 +128,35 @@ const StudentAskDoubts = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl border border-[#E2E8F0] space-y-4">
             <h3 className="text-base font-bold text-[#1E293B] border-b border-[#E2E8F0] pb-2">
-              Post Question To Teacher
+              Post Question To Teacher (doubts)
             </h3>
 
             <form onSubmit={handlePostDoubt} className="space-y-3 text-xs">
               <div>
                 <label className="block font-medium text-[#64748B] mb-1">Target Subject</label>
                 <select className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]">
-                  {mockSubjects && mockSubjects.length > 0 ? (
-                    mockSubjects.map((s) => (
-                      <option key={s.subject_id} value={s.subject_id}>
-                        {s.subject_name} ({s.subject_code})
-                      </option>
-                    ))
-                  ) : (
-                    <option value="">General Academic Query</option>
-                  )}
+                  {subjects.map((s) => (
+                    <option key={s.subject_id || s.id || s.code} value={s.subject_id || s.id}>
+                      {s.subject_name || s.name} ({s.subject_code || s.code})
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div>
-                <label className="block font-medium text-[#64748B] mb-1">Doubt Title</label>
+                <label className="block font-medium text-[#64748B] mb-1">Doubt Title (title)</label>
                 <input
                   type="text"
                   required
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="e.g. Question on React state management..."
+                  placeholder="e.g. Question on React Context state..."
                   className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
                 />
               </div>
 
               <div>
-                <label className="block font-medium text-[#64748B] mb-1">Detailed Description</label>
+                <label className="block font-medium text-[#64748B] mb-1">Detailed Description (description)</label>
                 <textarea
                   rows={4}
                   required
