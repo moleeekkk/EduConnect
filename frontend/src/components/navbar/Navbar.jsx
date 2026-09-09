@@ -20,8 +20,19 @@ const Navbar = ({
 
   const userStr = localStorage.getItem("educonnect_user");
   const loggedUser = userStr ? JSON.parse(userStr) : null;
-  const displayName = loggedUser?.name || userName || (role === "Admin" ? "Super Administrator" : role === "Teacher" ? "Faculty Member" : "Student User");
-  const displayDetail = loggedUser?.identifier || userDetail || (role === "Admin" ? "admin@educonnect.ac.in" : "");
+  const isRoleMatch = loggedUser && (
+    (role === "Admin" && (loggedUser.role === "ROLE_ADMIN" || loggedUser.role === "Admin")) ||
+    (role === "Teacher" && (loggedUser.role === "ROLE_TEACHER" || loggedUser.role === "Teacher")) ||
+    (role === "Student" && (loggedUser.role === "ROLE_STUDENT" || loggedUser.role === "Student" || loggedUser.enrollmentNo))
+  );
+
+  const displayName = isRoleMatch && loggedUser?.name
+    ? loggedUser.name
+    : userName || (role === "Admin" ? "Super Administrator" : role === "Teacher" ? "Faculty Member" : "Student User");
+
+  const displayDetail = isRoleMatch && (loggedUser?.identifier || loggedUser?.email)
+    ? (loggedUser.identifier || loggedUser.email)
+    : userDetail || (role === "Admin" ? "admin@educonnect.ac.in" : "");
 
   // Automatically close dropdown when user clicks another module or navigates
   useEffect(() => {
@@ -134,6 +145,8 @@ const Navbar = ({
               <button
                 onClick={() => {
                   setShowDropdown(false);
+                  localStorage.removeItem("educonnect_token");
+                  localStorage.removeItem("educonnect_user");
                   navigate("/");
                 }}
                 className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs text-[#EF4444] font-medium rounded-xl hover:bg-[#EF4444]/10 transition-colors cursor-pointer"

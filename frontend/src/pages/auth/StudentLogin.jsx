@@ -86,7 +86,7 @@ const StudentLogin = () => {
         <form onSubmit={handleSubmit}>
           <Input
             label="Enrollment Number"
-            placeholder="e.g. 2024MCA001"
+            placeholder="e.g. 25CI2110046"
             value={enrollmentNo}
             onChange={(e) => {
               setEnrollmentNo(e.target.value.toUpperCase());
@@ -95,7 +95,6 @@ const StudentLogin = () => {
             icon={KeyRound}
             error={error}
             required
-          // helperText="Format: 2024MCA001, STU202401, etc."
           />
 
           {/* <div className="p-3.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] mb-6 flex items-start gap-3">

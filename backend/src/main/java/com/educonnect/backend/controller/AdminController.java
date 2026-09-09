@@ -1,21 +1,11 @@
 package com.educonnect.backend.controller;
 
 import com.educonnect.backend.dto.UserDto;
-import com.educonnect.backend.entity.Batch;
-import com.educonnect.backend.entity.Department;
-import com.educonnect.backend.entity.Institute;
-import com.educonnect.backend.entity.Semester;
-import com.educonnect.backend.entity.Student;
-import com.educonnect.backend.entity.Subject;
-import com.educonnect.backend.entity.Teacher;
-import com.educonnect.backend.entity.TeacherSubject;
-import com.educonnect.backend.service.AdminService;
-import com.educonnect.backend.service.BatchService;
-import com.educonnect.backend.service.DepartmentService;
-import com.educonnect.backend.service.StudentService;
-import com.educonnect.backend.service.TeacherService;
+import com.educonnect.backend.entity.*;
+import com.educonnect.backend.service.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,11 +15,11 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class AdminController {
 
     private final AdminService adminService;
     private final DepartmentService departmentService;
+    private final ProgramService programService;
     private final BatchService batchService;
     private final TeacherService teacherService;
     private final StudentService studentService;
@@ -52,6 +42,18 @@ public class AdminController {
         return ResponseEntity.ok(created);
     }
 
+    @PutMapping("/users/{id}")
+    public ResponseEntity<UserDto> updateUser(@PathVariable String id, @RequestBody UserDto userDto) {
+        UserDto updated = adminService.updateUser(id, userDto);
+        return ResponseEntity.ok(updated);
+    }
+
+    @DeleteMapping("/users/{id}")
+    public ResponseEntity<Map<String, String>> deleteUser(@PathVariable String id) {
+        adminService.deleteUser(id);
+        return ResponseEntity.ok(Map.of("message", "User deleted successfully"));
+    }
+
     @GetMapping("/courses")
     public ResponseEntity<List<Map<String, Object>>> getCourses() {
         List<Map<String, Object>> courses = adminService.getCourses();
@@ -62,6 +64,28 @@ public class AdminController {
     public ResponseEntity<Map<String, Object>> createCourse(@RequestBody Map<String, Object> courseData) {
         Map<String, Object> created = adminService.createCourse(courseData);
         return ResponseEntity.ok(created);
+    }
+
+    // --- Program Endpoints ---
+    @GetMapping("/programs")
+    public ResponseEntity<List<Program>> getPrograms() {
+        return ResponseEntity.ok(programService.getAllPrograms());
+    }
+
+    @PostMapping("/programs")
+    public ResponseEntity<Program> createProgram(@RequestBody Program program) {
+        return ResponseEntity.ok(programService.createProgram(program));
+    }
+
+    @PutMapping("/programs/{id}")
+    public ResponseEntity<Program> updateProgram(@PathVariable UUID id, @RequestBody Program program) {
+        return ResponseEntity.ok(programService.updateProgram(id, program));
+    }
+
+    @DeleteMapping("/programs/{id}")
+    public ResponseEntity<Map<String, String>> deleteProgram(@PathVariable UUID id) {
+        programService.deleteProgram(id);
+        return ResponseEntity.ok(Map.of("message", "Program deleted successfully"));
     }
 
     // --- Department Endpoints ---
@@ -130,6 +154,11 @@ public class AdminController {
         return ResponseEntity.ok(Map.of("message", "Semester deleted successfully"));
     }
 
+    @PatchMapping("/semesters/{id}/toggle-status")
+    public ResponseEntity<Semester> toggleSemesterStatus(@PathVariable UUID id) {
+        return ResponseEntity.ok(departmentService.toggleSemesterStatus(id));
+    }
+
     // --- Batch Endpoints ---
     @GetMapping("/batches")
     public ResponseEntity<List<Batch>> getBatches() {
@@ -190,8 +219,6 @@ public class AdminController {
         try {
             return ResponseEntity.ok(studentService.createStudent(student));
         } catch (Exception e) {
-            System.err.println("Create student failed: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage() != null ? e.getMessage() : e.toString()));
         }
     }
@@ -201,8 +228,6 @@ public class AdminController {
         try {
             return ResponseEntity.ok(studentService.updateStudent(id, student));
         } catch (Exception e) {
-            System.err.println("Update student failed: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage() != null ? e.getMessage() : e.toString()));
         }
     }
@@ -224,8 +249,6 @@ public class AdminController {
         try {
             return ResponseEntity.ok(departmentService.createSubject(subject));
         } catch (Exception e) {
-            System.err.println("Create subject failed: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage() != null ? e.getMessage() : e.toString()));
         }
     }
@@ -235,8 +258,6 @@ public class AdminController {
         try {
             return ResponseEntity.ok(departmentService.updateSubject(id, subject));
         } catch (Exception e) {
-            System.err.println("Update subject failed: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage() != null ? e.getMessage() : e.toString()));
         }
     }
@@ -258,7 +279,6 @@ public class AdminController {
         try {
             return ResponseEntity.ok(teacherService.assignTeacherSubject(allocation));
         } catch (Exception e) {
-            System.err.println("Assign teacher subject error: " + e.getMessage());
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage() != null ? e.getMessage() : e.toString()));
         }
     }
@@ -270,7 +290,6 @@ public class AdminController {
             UUID subjectId = UUID.fromString(body.get("subject_id"));
             return ResponseEntity.ok(teacherService.toggleTeacherSubject(teacherId, subjectId));
         } catch (Exception e) {
-            System.err.println("Toggle teacher subject error: " + e.getMessage());
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage() != null ? e.getMessage() : e.toString()));
         }
     }
@@ -279,5 +298,35 @@ public class AdminController {
     public ResponseEntity<Map<String, String>> deleteTeacherSubject(@PathVariable UUID id) {
         teacherService.deleteTeacherSubject(id);
         return ResponseEntity.ok(Map.of("message", "Teacher subject allocation removed successfully"));
+    }
+
+    // --- Profile Endpoints ---
+    @GetMapping("/profile")
+    public ResponseEntity<Map<String, Object>> getProfile(Authentication authentication) {
+        String email = authentication != null ? authentication.getName() : null;
+        return ResponseEntity.ok(adminService.getAdminProfile(email));
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<Map<String, Object>> updateProfile(Authentication authentication, @RequestBody Map<String, Object> reqData) {
+        String email = authentication != null ? authentication.getName() : null;
+        return ResponseEntity.ok(adminService.updateAdminProfile(email, reqData));
+    }
+
+    // --- Reports Endpoint ---
+    @GetMapping("/reports")
+    public ResponseEntity<Map<String, Object>> getReports() {
+        return ResponseEntity.ok(adminService.getReports());
+    }
+
+    // --- System Settings Endpoints ---
+    @GetMapping("/settings")
+    public ResponseEntity<Map<String, Object>> getSettings() {
+        return ResponseEntity.ok(adminService.getSettings());
+    }
+
+    @PutMapping("/settings")
+    public ResponseEntity<Map<String, Object>> updateSettings(@RequestBody Map<String, Object> reqData) {
+        return ResponseEntity.ok(adminService.updateSettings(reqData));
     }
 }

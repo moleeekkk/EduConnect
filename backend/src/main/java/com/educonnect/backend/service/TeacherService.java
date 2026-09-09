@@ -522,12 +522,6 @@ public class TeacherService {
             }
         }
 
-        // 3. Fallback to first teacher record if present
-        List<Teacher> all = teacherRepository.findAll();
-        if (!all.isEmpty()) {
-            return convertTeacherToMap(all.get(0));
-        }
-
         return Collections.emptyMap();
     }
 

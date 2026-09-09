@@ -129,6 +129,15 @@ public class DepartmentService {
         semesterRepository.deleteById(id);
     }
 
+    @Transactional
+    public Semester toggleSemesterStatus(UUID id) {
+        return semesterRepository.findById(id).map(existing -> {
+            boolean current = Boolean.TRUE.equals(existing.getIsActive());
+            existing.setIsActive(!current);
+            return semesterRepository.save(existing);
+        }).orElseThrow(() -> new java.util.NoSuchElementException("Semester not found with ID: " + id));
+    }
+
     // --- Subject Methods ---
     @Transactional
     public List<Subject> getAllSubjects() {

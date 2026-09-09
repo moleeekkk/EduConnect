@@ -7,12 +7,18 @@ import com.educonnect.backend.entity.Teacher;
 import com.educonnect.backend.repository.AdminRepository;
 import com.educonnect.backend.repository.StudentRepository;
 import com.educonnect.backend.repository.TeacherRepository;
+import com.educonnect.backend.security.JwtService;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
+import java.time.LocalDate;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,9 +33,21 @@ public class AuthService {
     private final AdminRepository adminRepository;
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
-    // In-memory OTP storage: enrollmentNo -> OTP
-    private final Map<String, String> otpStore = new ConcurrentHashMap<>();
+    @Getter
+    @Setter
+    @AllArgsConstructor
+    @NoArgsConstructor
+    private static class OtpData {
+        private String code;
+        private long createdAt;
+        private long lastSentAt;
+        private int attempts;
+    }
+
+    // In-memory OTP storage: enrollmentNo -> OtpData
+    private final Map<String, OtpData> otpStore = new ConcurrentHashMap<>();
     private final SecureRandom random = new SecureRandom();
 
     public AuthResponse sendStudentOtp(StudentOtpRequest request) {
@@ -49,38 +67,60 @@ public class AuthService {
                     .findFirst();
         }
 
-        String email = studentOpt.map(Student::getEmail)
-                .filter(e -> e != null && !e.trim().isEmpty())
-                .orElse("manishlakum4871@gmail.com");
+        if (studentOpt.isEmpty()) {
+            log.warn("OTP request rejected: Enrollment Number {} not found in database.", enrollmentNo);
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Invalid Enrollment Number. Student record not found in system.")
+                    .build();
+        }
 
-        String mobile = studentOpt.map(Student::getMobile)
-                .filter(m -> m != null && !m.trim().isEmpty())
-                .orElse("+91 9876543210");
+        Student student = studentOpt.get();
+        String email = student.getEmail();
+        if (email == null || email.trim().isEmpty()) {
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("No registered email address found for student.")
+                    .build();
+        }
 
+        long now = System.currentTimeMillis();
+
+        // Check Resend Cooldown (60 seconds)
+        OtpData existingOtp = otpStore.get(enrollmentNo);
+        if (existingOtp != null && (now - existingOtp.getLastSentAt()) < 60000) {
+            long remainingSeconds = 60 - ((now - existingOtp.getLastSentAt()) / 1000);
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Please wait " + remainingSeconds + " seconds before requesting a new OTP.")
+                    .build();
+        }
+
+        String mobile = student.getMobile();
         String maskedPhone = maskPhoneNumber(mobile);
         String maskedEmail = maskEmailAddress(email);
-        String name = studentOpt.map(s -> {
-            String f = s.getFirstName() != null ? s.getFirstName().trim() : "";
-            String l = s.getLastName() != null ? s.getLastName().trim() : "";
-            String full = (f + " " + l).trim();
-            return full.isEmpty() ? "Student" : full;
-        }).orElse("Manish Pr");
+        String name = ((student.getFirstName() != null ? student.getFirstName().trim() : "") + " " +
+                (student.getLastName() != null ? student.getLastName().trim() : "")).trim();
+        if (name.isEmpty()) name = "Student";
 
         // Generate random 6-digit OTP
         String generatedOtp = String.format("%06d", random.nextInt(1000000));
-        otpStore.put(enrollmentNo, generatedOtp);
+        otpStore.put(enrollmentNo, new OtpData(generatedOtp, now, now, 0));
 
         log.info("Student OTP generated for enrollmentNo {}", enrollmentNo);
 
-        // Send email with OTP code
-        emailService.sendOtpEmail(email, name, generatedOtp);
+        // Send email with OTP code via SMTP
+        boolean emailSent = emailService.sendOtpEmail(email, name, generatedOtp);
+        if (!emailSent) {
+            log.warn("SMTP Email delivery failed for {}; OTP code [{}] retains active state for verification.", enrollmentNo, generatedOtp);
+        }
 
         return AuthResponse.builder()
                 .success(true)
                 .message("OTP sent successfully to " + maskedPhone + " and " + maskedEmail)
                 .identifier(enrollmentNo)
                 .name(name)
-                .role("Student")
+                .role("ROLE_STUDENT")
                 .maskedPhone(maskedPhone)
                 .email(email)
                 .maskedEmail(maskedEmail)
@@ -98,35 +138,75 @@ public class AuthService {
         String enrollmentNo = request.getEnrollmentNo().trim().toUpperCase();
         String inputOtp = request.getOtp().trim();
 
-        String cachedOtp = otpStore.get(enrollmentNo);
-
-        // Verify real generated OTP stored in memory
-        boolean isValid = cachedOtp != null && cachedOtp.equals(inputOtp);
-
-        if (!isValid) {
+        OtpData otpData = otpStore.get(enrollmentNo);
+        if (otpData == null) {
             return AuthResponse.builder()
                     .success(false)
-                    .message("Invalid OTP code entered. Please check your email/mobile and try again.")
+                    .message("No active OTP request found. Please request a new OTP code.")
                     .build();
         }
 
-        // Clean up OTP after successful verification
+        long now = System.currentTimeMillis();
+
+        // Check Expiration (5 minutes = 300,000 ms)
+        if ((now - otpData.getCreatedAt()) > 300000) {
+            otpStore.remove(enrollmentNo);
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("OTP code has expired. Please request a new OTP code.")
+                    .build();
+        }
+
+        // Check Maximum Verification Attempts (5)
+        if (otpData.getAttempts() >= 5) {
+            otpStore.remove(enrollmentNo);
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Maximum OTP verification attempts exceeded. Please request a new OTP code.")
+                    .build();
+        }
+
+        // Verify OTP Code
+        if (!otpData.getCode().equals(inputOtp)) {
+            otpData.setAttempts(otpData.getAttempts() + 1);
+            int attemptsRemaining = 5 - otpData.getAttempts();
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Invalid OTP code. Remaining attempts: " + attemptsRemaining)
+                    .build();
+        }
+
+        // Clear OTP after successful verification
         otpStore.remove(enrollmentNo);
 
-        Optional<Student> studentOpt = studentRepository.findByEnrollmentNo(enrollmentNo);
-        String studentId = studentOpt.map(s -> s.getStudentId() != null ? s.getStudentId().toString() : "stu-demo-id").orElse("stu-demo-id");
-        String studentName = studentOpt.map(s -> {
-            String f = s.getFirstName() != null ? s.getFirstName().trim() : "";
-            String l = s.getLastName() != null ? s.getLastName().trim() : "";
-            String full = (f + " " + l).trim();
-            return full.isEmpty() ? "Student" : full;
-        }).orElse("Alex Johnson");
+        Optional<Student> studentOpt = studentRepository.findByEnrollmentNoIgnoreCase(enrollmentNo);
+        if (studentOpt.isEmpty()) {
+            studentOpt = studentRepository.findAll().stream()
+                    .filter(s -> s.getEnrollmentNo() != null && s.getEnrollmentNo().trim().equalsIgnoreCase(enrollmentNo))
+                    .findFirst();
+        }
+
+        if (studentOpt.isEmpty()) {
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Student record not found in system.")
+                    .build();
+        }
+
+        Student student = studentOpt.get();
+        String studentId = student.getStudentId() != null ? student.getStudentId().toString() : "";
+        String studentName = ((student.getFirstName() != null ? student.getFirstName().trim() : "") + " " +
+                (student.getLastName() != null ? student.getLastName().trim() : "")).trim();
+        if (studentName.isEmpty()) studentName = "Student";
+
+        // Generate Signed JWT Token
+        String jwtToken = jwtService.generateToken(enrollmentNo, "ROLE_STUDENT", studentId, studentName);
 
         return AuthResponse.builder()
                 .success(true)
                 .message("Student authentication successful")
-                .token("jwt-student-token-" + System.currentTimeMillis())
-                .role("Student")
+                .token(jwtToken)
+                .role("ROLE_STUDENT")
                 .userId(studentId)
                 .name(studentName)
                 .identifier(enrollmentNo)
@@ -144,52 +224,55 @@ public class AuthService {
         String email = request.getEmail().trim().toLowerCase();
         String rawPassword = request.getPassword().trim();
 
-        Optional<Teacher> teacherOpt = teacherRepository.findByEmail(email);
+        Teacher targetTeacher = teacherRepository.findByEmail(email).orElseGet(() -> {
+            if ("teacher@educonnect.ac.in".equals(email)) {
+                Teacher t = Teacher.builder()
+                        .firstName("Sarah")
+                        .lastName("Jenkins")
+                        .email("teacher@educonnect.ac.in")
+                        .password(passwordEncoder.encode("teacher123"))
+                        .mobile("+91 9876543211")
+                        .gender("Female")
+                        .designation("Associate Professor")
+                        .dateOfBirth(LocalDate.of(1990, 5, 20))
+                        .address("Faculty Campus Residence")
+                        .isActive(true)
+                        .build();
+                return teacherRepository.save(t);
+            }
+            return null;
+        });
 
-        if (teacherOpt.isPresent()) {
-            Teacher teacher = teacherOpt.get();
-            String storedHash = teacher.getPassword();
+        if (targetTeacher != null) {
+            String storedHash = targetTeacher.getPassword();
 
             boolean matches = isPasswordMatching(rawPassword, storedHash, "teacher123", () -> {
-                // Auto-upgrade legacy plain text password to BCrypt hash
-                teacher.setPassword(passwordEncoder.encode(rawPassword));
-                teacherRepository.save(teacher);
+                targetTeacher.setPassword(passwordEncoder.encode(rawPassword));
+                teacherRepository.save(targetTeacher);
             });
 
             if (matches) {
+                String teacherId = targetTeacher.getTeacherId() != null ? targetTeacher.getTeacherId().toString() : "";
+                String teacherName = ((targetTeacher.getFirstName() != null ? targetTeacher.getFirstName().trim() : "") + " " +
+                        (targetTeacher.getLastName() != null ? targetTeacher.getLastName().trim() : "")).trim();
+
+                String jwtToken = jwtService.generateToken(email, "ROLE_TEACHER", teacherId, teacherName);
+
                 return AuthResponse.builder()
                         .success(true)
                         .message("Teacher login successful")
-                        .token("jwt-teacher-token-" + System.currentTimeMillis())
-                        .role("Teacher")
-                        .userId(teacher.getTeacherId().toString())
-                        .name(((teacher.getFirstName() != null ? teacher.getFirstName() : "") + " " + (teacher.getLastName() != null ? teacher.getLastName() : "")).trim())
-                        .identifier(teacher.getEmail())
-                        .build();
-            } else {
-                return AuthResponse.builder()
-                        .success(false)
-                        .message("Invalid email address or password. Please enter correct credentials.")
+                        .token(jwtToken)
+                        .role("ROLE_TEACHER")
+                        .userId(teacherId)
+                        .name(teacherName)
+                        .identifier(targetTeacher.getEmail())
                         .build();
             }
         }
 
-        // Demo Fallback
-        if ("teacher@educonnect.ac.in".equalsIgnoreCase(email) && "teacher123".equals(rawPassword)) {
-            return AuthResponse.builder()
-                    .success(true)
-                    .message("Teacher login successful")
-                    .token("jwt-teacher-token-" + System.currentTimeMillis())
-                    .role("Teacher")
-                    .userId("teach-demo-id")
-                    .name("Dr. Sarah Jenkins")
-                    .identifier(email)
-                    .build();
-        }
-
         return AuthResponse.builder()
                 .success(false)
-                .message("Invalid email address or password. Please try again.")
+                .message("Invalid email address or password. Please enter correct credentials.")
                 .build();
     }
 
@@ -204,47 +287,49 @@ public class AuthService {
         String email = request.getEmail().trim().toLowerCase();
         String rawPassword = request.getPassword().trim();
 
-        Optional<Admin> adminOpt = adminRepository.findByEmail(email);
+        Admin targetAdmin = adminRepository.findByEmail(email).orElseGet(() -> {
+            if ("admin@educonnect.ac.in".equals(email)) {
+                Admin a = Admin.builder()
+                        .firstName("Super")
+                        .lastName("Administrator")
+                        .email("admin@educonnect.ac.in")
+                        .password(passwordEncoder.encode("admin123"))
+                        .mobile("+91 9876543210")
+                        .gender("Male")
+                        .dateOfBirth(LocalDate.of(1985, 1, 1))
+                        .address("EduConnect Campus Admin Block")
+                        .isActive(true)
+                        .build();
+                return adminRepository.save(a);
+            }
+            return null;
+        });
 
-        if (adminOpt.isPresent()) {
-            Admin admin = adminOpt.get();
-            String storedHash = admin.getPassword();
+        if (targetAdmin != null) {
+            String storedHash = targetAdmin.getPassword();
 
             boolean matches = isPasswordMatching(rawPassword, storedHash, "admin123", () -> {
-                // Auto-upgrade legacy plain text password to BCrypt hash
-                admin.setPassword(passwordEncoder.encode(rawPassword));
-                adminRepository.save(admin);
+                targetAdmin.setPassword(passwordEncoder.encode(rawPassword));
+                adminRepository.save(targetAdmin);
             });
 
             if (matches) {
+                String adminId = targetAdmin.getAdminId() != null ? targetAdmin.getAdminId().toString() : "";
+                String adminName = ((targetAdmin.getFirstName() != null ? targetAdmin.getFirstName().trim() : "") + " " +
+                        (targetAdmin.getLastName() != null ? targetAdmin.getLastName().trim() : "")).trim();
+
+                String jwtToken = jwtService.generateToken(email, "ROLE_ADMIN", adminId, adminName);
+
                 return AuthResponse.builder()
                         .success(true)
                         .message("Admin login successful")
-                        .token("jwt-admin-token-" + System.currentTimeMillis())
-                        .role("Admin")
-                        .userId(admin.getAdminId().toString())
-                        .name(((admin.getFirstName() != null ? admin.getFirstName() : "") + " " + (admin.getLastName() != null ? admin.getLastName() : "")).trim())
-                        .identifier(admin.getEmail())
-                        .build();
-            } else {
-                return AuthResponse.builder()
-                        .success(false)
-                        .message("Invalid email address or password. Please enter correct credentials.")
+                        .token(jwtToken)
+                        .role("ROLE_ADMIN")
+                        .userId(adminId)
+                        .name(adminName)
+                        .identifier(targetAdmin.getEmail())
                         .build();
             }
-        }
-
-        // Demo Fallback
-        if ("admin@educonnect.ac.in".equalsIgnoreCase(email) && "admin123".equals(rawPassword)) {
-            return AuthResponse.builder()
-                    .success(true)
-                    .message("Admin login successful")
-                    .token("jwt-admin-token-" + System.currentTimeMillis())
-                    .role("Admin")
-                    .userId("admin-demo-id")
-                    .name("System Administrator")
-                    .identifier(email)
-                    .build();
         }
 
         return AuthResponse.builder()
@@ -308,7 +393,7 @@ public class AuthService {
             }
         }
 
-        if (!userFound && !"teacher@educonnect.ac.in".equalsIgnoreCase(cleanEmail) && !"admin@educonnect.ac.in".equalsIgnoreCase(cleanEmail)) {
+        if (!userFound) {
             return AuthResponse.builder()
                     .success(false)
                     .message("No account found matching email address: " + cleanEmail)
@@ -319,10 +404,17 @@ public class AuthService {
         String resetCode = String.format("%06d", random.nextInt(1000000));
         resetCodeStore.put(cleanEmail, resetCode);
 
-        log.info("Password Reset Code generated for {}: {}", cleanEmail, resetCode);
+        log.info("Password Reset Code generated for {}", cleanEmail);
 
         // Send email with reset code
-        emailService.sendResetEmail(cleanEmail, recipientName, resetCode);
+        boolean sent = emailService.sendResetEmail(cleanEmail, recipientName, resetCode);
+        if (!sent) {
+            resetCodeStore.remove(cleanEmail);
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Failed to dispatch password reset email via SMTP server.")
+                    .build();
+        }
 
         return AuthResponse.builder()
                 .success(true)
@@ -356,18 +448,20 @@ public class AuthService {
         // Clean up reset code
         resetCodeStore.remove(cleanEmail);
 
-        // Update password in DB
+        // Update password in DB with BCrypt encoding
+        String encodedPassword = passwordEncoder.encode(newPassword.trim());
+
         Optional<Teacher> teacherOpt = teacherRepository.findByEmail(cleanEmail);
         if (teacherOpt.isPresent()) {
             Teacher t = teacherOpt.get();
-            t.setPassword(newPassword.trim());
+            t.setPassword(encodedPassword);
             teacherRepository.save(t);
         }
 
         Optional<Admin> adminOpt = adminRepository.findByEmail(cleanEmail);
         if (adminOpt.isPresent()) {
             Admin a = adminOpt.get();
-            a.setPassword(newPassword.trim());
+            a.setPassword(encodedPassword);
             adminRepository.save(a);
         }
 
@@ -380,6 +474,7 @@ public class AuthService {
 
     private boolean isPasswordMatching(String rawPassword, String storedHash, String defaultFallback, Runnable autoUpgradeCallback) {
         if (storedHash == null || storedHash.trim().isEmpty()) {
+            if (defaultFallback == null) return false;
             storedHash = defaultFallback;
         }
 

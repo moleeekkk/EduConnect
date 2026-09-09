@@ -45,8 +45,11 @@ const AdminLogin = () => {
     } catch (err) {
       setIsLoading(false);
       console.error("Admin login error:", err);
+      const isNetworkError = !err.response;
       const serverMsg = err.response?.data?.message || err.response?.data?.error;
-      const errorMsg = serverMsg || "Invalid administrator credentials. Please enter correct credentials.";
+      const errorMsg = isNetworkError
+        ? "Unable to connect to backend server. Please ensure backend is running."
+        : (serverMsg || "Invalid administrator credentials. Please enter correct credentials.");
       setError(errorMsg);
       notifyError(errorMsg);
     }

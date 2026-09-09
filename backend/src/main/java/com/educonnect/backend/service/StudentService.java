@@ -202,16 +202,8 @@ public class StudentService {
 
             // Check if student has already submitted this assignment
             List<AssignmentSubmission> subList = Collections.emptyList();
-            if (a.getAssignmentId() != null) {
-                if (studentId != null) {
-                    subList = submissionRepository.findByAssignmentIdAndStudentId(a.getAssignmentId(), studentId);
-                }
-                if (subList.isEmpty()) {
-                    List<AssignmentSubmission> allSubs = submissionRepository.findByAssignmentId(a.getAssignmentId());
-                    if (!allSubs.isEmpty()) {
-                        subList = allSubs;
-                    }
-                }
+            if (a.getAssignmentId() != null && studentId != null) {
+                subList = submissionRepository.findByAssignmentIdAndStudentId(a.getAssignmentId(), studentId);
             }
 
             if (!subList.isEmpty()) {
@@ -251,21 +243,14 @@ public class StudentService {
             else if (reqData.get("enrollment_no") != null) finalEnrollmentNo = (String) reqData.get("enrollment_no");
         }
         if (finalEnrollmentNo == null || finalEnrollmentNo.trim().isEmpty()) {
-            finalEnrollmentNo = "2024MCA001";
+            throw new IllegalArgumentException("Authenticated student enrollment number is missing.");
         }
 
         Optional<Student> studentOpt = studentRepository.findByEnrollmentNo(finalEnrollmentNo.trim());
-        UUID studentId;
-        if (studentOpt.isPresent()) {
-            studentId = studentOpt.get().getStudentId();
-        } else {
-            List<Student> all = studentRepository.findAll();
-            if (!all.isEmpty()) {
-                studentId = all.get(0).getStudentId();
-            } else {
-                studentId = UUID.randomUUID();
-            }
+        if (studentOpt.isEmpty()) {
+            throw new NoSuchElementException("Student record not found for enrollment: " + finalEnrollmentNo);
         }
+        UUID studentId = studentOpt.get().getStudentId();
 
         String attachmentVal = reqData != null && reqData.get("attachment") != null 
                 ? (String) reqData.get("attachment") 
@@ -374,19 +359,11 @@ public class StudentService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> getStudentProfile(String enrollmentNo) {
-        Optional<Student> studentOpt = Optional.empty();
         if (enrollmentNo != null && !enrollmentNo.trim().isEmpty()) {
-            studentOpt = studentRepository.findByEnrollmentNo(enrollmentNo.trim());
-        }
-        if (studentOpt.isEmpty()) {
-            List<Student> all = studentRepository.findAll();
-            if (!all.isEmpty()) {
-                studentOpt = Optional.of(all.get(0));
+            Optional<Student> studentOpt = studentRepository.findByEnrollmentNo(enrollmentNo.trim());
+            if (studentOpt.isPresent()) {
+                return mapStudentToProfileMap(studentOpt.get());
             }
-        }
-
-        if (studentOpt.isPresent()) {
-            return mapStudentToProfileMap(studentOpt.get());
         }
         return new HashMap<>();
     }
@@ -406,12 +383,6 @@ public class StudentService {
         }
         if (studentOpt.isEmpty() && enrollmentNo != null && !enrollmentNo.trim().isEmpty()) {
             studentOpt = studentRepository.findByEnrollmentNo(enrollmentNo.trim());
-        }
-        if (studentOpt.isEmpty()) {
-            List<Student> all = studentRepository.findAll();
-            if (!all.isEmpty()) {
-                studentOpt = Optional.of(all.get(0));
-            }
         }
 
         if (studentOpt.isPresent()) {

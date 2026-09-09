@@ -10,7 +10,7 @@ const StudentWeeklyTests = () => {
     const fetchTests = async () => {
       const userStr = localStorage.getItem("educonnect_user");
       const loggedUser = userStr ? JSON.parse(userStr) : null;
-      const enrollmentNo = loggedUser?.enrollment_no || loggedUser?.enrollmentNo || loggedUser?.identifier || "2024MCA001";
+      const enrollmentNo = loggedUser?.enrollment_no || loggedUser?.enrollmentNo || loggedUser?.identifier || "";
 
       try {
         const data = await studentApi.getWeeklyTests(enrollmentNo);

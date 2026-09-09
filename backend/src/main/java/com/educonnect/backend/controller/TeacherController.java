@@ -10,6 +10,7 @@ import com.educonnect.backend.service.DepartmentService;
 import com.educonnect.backend.service.TeacherService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,17 +20,24 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/teacher")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class TeacherController {
 
     private final TeacherService teacherService;
     private final DepartmentService departmentService;
 
+    private String getAuthenticatedIdentifier(Authentication authentication, String paramId, String paramEmail) {
+        if (authentication != null && authentication.getName() != null && !authentication.getName().trim().isEmpty()) {
+            return authentication.getName();
+        }
+        return paramEmail != null && !paramEmail.trim().isEmpty() ? paramEmail : paramId;
+    }
+
     @GetMapping("/assignments")
     public ResponseEntity<List<Map<String, Object>>> getAssignments(
+            Authentication authentication,
             @RequestParam(required = false) String teacherId,
             @RequestParam(required = false) String email) {
-        String identifier = email != null && !email.trim().isEmpty() ? email : teacherId;
+        String identifier = getAuthenticatedIdentifier(authentication, teacherId, email);
         return ResponseEntity.ok(teacherService.getAllAssignmentsForTeacher(identifier));
     }
 
@@ -51,9 +59,10 @@ public class TeacherController {
 
     @GetMapping("/assigned-subjects")
     public ResponseEntity<List<Subject>> getAssignedSubjects(
+            Authentication authentication,
             @RequestParam(required = false) String teacherId,
             @RequestParam(required = false) String email) {
-        String identifier = email != null && !email.trim().isEmpty() ? email : teacherId;
+        String identifier = getAuthenticatedIdentifier(authentication, teacherId, email);
         List<Subject> subjects = teacherService.getAssignedSubjectsForTeacher(identifier);
         return ResponseEntity.ok(subjects);
     }
@@ -75,8 +84,10 @@ public class TeacherController {
 
     @GetMapping("/dashboard")
     public ResponseEntity<Map<String, Object>> getTeacherDashboard(
-            @RequestParam(required = false, defaultValue = "teach-demo-id") String teacherId) {
-        Map<String, Object> data = teacherService.getTeacherDashboard(teacherId);
+            Authentication authentication,
+            @RequestParam(required = false) String teacherId) {
+        String identifier = getAuthenticatedIdentifier(authentication, teacherId, null);
+        Map<String, Object> data = teacherService.getTeacherDashboard(identifier);
         return ResponseEntity.ok(data);
     }
 
@@ -88,14 +99,18 @@ public class TeacherController {
 
     @GetMapping("/grades")
     public ResponseEntity<List<Map<String, Object>>> getPendingGrades(
-            @RequestParam(required = false, defaultValue = "teach-demo-id") String teacherId) {
-        List<Map<String, Object>> grades = teacherService.getPendingGrades(teacherId);
+            Authentication authentication,
+            @RequestParam(required = false) String teacherId) {
+        String identifier = getAuthenticatedIdentifier(authentication, teacherId, null);
+        List<Map<String, Object>> grades = teacherService.getPendingGrades(identifier);
         return ResponseEntity.ok(grades);
     }
 
     @PostMapping("/change-password")
-    public ResponseEntity<Map<String, Object>> changePassword(@RequestBody Map<String, String> body) {
-        String emailOrId = body.get("email") != null ? body.get("email") : body.get("teacher_id");
+    public ResponseEntity<Map<String, Object>> changePassword(
+            Authentication authentication,
+            @RequestBody Map<String, String> body) {
+        String emailOrId = getAuthenticatedIdentifier(authentication, body.get("teacher_id"), body.get("email"));
         String currentPassword = body.get("current_password");
         String newPassword = body.get("new_password");
         Map<String, Object> result = teacherService.changeTeacherPassword(emailOrId, currentPassword, newPassword);
@@ -107,9 +122,10 @@ public class TeacherController {
 
     @GetMapping("/profile")
     public ResponseEntity<Map<String, Object>> getProfile(
+            Authentication authentication,
             @RequestParam(required = false) String teacherId,
             @RequestParam(required = false) String email) {
-        String identifier = email != null && !email.trim().isEmpty() ? email : teacherId;
+        String identifier = getAuthenticatedIdentifier(authentication, teacherId, email);
         Map<String, Object> profile = teacherService.getTeacherProfile(identifier);
         return ResponseEntity.ok(profile);
     }
@@ -127,7 +143,13 @@ public class TeacherController {
     }
 
     @PutMapping("/profile")
-    public ResponseEntity<Map<String, Object>> updateProfile(@RequestBody Map<String, Object> body) {
+    public ResponseEntity<Map<String, Object>> updateProfile(
+            Authentication authentication,
+            @RequestBody Map<String, Object> body) {
+        String identifier = getAuthenticatedIdentifier(authentication, null, null);
+        if (identifier != null && !body.containsKey("email")) {
+            body.put("email", identifier);
+        }
         Map<String, Object> result = teacherService.updateTeacherProfile(body);
         return ResponseEntity.ok(result);
     }

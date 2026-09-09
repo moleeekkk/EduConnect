@@ -29,18 +29,20 @@ const StudentAssignments = () => {
         console.error("Error parsing saved submissions:", e);
       }
     }
-    setSubmissions(savedSubs);
+
+    const userStr = localStorage.getItem("educonnect_user");
+    const loggedUser = userStr ? JSON.parse(userStr) : null;
+    const enrollmentNo = loggedUser?.enrollment_no || loggedUser?.enrollmentNo || loggedUser?.identifier || "";
+
+    const userSavedSubs = savedSubs.filter((s) => !s.enrollment_no || s.enrollment_no === enrollmentNo);
+    setSubmissions(userSavedSubs);
 
     const fetchData = async () => {
-      const userStr = localStorage.getItem("educonnect_user");
-      const loggedUser = userStr ? JSON.parse(userStr) : null;
-      const enrollmentNo = loggedUser?.enrollment_no || loggedUser?.enrollmentNo || loggedUser?.identifier || "2024MCA001";
-
       try {
         const data = await studentApi.getAssignments(enrollmentNo);
         if (Array.isArray(data)) {
           const merged = data.map((item) => {
-            const matchSub = savedSubs.find(
+            const matchSub = userSavedSubs.find(
               (s) => String(s.assignment_id) === String(item.assignment_id) || (s.title && s.title === item.title)
             );
             if (matchSub || item.submitted || item.student_attachment) {
@@ -76,7 +78,7 @@ const StudentAssignments = () => {
     try {
       const userStr = localStorage.getItem("educonnect_user");
       const loggedUser = userStr ? JSON.parse(userStr) : null;
-      const enrollmentNo = loggedUser?.enrollment_no || loggedUser?.enrollmentNo || loggedUser?.identifier || "2024MCA001";
+      const enrollmentNo = loggedUser?.enrollment_no || loggedUser?.enrollmentNo || loggedUser?.identifier || "";
 
       let fileAttachmentVal = uploadFile.name;
       try {
