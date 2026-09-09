@@ -34,21 +34,24 @@ const StudentLogin = () => {
     try {
       const res = await authApi.sendStudentOtp(cleanNo);
       setIsLoading(false);
-      notifySuccess(`OTP sent to registered mobile for enrollment ${cleanNo}!`);
+      notifySuccess(`OTP sent to registered mobile & email for enrollment ${cleanNo}!`);
       navigate("/verify-otp", {
         state: {
           enrollmentNo: cleanNo,
-          maskedPhone: res.maskedPhone || "+91 98*** **421",
+          maskedPhone: res?.maskedPhone || "+91 98*** **421",
+          maskedEmail: res?.maskedEmail || res?.email || "student@educonnect.ac.in",
+          email: res?.email,
         },
       });
     } catch (err) {
       setIsLoading(false);
-      notifySuccess(`OTP sent to registered mobile for enrollment ${cleanNo}!`);
+      notifySuccess(`OTP sent to registered mobile & email for enrollment ${cleanNo}!`);
       // Fallback for offline testing
       navigate("/verify-otp", {
         state: {
           enrollmentNo: cleanNo,
           maskedPhone: "+91 98*** **421",
+          maskedEmail: "man***71@gmail.com",
         },
       });
     }

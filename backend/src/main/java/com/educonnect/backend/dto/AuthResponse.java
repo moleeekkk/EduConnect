@@ -16,4 +16,6 @@ public class AuthResponse {
     private String name;
     private String identifier; // Enrollment No or Email
     private String maskedPhone;
+    private String email;
+    private String maskedEmail;
 }

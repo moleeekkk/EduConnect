@@ -42,34 +42,48 @@ public class AuthService {
 
         String enrollmentNo = request.getEnrollmentNo().trim().toUpperCase();
 
-        Optional<Student> studentOpt = studentRepository.findByEnrollmentNo(enrollmentNo);
+        Optional<Student> studentOpt = studentRepository.findByEnrollmentNoIgnoreCase(enrollmentNo);
+        if (studentOpt.isEmpty()) {
+            studentOpt = studentRepository.findAll().stream()
+                    .filter(s -> s.getEnrollmentNo() != null && s.getEnrollmentNo().trim().equalsIgnoreCase(enrollmentNo))
+                    .findFirst();
+        }
 
-        String email = studentOpt.map(Student::getEmail).filter(e -> e != null && !e.trim().isEmpty()).orElse("alex.johnson@educonnect.ac.in");
-        String mobile = studentOpt.map(Student::getMobile).filter(m -> m != null && !m.trim().isEmpty()).orElse("+91 9876543210");
+        String email = studentOpt.map(Student::getEmail)
+                .filter(e -> e != null && !e.trim().isEmpty())
+                .orElse("manishlakum4871@gmail.com");
+
+        String mobile = studentOpt.map(Student::getMobile)
+                .filter(m -> m != null && !m.trim().isEmpty())
+                .orElse("+91 9876543210");
+
         String maskedPhone = maskPhoneNumber(mobile);
+        String maskedEmail = maskEmailAddress(email);
         String name = studentOpt.map(s -> {
             String f = s.getFirstName() != null ? s.getFirstName().trim() : "";
             String l = s.getLastName() != null ? s.getLastName().trim() : "";
             String full = (f + " " + l).trim();
             return full.isEmpty() ? "Student" : full;
-        }).orElse("Alex Johnson");
+        }).orElse("Manish Pr");
 
         // Generate random 6-digit OTP
         String generatedOtp = String.format("%06d", random.nextInt(1000000));
         otpStore.put(enrollmentNo, generatedOtp);
 
-        log.info("Student OTP generated for enrollmentNo {}: {}", enrollmentNo, generatedOtp);
+        log.info("Student OTP generated for enrollmentNo {}", enrollmentNo);
 
         // Send email with OTP code
         emailService.sendOtpEmail(email, name, generatedOtp);
 
         return AuthResponse.builder()
                 .success(true)
-                .message("OTP sent successfully to " + maskedPhone + " and " + email)
+                .message("OTP sent successfully to " + maskedPhone + " and " + maskedEmail)
                 .identifier(enrollmentNo)
                 .name(name)
                 .role("Student")
                 .maskedPhone(maskedPhone)
+                .email(email)
+                .maskedEmail(maskedEmail)
                 .build();
     }
 
@@ -242,6 +256,17 @@ public class AuthService {
     private String maskPhoneNumber(String phone) {
         if (phone == null || phone.length() < 10) return "+91 98*** **421";
         return phone.substring(0, 5) + "*** **" + phone.substring(phone.length() - 3);
+    }
+
+    private String maskEmailAddress(String email) {
+        if (email == null || !email.contains("@")) return "st***nt@educonnect.ac.in";
+        String[] parts = email.split("@");
+        String name = parts[0];
+        String domain = parts[1];
+        if (name.length() <= 3) {
+            return name.charAt(0) + "***@" + domain;
+        }
+        return name.substring(0, 3) + "***" + name.substring(name.length() - 2) + "@" + domain;
     }
 
     // In-memory Password Reset Code storage: email -> code

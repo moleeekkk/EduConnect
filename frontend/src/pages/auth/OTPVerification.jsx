@@ -10,8 +10,8 @@ import { notifySuccess, notifyError } from "../../utils/toast";
 const OTPVerification = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const enrollmentNo = location.state?.enrollmentNo || "2024MCA001";
-  const maskedEmail = location.state?.maskedEmail || "mau***al.gmail.com";
+  const enrollmentNo = location.state?.enrollmentNo || "25CI2110046";
+  const maskedEmail = location.state?.maskedEmail || location.state?.email || "man***71@gmail.com";
 
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
