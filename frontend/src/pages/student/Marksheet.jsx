@@ -142,12 +142,12 @@ const StudentMarksheet = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
-              {weeklyResults.map((wer) => (
-                <tr key={wer.weekly_exam_result_id} className="hover:bg-[#F8FAFC]">
-                  <td className="p-3.5 font-mono text-[#64748B]">{wer.exam?.exam_date}</td>
-                  <td className="p-3.5 font-bold text-[#1E293B]">{wer.exam?.title}</td>
+              {weeklyResults.map((wer, idx) => (
+                <tr key={wer.weekly_test_result_id || wer.weekly_exam_result_id || idx} className="hover:bg-[#F8FAFC]">
+                  <td className="p-3.5 font-mono text-[#64748B]">{wer.test?.test_date || wer.test?.exam_date || wer.exam?.exam_date || wer.exam?.test_date}</td>
+                  <td className="p-3.5 font-bold text-[#1E293B]">{wer.test?.title || wer.exam?.title}</td>
                   <td className="p-3.5 font-bold text-[#2563EB]">{wer.obtained_marks}</td>
-                  <td className="p-3.5 text-[#64748B]">{wer.exam?.total_marks}</td>
+                  <td className="p-3.5 text-[#64748B]">{wer.test?.total_marks || wer.exam?.total_marks}</td>
                   <td className="p-3.5 font-extrabold text-[#22C55E]">{wer.grade}</td>
                   <td className="p-3.5 text-[#64748B]">{wer.remarks}</td>
                 </tr>

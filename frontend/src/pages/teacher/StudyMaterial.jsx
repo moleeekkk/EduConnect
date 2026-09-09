@@ -3,12 +3,18 @@ import { FileText, Plus, Trash2, Edit, Paperclip, Download, Eye, X, BookOpen, Ch
 import Button from "../../components/common/Button";
 import { teacherApi } from "../../services/api";
 import { notifySuccess, notifyError } from "../../utils/toast";
+import { getDisplayFileName, downloadFile, openFileInNewTab } from "../../utils/fileViewer";
 
 const TeacherStudyMaterial = () => {
   const [resources, setResources] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editingResourceId, setEditingResourceId] = useState(null);
   const [viewFileModal, setViewFileModal] = useState(null);
+
+  const handleViewDocument = (fileUrl, title = "Document Preview") => {
+    openFileInNewTab(fileUrl, title);
+  };
+
 
   useEffect(() => {
     const fetchMaterials = async () => {
@@ -138,7 +144,7 @@ const TeacherStudyMaterial = () => {
       {/* Resource Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {resources.map((item) => {
-          const fileName = item.file_path ? item.file_path.split("/").pop() : "document.pdf";
+          const fileName = getDisplayFileName(item.file_name, item.file_path, item.title);
           return (
             <div
               key={item.resource_id}
@@ -162,9 +168,9 @@ const TeacherStudyMaterial = () => {
                 {/* File Attachment Pill - Clickable File Name */}
                 <div className="pt-1">
                   <button
-                    onClick={() => setViewFileModal(item)}
+                    onClick={() => handleViewDocument(item.file_path, item.title)}
                     className="inline-flex items-center gap-1.5 text-[11px] font-mono text-[#2563EB] bg-[#2563EB]/10 hover:bg-[#2563EB] hover:text-white px-3 py-1 rounded-lg border border-[#2563EB]/20 font-bold cursor-pointer transition-all truncate max-w-full"
-                    title="Click file name to open document"
+                    title="Click file name to view document in full-screen"
                   >
                     <Paperclip className="w-3.5 h-3.5 shrink-0" /> {fileName}
                   </button>
@@ -260,8 +266,8 @@ const TeacherStudyMaterial = () => {
                   className="w-full text-xs text-[#64748B] file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#2563EB]/10 file:text-[#2563EB] cursor-pointer"
                 />
                 {selectedFileName && (
-                  <p className="text-[11px] text-[#14B8A6] font-semibold font-mono">
-                    Selected Document: {selectedFileName}
+                  <p className="text-[11px] text-[#14B8A6] font-semibold font-mono truncate">
+                    Selected Document: {getDisplayFileName(selectedFileName, selectedFileData, newTitle)}
                   </p>
                 )}
               </div>
@@ -332,7 +338,7 @@ const TeacherStudyMaterial = () => {
                     variant="accent"
                     size="sm"
                     icon={Download}
-                    onClick={() => alert(`Downloading document: ${viewFileModal.file_path}...`)}
+                    onClick={() => downloadFile(viewFileModal.file_path, viewFileModal.title)}
                     className="text-xs"
                   >
                     Download Resource File
@@ -341,7 +347,7 @@ const TeacherStudyMaterial = () => {
                     variant="outline"
                     size="sm"
                     icon={Eye}
-                    onClick={() => alert(`Opening ${viewFileModal.file_path} in document viewer...`)}
+                    onClick={() => handleViewDocument(viewFileModal.file_path, viewFileModal.title)}
                     className="text-xs"
                   >
                     Open Document Preview
@@ -352,8 +358,10 @@ const TeacherStudyMaterial = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };
 
 export default TeacherStudyMaterial;
+

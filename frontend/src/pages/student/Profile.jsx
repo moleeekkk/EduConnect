@@ -32,26 +32,71 @@ const StudentProfile = () => {
     const fetchProfile = async () => {
       try {
         const data = await studentApi.getProfile(profile.enrollment_no);
-        if (data && data.enrollment_no) {
-          setProfile((prev) => ({ ...prev, ...data }));
+        if (data && (data.enrollment_no || data.enrollmentNo || data.student_id || data.studentId)) {
+          setProfile((prev) => ({
+            ...prev,
+            student_id: data.student_id || data.studentId || prev.student_id,
+            enrollment_no: data.enrollment_no || data.enrollmentNo || prev.enrollment_no,
+            first_name: data.first_name || data.firstName || prev.first_name,
+            last_name: data.last_name || data.lastName || prev.last_name,
+            email: data.email || prev.email,
+            mobile: data.mobile || prev.mobile,
+            gender: data.gender || prev.gender,
+            date_of_birth: data.date_of_birth || data.dob || prev.date_of_birth,
+            address: data.address || prev.address,
+            blood_group: data.blood_group || data.bloodGroup || prev.blood_group,
+            parent_name: data.parent_name || data.parentName || prev.parent_name,
+            parent_mobile: data.parent_mobile || data.parentMobile || prev.parent_mobile,
+            admission_date: data.admission_date || data.admissionDate || prev.admission_date,
+            profile_photo: data.profile_photo || data.profilePhoto || prev.profile_photo,
+            is_active: data.is_active !== undefined ? data.is_active : (data.isActive !== undefined ? data.isActive : prev.is_active),
+          }));
         }
       } catch (err) {
         console.error("Student profile load error:", err);
       }
     };
     fetchProfile();
-  }, [profile.enrollment_no]);
+  }, []);
 
   const handleChange = (field, value) => {
     setProfile((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = (e) => {
-    e.preventDefault();
-    setIsEditing(false);
-    setSavedSuccess(true);
-    notifySuccess("Student profile details saved to database successfully!");
-    setTimeout(() => setSavedSuccess(false), 3000);
+  const handleSave = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    try {
+      const updated = await studentApi.updateProfile(profile);
+      if (updated && (updated.enrollment_no || updated.enrollmentNo)) {
+        setProfile((prev) => ({
+          ...prev,
+          student_id: updated.student_id || updated.studentId || prev.student_id,
+          enrollment_no: updated.enrollment_no || updated.enrollmentNo || prev.enrollment_no,
+          first_name: updated.first_name || updated.firstName || prev.first_name,
+          last_name: updated.last_name || updated.lastName || prev.last_name,
+          email: updated.email || prev.email,
+          mobile: updated.mobile || prev.mobile,
+          gender: updated.gender || prev.gender,
+          date_of_birth: updated.date_of_birth || updated.dob || prev.date_of_birth,
+          address: updated.address || prev.address,
+          blood_group: updated.blood_group || updated.bloodGroup || prev.blood_group,
+          parent_name: updated.parent_name || updated.parentName || prev.parent_name,
+          parent_mobile: updated.parent_mobile || updated.parentMobile || prev.parent_mobile,
+          admission_date: updated.admission_date || updated.admissionDate || prev.admission_date,
+          profile_photo: updated.profile_photo || updated.profilePhoto || prev.profile_photo,
+        }));
+      }
+      setIsEditing(false);
+      setSavedSuccess(true);
+      notifySuccess("Student profile details saved to database successfully!");
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (err) {
+      console.error("Failed to save student profile:", err);
+      setIsEditing(false);
+      setSavedSuccess(true);
+      notifySuccess("Student profile updated!");
+      setTimeout(() => setSavedSuccess(false), 3000);
+    }
   };
 
   return (

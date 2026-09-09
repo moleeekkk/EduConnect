@@ -24,7 +24,6 @@ import StudentAssignments from "../pages/student/Assignments";
 import StudentWeeklyTests from "../pages/student/WeeklyTests";
 import StudentQuizPractice from "../pages/student/QuizPractice";
 import StudentStudyMaterial from "../pages/student/StudyMaterial";
-import StudentOldQuestionPaper from "../pages/student/OldQuestionPaper";
 import StudentDigitalID from "../pages/student/DigitalID";
 import StudentLeaveRequest from "../pages/student/LeaveRequest";
 import StudentAskDoubts from "../pages/student/AskDoubts";
@@ -38,7 +37,6 @@ import TeacherUploadAssignment from "../pages/teacher/UploadAssignment";
 import TeacherWeeklyTests from "../pages/teacher/WeeklyTests";
 import TeacherQuizPractice from "../pages/teacher/QuizPractice";
 import TeacherStudyMaterial from "../pages/teacher/StudyMaterial";
-import TeacherOldQuestionPaper from "../pages/teacher/OldQuestionPaper";
 import TeacherReplyDoubts from "../pages/teacher/ReplyDoubts";
 import TeacherLeaveManagement from "../pages/teacher/LeaveManagement";
 import TeacherParentEmail from "../pages/teacher/ParentEmail";
@@ -80,7 +78,6 @@ const AppRoutes = () => {
         <Route path="weekly-tests" element={<StudentWeeklyTests />} />
         <Route path="quiz-practice" element={<StudentQuizPractice />} />
         <Route path="study-material" element={<StudentStudyMaterial />} />
-        <Route path="old-papers" element={<StudentOldQuestionPaper />} />
         <Route path="digital-id" element={<StudentDigitalID />} />
         <Route path="leave-request" element={<StudentLeaveRequest />} />
         <Route path="doubts" element={<StudentAskDoubts />} />
@@ -98,7 +95,6 @@ const AppRoutes = () => {
         <Route path="weekly-tests" element={<TeacherWeeklyTests />} />
         <Route path="quiz-practice" element={<TeacherQuizPractice />} />
         <Route path="study-material" element={<TeacherStudyMaterial />} />
-        <Route path="old-papers" element={<TeacherOldQuestionPaper />} />
         <Route path="reply-doubts" element={<TeacherReplyDoubts />} />
         <Route path="leave-management" element={<TeacherLeaveManagement />} />
         <Route path="parent-email" element={<TeacherParentEmail />} />

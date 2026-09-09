@@ -2,10 +2,16 @@ import React, { useState, useEffect } from "react";
 import { FileText, Download, Eye, Paperclip, X } from "lucide-react";
 import Button from "../../components/common/Button";
 import { studentApi } from "../../services/api";
+import { getDisplayFileName, downloadFile, openFileInNewTab } from "../../utils/fileViewer";
 
 const StudentStudyMaterial = () => {
   const [materials, setMaterials] = useState([]);
   const [viewFileModal, setViewFileModal] = useState(null);
+
+  const handleViewDocument = (fileUrl, title = "Document Preview") => {
+    openFileInNewTab(fileUrl, title);
+  };
+
 
   useEffect(() => {
     const fetchMaterials = async () => {
@@ -33,7 +39,7 @@ const StudentStudyMaterial = () => {
       {/* Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {materials.map((item) => {
-          const fileName = item.file_path ? item.file_path.split("/").pop() : "document.pdf";
+          const fileName = getDisplayFileName(item.file_name, item.file_path, item.title);
           return (
             <div
               key={item.resource_id}
@@ -57,9 +63,9 @@ const StudentStudyMaterial = () => {
                 {/* File Attachment Pill - Clickable File Name */}
                 <div className="pt-1">
                   <button
-                    onClick={() => setViewFileModal(item)}
+                    onClick={() => handleViewDocument(item.file_path, item.title)}
                     className="inline-flex items-center gap-1.5 text-[11px] font-mono text-[#2563EB] bg-[#2563EB]/10 hover:bg-[#2563EB] hover:text-white px-3 py-1 rounded-lg border border-[#2563EB]/20 font-bold cursor-pointer transition-all truncate max-w-full"
-                    title="Click file name to open document"
+                    title="Click file name to open document in a new tab"
                   >
                     <Paperclip className="w-3.5 h-3.5 shrink-0" /> {fileName}
                   </button>
@@ -72,7 +78,7 @@ const StudentStudyMaterial = () => {
                   variant="outline"
                   size="sm"
                   icon={Download}
-                  onClick={() => alert(`Downloading document: ${item.file_path}...`)}
+                  onClick={() => downloadFile(item.file_path, fileName)}
                   className="text-xs"
                 >
                   Download
@@ -136,7 +142,7 @@ const StudentStudyMaterial = () => {
                     variant="accent"
                     size="sm"
                     icon={Download}
-                    onClick={() => alert(`Downloading document: ${viewFileModal.file_path}...`)}
+                    onClick={() => downloadFile(viewFileModal.file_path, viewFileModal.title)}
                     className="text-xs"
                   >
                     Download Resource File
@@ -145,7 +151,7 @@ const StudentStudyMaterial = () => {
                     variant="outline"
                     size="sm"
                     icon={Eye}
-                    onClick={() => alert(`Opening ${viewFileModal.file_path} in full screen document viewer...`)}
+                    onClick={() => handleViewDocument(viewFileModal.file_path, viewFileModal.title)}
                     className="text-xs"
                   >
                     Open Document Preview
@@ -156,8 +162,10 @@ const StudentStudyMaterial = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };
 
 export default StudentStudyMaterial;
+

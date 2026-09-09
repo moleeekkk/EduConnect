@@ -114,9 +114,54 @@ public class TeacherController {
         return ResponseEntity.ok(profile);
     }
 
+    @GetMapping("/assignments/{assignmentId}/submissions")
+    public ResponseEntity<List<Map<String, Object>>> getAssignmentSubmissions(@PathVariable UUID assignmentId) {
+        return ResponseEntity.ok(teacherService.getAssignmentSubmissions(assignmentId));
+    }
+
+    @PostMapping("/submissions/{submissionId}/grade")
+    public ResponseEntity<com.educonnect.backend.entity.AssignmentSubmission> gradeSubmission(
+            @PathVariable UUID submissionId,
+            @RequestBody Map<String, Object> reqData) {
+        return ResponseEntity.ok(teacherService.gradeSubmission(submissionId, reqData));
+    }
+
     @PutMapping("/profile")
     public ResponseEntity<Map<String, Object>> updateProfile(@RequestBody Map<String, Object> body) {
         Map<String, Object> result = teacherService.updateTeacherProfile(body);
         return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/weekly-tests")
+    public ResponseEntity<List<Map<String, Object>>> getWeeklyTests() {
+        return ResponseEntity.ok(teacherService.getAllWeeklyTests());
+    }
+
+    @PostMapping("/weekly-tests")
+    public ResponseEntity<com.educonnect.backend.entity.WeeklyTest> createWeeklyTest(@RequestBody Map<String, Object> data) {
+        return ResponseEntity.ok(teacherService.createWeeklyTest(data));
+    }
+
+    @PutMapping("/weekly-tests/{id}")
+    public ResponseEntity<com.educonnect.backend.entity.WeeklyTest> updateWeeklyTest(@PathVariable UUID id, @RequestBody Map<String, Object> data) {
+        return ResponseEntity.ok(teacherService.updateWeeklyTest(id, data));
+    }
+
+    @DeleteMapping("/weekly-tests/{id}")
+    public ResponseEntity<Map<String, String>> deleteWeeklyTest(@PathVariable UUID id) {
+        teacherService.deleteWeeklyTest(id);
+        return ResponseEntity.ok(Map.of("message", "Weekly test deleted successfully from database"));
+    }
+
+    @GetMapping("/weekly-tests/{testId}/results")
+    public ResponseEntity<List<Map<String, Object>>> getWeeklyTestResults(@PathVariable UUID testId) {
+        return ResponseEntity.ok(teacherService.getWeeklyTestResults(testId));
+    }
+
+    @PostMapping("/weekly-tests/{testId}/results")
+    public ResponseEntity<List<com.educonnect.backend.entity.WeeklyTestResult>> saveWeeklyTestResults(
+            @PathVariable UUID testId,
+            @RequestBody List<Map<String, Object>> resultsList) {
+        return ResponseEntity.ok(teacherService.saveWeeklyTestResults(testId, resultsList));
     }
 }

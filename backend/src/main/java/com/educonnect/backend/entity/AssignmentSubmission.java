@@ -28,8 +28,20 @@ public class AssignmentSubmission {
     @Column(name = "submission_date", nullable = false)
     private LocalDateTime submissionDate;
 
-    @Column(name = "attachment", nullable = false, length = 255)
+    @Column(name = "attachment", columnDefinition = "TEXT")
     private String attachment;
+
+    @Column(name = "file_name", columnDefinition = "TEXT")
+    private String fileName;
+
+    @Column(name = "file_path", columnDefinition = "TEXT")
+    private String filePath;
+
+    @Column(name = "file_type", columnDefinition = "TEXT")
+    private String fileType;
+
+    @Column(name = "file_size")
+    private Long fileSize;
 
     @Column(name = "obtained_marks")
     private Integer obtainedMarks;
@@ -37,7 +49,7 @@ public class AssignmentSubmission {
     @Column(name = "feedback", columnDefinition = "TEXT")
     private String feedback;
 
-    @Column(name = "submission_status", length = 15)
+    @Column(name = "submission_status", columnDefinition = "TEXT")
     private String submissionStatus; // "Submitted", "Late", "Graded"
 
     @Column(name = "created_at", nullable = false, updatable = false)

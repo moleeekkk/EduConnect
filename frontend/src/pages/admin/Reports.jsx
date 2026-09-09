@@ -651,19 +651,20 @@ const AdminReports = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
-                  {filteredWeeklyResults.map((wer) => {
-                    const exam = weeklyExams.find(w => w.weekly_exam_id === wer.weekly_exam_id || w.id === wer.weekly_exam_id);
+                  {filteredWeeklyResults.map((wer, idx) => {
+                    const testId = wer.weekly_test_id || wer.weekly_exam_id;
+                    const exam = weeklyExams.find(w => (w.weekly_test_id || w.weekly_exam_id || w.id) === testId);
                     const stu = users.find(s => s.student_id === wer.student_id || s.id === wer.student_id);
                     const percentage = exam ? ((wer.obtained_marks / (exam.total_marks || 25)) * 100).toFixed(1) : 0;
 
                     return (
-                      <tr key={wer.weekly_exam_result_id} className="hover:bg-slate-50 transition-colors">
+                      <tr key={wer.weekly_test_result_id || wer.weekly_exam_result_id || idx} className="hover:bg-slate-50 transition-colors">
                         <td className="p-3.5 font-semibold text-[#1E293B]">
                           {exam?.title || "Weekly Assessment"}
                         </td>
                         <td className="p-3.5 font-medium">{stu ? `${stu.first_name} ${stu.last_name}` : "Student"}</td>
                         <td className="p-3.5 font-mono font-bold text-[#2563EB]">{stu?.enrollment_no || "N/A"}</td>
-                        <td className="p-3.5 font-mono text-[#64748B]">{exam?.exam_date || "2026-08-04"}</td>
+                        <td className="p-3.5 font-mono text-[#64748B]">{exam?.test_date || exam?.exam_date || "2026-08-04"}</td>
                         <td className="p-3.5 font-medium">{exam?.total_marks || 25}</td>
                         <td className="p-3.5 font-bold text-[#2563EB]">{wer.obtained_marks}</td>
                         <td className="p-3.5 font-extrabold text-[#22C55E]">{percentage}%</td>

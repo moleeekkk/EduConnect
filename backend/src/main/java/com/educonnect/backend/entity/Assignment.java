@@ -48,9 +48,25 @@ public class Assignment {
     @JsonProperty("total_marks")
     private Integer totalMarks;
 
-    @Column(name = "attachment", length = 255)
+    @Column(name = "attachment", columnDefinition = "TEXT")
     @JsonProperty("attachment")
     private String attachment;
+
+    @Column(name = "file_name", columnDefinition = "TEXT")
+    @JsonProperty("file_name")
+    private String fileName;
+
+    @Column(name = "file_path", columnDefinition = "TEXT")
+    @JsonProperty("file_path")
+    private String filePath;
+
+    @Column(name = "file_type", columnDefinition = "TEXT")
+    @JsonProperty("file_type")
+    private String fileType;
+
+    @Column(name = "file_size")
+    @JsonProperty("file_size")
+    private Long fileSize;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @JsonProperty("created_at")

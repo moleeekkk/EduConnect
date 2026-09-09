@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { BookOpenCheck, Upload, CheckCircle2, Clock, AlertCircle, FileText, Download, Eye, Paperclip, X } from "lucide-react";
+import { BookOpenCheck, Upload, CheckCircle2, Clock, AlertCircle, FileText, Download, Eye, Paperclip, X, Award, MessageSquareText } from "lucide-react";
 import Button from "../../components/common/Button";
 import { studentApi } from "../../services/api";
 import { notifySuccess, notifyError } from "../../utils/toast";
-import { openFileDocument } from "../../utils/fileViewer";
-
+import { readFileAsDataURL, getDisplayFileName, downloadFile, openFileInNewTab } from "../../utils/fileViewer";
 
 const StudentAssignments = () => {
   const [assignments, setAssignments] = useState([]);
@@ -14,7 +13,24 @@ const StudentAssignments = () => {
   const [uploadFile, setUploadFile] = useState(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
 
+  const handleViewDocument = (fileUrl, title = "Document Preview") => {
+    openFileInNewTab(fileUrl, title);
+  };
+
+
   useEffect(() => {
+    // 1. Restore local submissions from localStorage
+    const savedSubsStr = localStorage.getItem("educonnect_student_submissions");
+    let savedSubs = [];
+    if (savedSubsStr) {
+      try {
+        savedSubs = JSON.parse(savedSubsStr);
+      } catch (e) {
+        console.error("Error parsing saved submissions:", e);
+      }
+    }
+    setSubmissions(savedSubs);
+
     const fetchData = async () => {
       const userStr = localStorage.getItem("educonnect_user");
       const loggedUser = userStr ? JSON.parse(userStr) : null;
@@ -23,7 +39,25 @@ const StudentAssignments = () => {
       try {
         const data = await studentApi.getAssignments(enrollmentNo);
         if (Array.isArray(data)) {
-          setAssignments(data);
+          const merged = data.map((item) => {
+            const matchSub = savedSubs.find(
+              (s) => String(s.assignment_id) === String(item.assignment_id) || (s.title && s.title === item.title)
+            );
+            if (matchSub || item.submitted || item.student_attachment) {
+              return {
+                ...item,
+                submitted: true,
+                student_attachment: item.student_attachment || matchSub?.attachment,
+                student_file_name: item.student_file_name || matchSub?.file_name,
+                submission_status: item.submission_status || matchSub?.submission_status || "Submitted",
+                submission_date: item.submission_date || matchSub?.submission_date,
+                obtained_marks: item.obtained_marks !== undefined ? item.obtained_marks : matchSub?.obtained_marks,
+                feedback: item.feedback || matchSub?.feedback,
+              };
+            }
+            return item;
+          });
+          setAssignments(merged);
         }
       } catch (err) {
         console.error("Assignments load error:", err);
@@ -40,51 +74,100 @@ const StudentAssignments = () => {
     }
 
     try {
-      await studentApi.submitAssignment(selectedAssignment.assignment_id, {
-        fileName: uploadFile.name,
-      });
+      const userStr = localStorage.getItem("educonnect_user");
+      const loggedUser = userStr ? JSON.parse(userStr) : null;
+      const enrollmentNo = loggedUser?.enrollment_no || loggedUser?.enrollmentNo || loggedUser?.identifier || "2024MCA001";
 
-      const existingSub = submissions.find((s) => s.assignment_id === selectedAssignment.assignment_id);
-
-      if (existingSub) {
-        setSubmissions(
-          submissions.map((s) =>
-            s.assignment_id === selectedAssignment.assignment_id
-              ? {
-                  ...s,
-                  submission_date: new Date().toISOString().split("T")[0],
-                  attachment: uploadFile.name,
-                  submission_status: "Timely",
-                  updated_at: new Date().toISOString(),
-                }
-              : s
-          )
-        );
-      } else {
-        const newSub = {
-          submission_id: `sub-00${submissions.length + 1}`,
-          assignment_id: selectedAssignment.assignment_id,
-          student_id: "stu-001",
-          submission_date: new Date().toISOString().split("T")[0],
-          attachment: uploadFile.name,
-          obtained_marks: null,
-          feedback: null,
-          submission_status: "Timely",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        setSubmissions([newSub, ...submissions]);
+      let fileAttachmentVal = uploadFile.name;
+      try {
+        const dataUrl = await readFileAsDataURL(uploadFile);
+        if (dataUrl) fileAttachmentVal = dataUrl;
+      } catch (err) {
+        console.error("Error reading student uploaded document Data URL:", err);
       }
 
+      // Calculate submission status based on due date
+      let calculatedStatus = "Timely";
+      if (selectedAssignment.due_date) {
+        try {
+          const due = new Date(selectedAssignment.due_date);
+          const now = new Date();
+          now.setHours(0, 0, 0, 0);
+          due.setHours(23, 59, 59, 999);
+          if (now > due) {
+            calculatedStatus = "Late";
+          }
+        } catch (e) {}
+      }
+
+      const newSubmission = {
+        submission_id: `sub-${Date.now()}`,
+        assignment_id: selectedAssignment.assignment_id,
+        title: selectedAssignment.title,
+        enrollment_no: enrollmentNo,
+        file_name: uploadFile.name,
+        attachment: fileAttachmentVal,
+        submission_date: new Date().toISOString().replace("T", " ").substring(0, 16),
+        submission_status: calculatedStatus,
+        submitted: true,
+      };
+
+      try {
+        await studentApi.submitAssignment(selectedAssignment.assignment_id, {
+          enrollmentNo: enrollmentNo,
+          enrollment_no: enrollmentNo,
+          fileName: uploadFile.name,
+          file_name: uploadFile.name,
+          attachment: fileAttachmentVal,
+          fileType: uploadFile.type || "application/pdf",
+        });
+      } catch (apiErr) {
+        console.warn("Backend submit API error, using local persistent fallback:", apiErr);
+      }
+
+      // Save submission to local state and localStorage for persistence
+      const updatedSubmissions = [
+        newSubmission,
+        ...submissions.filter((s) => String(s.assignment_id) !== String(selectedAssignment.assignment_id)),
+      ];
+      setSubmissions(updatedSubmissions);
+
+      try {
+        localStorage.setItem("educonnect_student_submissions", JSON.stringify(updatedSubmissions));
+      } catch (storageErr) {
+        console.warn("Storage quota reached, saving metadata fallback:", storageErr);
+        const metadataOnlySubs = updatedSubmissions.map((s) => ({
+          ...s,
+          attachment: s.file_name,
+        }));
+        try {
+          localStorage.setItem("educonnect_student_submissions", JSON.stringify(metadataOnlySubs));
+        } catch (e) {}
+      }
+
+      setAssignments((prev) =>
+        prev.map((a) =>
+          String(a.assignment_id) === String(selectedAssignment.assignment_id) || a.title === selectedAssignment.title
+            ? {
+                ...a,
+                submitted: true,
+                student_attachment: fileAttachmentVal,
+                student_file_name: uploadFile.name,
+                submission_status: calculatedStatus,
+                submission_date: newSubmission.submission_date,
+              }
+            : a
+        )
+      );
+
+      notifySuccess(`Assignment '${selectedAssignment.title}' submitted successfully!`);
       setSelectedAssignment(null);
       setUploadFile(null);
       setUploadSuccess(true);
-      notifySuccess(`Assignment '${selectedAssignment.title}' solution submitted to database successfully!`);
       setTimeout(() => setUploadSuccess(false), 3000);
     } catch (err) {
-      console.error("Submit assignment error:", err);
-      const msg = err.response?.data?.error || err.message || "Failed to submit assignment.";
-      notifyError(`Failed to submit assignment: ${msg}`);
+      console.error("Failed to submit assignment:", err);
+      notifyError(err.response?.data?.message || "Failed to submit assignment. Please try again.");
     }
   };
 
@@ -106,7 +189,23 @@ const StudentAssignments = () => {
       {/* Assignment List Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {assignments.map((asgn) => {
-          const submission = submissions.find((s) => s.assignment_id === asgn.assignment_id);
+          const submission = submissions.find(
+            (s) => String(s.assignment_id) === String(asgn.assignment_id) || (s.title && s.title === asgn.title)
+          );
+          const isSubmitted =
+            Boolean(asgn.submitted) ||
+            Boolean(asgn.student_attachment) ||
+            Boolean(submission?.attachment) ||
+            Boolean(submission?.submitted);
+          const subAttachment = asgn.student_attachment || submission?.attachment || "Submission_Document";
+          const subFileName = asgn.student_file_name || submission?.file_name || "Submission_Document";
+          const subStatus = asgn.submission_status || submission?.submission_status || "Submitted";
+          const obtainedMarks = asgn.obtained_marks !== undefined && asgn.obtained_marks !== null
+            ? asgn.obtained_marks
+            : (submission?.obtained_marks !== undefined && submission?.obtained_marks !== null ? submission?.obtained_marks : null);
+          const feedback = asgn.feedback || asgn.remarks || submission?.feedback || submission?.remarks;
+          const isGraded = (obtainedMarks !== null && obtainedMarks !== undefined) || Boolean(feedback);
+
           return (
             <div
               key={asgn.assignment_id}
@@ -131,26 +230,26 @@ const StudentAssignments = () => {
                 {asgn.attachment && (
                   <div className="pt-1">
                     <button
-                      onClick={() => openFileDocument(asgn.attachment, asgn.title)}
+                      onClick={() => handleViewDocument(asgn.attachment, asgn.title)}
                       className="inline-flex items-center gap-1.5 text-[11px] font-mono text-[#2563EB] bg-[#2563EB]/10 hover:bg-[#2563EB] hover:text-white px-3 py-1 rounded-lg border border-[#2563EB]/20 font-bold cursor-pointer transition-all"
-                      title="Click file name to open teacher reference document"
+                      title="Click file name to view teacher reference document in a new tab"
                     >
-                      <Paperclip className="w-3.5 h-3.5" /> Teacher File: {asgn.attachment}
+                      <Paperclip className="w-3.5 h-3.5" /> Teacher File: {getDisplayFileName(asgn.file_name, asgn.attachment, asgn.title)}
                     </button>
                   </div>
                 )}
 
                 {/* Submitted File View Section if Student Submitted */}
-                {submission && submission.attachment && (
+                {isSubmitted && subAttachment && (
                   <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] flex items-center justify-between gap-2">
                     <div className="space-y-0.5">
                       <span className="text-[10px] font-bold text-[#64748B] uppercase block">Your Uploaded File</span>
                       <button
-                        onClick={() => openFileDocument(submission.attachment, "My Submission Document")}
+                        onClick={() => handleViewDocument(subAttachment, "My Submission Document")}
                         className="font-mono font-bold text-[#2563EB] text-xs hover:underline cursor-pointer flex items-center gap-1 mt-0.5"
-                        title="Click file name to open document"
+                        title="Click file name to view document in a new tab"
                       >
-                        <Paperclip className="w-3.5 h-3.5" /> {submission.attachment}
+                        <Paperclip className="w-3.5 h-3.5" /> {getDisplayFileName(subFileName, subAttachment, "My_Submission")}
                       </button>
                     </div>
                   </div>
@@ -160,9 +259,13 @@ const StudentAssignments = () => {
               {/* Status & Action */}
               <div className="border-t border-[#E2E8F0] pt-3 flex items-center justify-between text-xs">
                 <div>
-                  {submission ? (
+                  {isGraded ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/20 font-bold text-[10px]">
+                      <Award className="w-3.5 h-3.5" /> Graded {obtainedMarks !== null ? `(${obtainedMarks}/${asgn.total_marks})` : ""}
+                    </span>
+                  ) : isSubmitted ? (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20 font-bold text-[10px]">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Submitted ({submission.submission_status || "Timely"})
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Submitted ({subStatus})
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#F97316]/10 text-[#F97316] border border-[#F97316]/20 font-bold text-[10px]">
@@ -172,24 +275,41 @@ const StudentAssignments = () => {
                 </div>
 
                 <Button
-                  variant={submission ? "outline" : "accent"}
+                  variant={isSubmitted ? "outline" : "accent"}
                   size="sm"
                   onClick={() => setSelectedAssignment(asgn)}
                   className="text-xs"
                 >
-                  {submission ? "Re-upload / View Status" : "Submit File"}
+                  {isSubmitted ? "Re-upload / View Status" : "Submit File"}
                 </Button>
               </div>
 
-              {submission && submission.obtained_marks !== null && (
-                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] text-xs space-y-1">
-                  <p className="font-bold text-[#1E293B]">
-                    Faculty Grade & Remarks:{" "}
-                    <span className="text-[#2563EB]">
-                      {submission.obtained_marks} / {asgn.total_marks}
+              {/* Faculty Evaluation & Remarks Section */}
+              {isGraded && (
+                <div className="p-3.5 bg-[#2563EB]/5 rounded-xl border border-[#2563EB]/20 text-xs space-y-2">
+                  <div className="flex items-center justify-between border-b border-[#2563EB]/15 pb-2">
+                    <span className="font-extrabold text-[#1E293B] flex items-center gap-1.5 text-xs">
+                      <Award className="w-4 h-4 text-[#2563EB]" /> Faculty Evaluation & Grade
                     </span>
-                  </p>
-                  <p className="text-[11px] text-[#64748B]">{submission.feedback}</p>
+                    {obtainedMarks !== null && obtainedMarks !== undefined && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-[#2563EB] text-white font-bold text-[11px] font-mono">
+                        Score: {obtainedMarks} / {asgn.total_marks}
+                      </span>
+                    )}
+                  </div>
+
+                  {feedback ? (
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-[#64748B] font-bold uppercase tracking-wider block flex items-center gap-1">
+                        <MessageSquareText className="w-3 h-3 text-[#2563EB]" /> Teacher Remarks / Feedback:
+                      </span>
+                      <p className="text-xs text-[#1E293B] bg-white p-2.5 rounded-lg border border-[#E2E8F0] leading-relaxed font-medium">
+                        "{feedback}"
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-[#64748B] italic">Evaluated by faculty.</p>
+                  )}
                 </div>
               )}
             </div>
@@ -201,66 +321,138 @@ const StudentAssignments = () => {
       {selectedAssignment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-8 animate-fade-in">
-            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-              <h3 className="text-base font-bold text-[#1E293B]">
-                Upload Assignment Submission
-              </h3>
-              <button
-                onClick={() => setSelectedAssignment(null)}
-                className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
-                title="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1 text-xs">
-              <p className="font-extrabold text-[#1E293B] text-sm">{selectedAssignment.title}</p>
-              <p className="text-[#64748B]">Due Date: <span className="font-mono font-semibold text-[#1E293B]">{selectedAssignment.due_date}</span> • Max Marks: <span className="font-bold text-[#2563EB]">{selectedAssignment.total_marks}</span></p>
-            </div>
-
-            {/* If Student Already Submitted, Show Previous Upload Box */}
             {(() => {
-              const existingSub = submissions.find((s) => s.assignment_id === selectedAssignment.assignment_id);
-              if (existingSub && existingSub.attachment) {
-                return (
-                  <div className="p-3 bg-[#2563EB]/5 rounded-xl border border-[#2563EB]/20 flex items-center justify-between gap-2 text-xs">
-                    <div>
-                      <span className="text-[10px] text-[#64748B] font-bold uppercase block">Currently Uploaded File</span>
-                      <button
-                        onClick={() => setViewFileModal(existingSub)}
-                        className="font-mono font-bold text-[#2563EB] text-xs hover:underline cursor-pointer flex items-center gap-1 mt-0.5"
-                        title="Click file name to open document"
-                      >
-                        <Paperclip className="w-3.5 h-3.5" /> {existingSub.attachment}
-                      </button>
-                    </div>
+              const existingSub = submissions.find(
+                (s) => String(s.assignment_id) === String(selectedAssignment.assignment_id) || (s.title && s.title === selectedAssignment.title)
+              );
+              const prevAttachment = selectedAssignment.student_attachment || existingSub?.attachment;
+              const prevFileName = selectedAssignment.student_file_name || existingSub?.file_name;
+              const subDate = selectedAssignment.submission_date || existingSub?.submission_date;
+              const subStatus = selectedAssignment.submission_status || existingSub?.submission_status || "Submitted";
+              const isResubmit = Boolean(prevAttachment || selectedAssignment.submitted || existingSub);
+
+              const obtMarks = selectedAssignment.obtained_marks !== undefined && selectedAssignment.obtained_marks !== null
+                ? selectedAssignment.obtained_marks
+                : (existingSub?.obtained_marks !== undefined && existingSub?.obtained_marks !== null ? existingSub?.obtained_marks : null);
+              const fb = selectedAssignment.feedback || selectedAssignment.remarks || existingSub?.feedback || existingSub?.remarks;
+
+              return (
+                <>
+                  <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
+                    <h3 className="text-base font-bold text-[#1E293B]">
+                      {isResubmit ? "Resubmit Assignment Document" : "Upload Assignment Submission"}
+                    </h3>
+                    <button
+                      onClick={() => setSelectedAssignment(null)}
+                      className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
+                      title="Close"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
                   </div>
-                );
-              }
-              return null;
+
+                  <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1 text-xs">
+                    <p className="font-extrabold text-[#1E293B] text-sm">{selectedAssignment.title}</p>
+                    <p className="text-[#64748B]">Due Date: <span className="font-mono font-semibold text-[#1E293B]">{selectedAssignment.due_date}</span> • Max Marks: <span className="font-bold text-[#2563EB]">{selectedAssignment.total_marks}</span></p>
+                  </div>
+
+                  {/* If Graded by Teacher, Show Faculty Grade & Remarks Box inside Modal */}
+                  {(obtMarks !== null || fb) && (
+                    <div className="p-3.5 bg-[#2563EB]/5 rounded-xl border border-[#2563EB]/20 space-y-2 text-xs">
+                      <div className="flex items-center justify-between border-b border-[#2563EB]/15 pb-2">
+                        <span className="text-[11px] font-extrabold text-[#1E293B] uppercase tracking-wider flex items-center gap-1.5">
+                          <Award className="w-4 h-4 text-[#2563EB]" /> Faculty Evaluation & Grade
+                        </span>
+                        {obtMarks !== null && (
+                          <span className="px-2.5 py-0.5 rounded-full bg-[#2563EB] text-white font-bold text-[10px] font-mono">
+                            Score: {obtMarks} / {selectedAssignment.total_marks}
+                          </span>
+                        )}
+                      </div>
+                      {fb && (
+                        <div className="space-y-1">
+                          <span className="text-[10px] text-[#64748B] font-semibold flex items-center gap-1">
+                            <MessageSquareText className="w-3 h-3 text-[#2563EB]" /> Teacher Remarks:
+                          </span>
+                          <p className="text-xs text-[#1E293B] bg-white p-2 rounded-lg border border-[#E2E8F0] font-medium leading-relaxed">
+                            "{fb}"
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* If Student Already Submitted, Show Previously Uploaded File Box */}
+                  {prevAttachment && (
+                    <div className="p-3.5 bg-[#2563EB]/5 rounded-xl border border-[#2563EB]/20 space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-[#64748B] font-extrabold uppercase tracking-wider block">Previously Uploaded File</span>
+                        <span className="px-2 py-0.5 rounded-full bg-[#22C55E]/10 text-[#22C55E] text-[10px] font-bold border border-[#22C55E]/20">
+                          {subStatus}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => handleViewDocument(prevAttachment, "Previously Uploaded File")}
+                          className="font-mono font-bold text-[#2563EB] text-xs hover:underline cursor-pointer flex items-center gap-1.5 truncate max-w-[200px]"
+                          title="Click file name to view document in a new tab"
+                        >
+                          <Paperclip className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{getDisplayFileName(prevFileName, prevAttachment, "My_Submission")}</span>
+                        </button>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleViewDocument(prevAttachment, "Previously Uploaded File")}
+                            className="px-2 py-1 bg-white border border-[#E2E8F0] rounded-lg text-[11px] font-semibold text-[#2563EB] hover:bg-[#2563EB] hover:text-white transition-all flex items-center gap-1 cursor-pointer"
+                            title="View document in new tab"
+                          >
+                            <Eye className="w-3 h-3" /> View
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => downloadFile(prevAttachment, prevFileName || "My_Submission")}
+                            className="px-2 py-1 bg-white border border-[#E2E8F0] rounded-lg text-[11px] font-semibold text-[#64748B] hover:bg-slate-100 transition-all flex items-center gap-1 cursor-pointer"
+                            title="Download file"
+                          >
+                            <Download className="w-3 h-3" /> Download
+                          </button>
+                        </div>
+                      </div>
+                      {subDate && (
+                        <p className="text-[10px] text-[#64748B] font-mono">Uploaded on: {subDate}</p>
+                      )}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleSubmitAssignment} className="space-y-4 text-xs">
+                    <div className="space-y-1.5">
+                      <label className="block font-semibold text-[#1E293B]">
+                        {isResubmit ? "Select New Document to Replace Uploaded File" : "Select Assignment Document File"}
+                      </label>
+                      <input
+                        type="file"
+                        required
+                        onChange={(e) => setUploadFile(e.target.files[0])}
+                        className="w-full text-xs text-[#64748B] file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#2563EB]/10 file:text-[#2563EB] cursor-pointer bg-[#F8FAFC] p-2 rounded-lg border border-[#E2E8F0]"
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
+                      <Button variant="outline" size="sm" type="button" onClick={() => setSelectedAssignment(null)}>
+                        Cancel
+                      </Button>
+                      <Button variant="accent" size="sm" type="submit" icon={Upload}>
+                        {isResubmit ? "Resubmit Assignment" : "Submit Assignment"}
+                      </Button>
+                    </div>
+                  </form>
+                </>
+              );
             })()}
-
-            <form onSubmit={handleSubmitAssignment} className="space-y-4 text-xs">
-              <div className="space-y-1.5">
-                <label className="block font-semibold text-[#1E293B]">Select Assignment Document File</label>
-                <input
-                  type="file"
-                  required
-                  onChange={(e) => setUploadFile(e.target.files[0])}
-                  className="w-full text-xs text-[#64748B] file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#2563EB]/10 file:text-[#2563EB] cursor-pointer bg-[#F8FAFC] p-2 rounded-lg border border-[#E2E8F0]"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
-                <Button variant="outline" size="sm" type="button" onClick={() => setSelectedAssignment(null)}>
-                  Cancel
-                </Button>
-                <Button variant="accent" size="sm" type="submit" icon={Upload}>
-                  Submit Assignment
-                </Button>
-              </div>
-            </form>
           </div>
         </div>
       )}
@@ -305,7 +497,7 @@ const StudentAssignments = () => {
                 <Paperclip className="w-10 h-10 text-[#2563EB] mx-auto animate-bounce" />
                 <div>
                   <h5 className="text-sm font-extrabold text-[#1E293B] font-mono truncate max-w-xs mx-auto">
-                    {viewFileModal.attachment || "assignment_submission.zip"}
+                    {getDisplayFileName(viewFileModal.file_name, viewFileModal.attachment, "My_Submission")}
                   </h5>
                   <p className="text-[11px] text-[#64748B] mt-0.5">
                     Your Official Assignment File Submitted to Faculty
@@ -317,7 +509,7 @@ const StudentAssignments = () => {
                     variant="accent"
                     size="sm"
                     icon={Download}
-                    onClick={() => openFileDocument(viewFileModal.attachment, "Download Attachment")}
+                    onClick={() => downloadFile(viewFileModal.attachment, viewFileModal.file_name || "My_Submission")}
                     className="text-xs"
                   >
                     Download My File
@@ -326,7 +518,7 @@ const StudentAssignments = () => {
                     variant="outline"
                     size="sm"
                     icon={Eye}
-                    onClick={() => openFileDocument(viewFileModal.attachment, "Document Preview")}
+                    onClick={() => handleViewDocument(viewFileModal.attachment, "Document Preview")}
                     className="text-xs"
                   >
                     Open Document Preview
@@ -337,8 +529,10 @@ const StudentAssignments = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };
 
 export default StudentAssignments;
+

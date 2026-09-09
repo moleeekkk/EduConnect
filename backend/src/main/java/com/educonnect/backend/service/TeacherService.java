@@ -10,7 +10,13 @@ import com.educonnect.backend.entity.Student;
 import com.educonnect.backend.entity.Teacher;
 import com.educonnect.backend.entity.TeacherSubject;
 import com.educonnect.backend.entity.Subject;
+import com.educonnect.backend.entity.AssignmentSubmission;
+import com.educonnect.backend.entity.WeeklyTest;
+import com.educonnect.backend.entity.WeeklyTestResult;
+import com.educonnect.backend.repository.WeeklyTestRepository;
+import com.educonnect.backend.repository.WeeklyTestResultRepository;
 import com.educonnect.backend.repository.AssignmentRepository;
+import com.educonnect.backend.repository.AssignmentSubmissionRepository;
 import com.educonnect.backend.repository.AttendanceRecordRepository;
 import com.educonnect.backend.repository.AttendanceSessionRepository;
 import com.educonnect.backend.repository.StudentRepository;
@@ -34,14 +40,20 @@ public class TeacherService {
     private final StudentRepository studentRepository;
     private final SubjectRepository subjectRepository;
     private final AssignmentRepository assignmentRepository;
+    private final AssignmentSubmissionRepository submissionRepository;
     private final AttendanceSessionRepository sessionRepository;
     private final AttendanceRecordRepository recordRepository;
     private final TeacherSubjectRepository teacherSubjectRepository;
+    private final WeeklyTestRepository weeklyTestRepository;
+    private final WeeklyTestResultRepository weeklyTestResultRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getAllAssignmentsForTeacher(String identifier) {
         List<Assignment> assignments = assignmentRepository.findAll();
+        List<Student> allStudents = studentRepository.findAll();
+        int totalStudentsCount = allStudents.size();
+
         List<Map<String, Object>> list = new ArrayList<>();
         for (Assignment a : assignments) {
             Map<String, Object> map = new HashMap<>();
@@ -53,6 +65,7 @@ public class TeacherService {
             map.put("due_date", a.getDueDate() != null ? a.getDueDate().toString() : "");
             map.put("total_marks", a.getTotalMarks() != null ? a.getTotalMarks() : 50);
             map.put("attachment", a.getAttachment() != null ? a.getAttachment() : "");
+            map.put("file_name", a.getFileName() != null ? a.getFileName() : "");
             map.put("created_at", a.getCreatedAt() != null ? a.getCreatedAt().toString() : "");
 
             if (a.getSubjectId() != null) {
@@ -61,6 +74,38 @@ public class TeacherService {
                     map.put("subject_name", sub.getSubjectName());
                 });
             }
+
+            if (a.getAssignmentId() != null) {
+                List<AssignmentSubmission> subs = submissionRepository.findByAssignmentId(a.getAssignmentId());
+                int timely = 0;
+                int late = 0;
+                for (AssignmentSubmission sub : subs) {
+                    String status = sub.getSubmissionStatus();
+                    if (status == null || "Submitted".equalsIgnoreCase(status) || "Graded".equalsIgnoreCase(status)) {
+                        if (a.getDueDate() != null && sub.getSubmissionDate() != null && sub.getSubmissionDate().toLocalDate().isAfter(a.getDueDate())) {
+                            status = "Late";
+                        } else {
+                            status = "Timely";
+                        }
+                    }
+                    if ("Late".equalsIgnoreCase(status)) {
+                        late++;
+                    } else {
+                        timely++;
+                    }
+                }
+                int missed = Math.max(0, totalStudentsCount - (timely + late));
+                map.put("timely_count", timely);
+                map.put("late_count", late);
+                map.put("missed_count", missed);
+                map.put("total_submissions", subs.size());
+            } else {
+                map.put("timely_count", 0);
+                map.put("late_count", 0);
+                map.put("missed_count", totalStudentsCount);
+                map.put("total_submissions", 0);
+            }
+
             list.add(map);
         }
         return list;
@@ -92,6 +137,9 @@ public class TeacherService {
         if (assignment.getTotalMarks() == null) assignment.setTotalMarks(50);
 
         assignment.setAttachment((String) reqData.get("attachment"));
+        String fn = (String) reqData.get("file_name");
+        if (fn == null) fn = (String) reqData.get("fileName");
+        if (fn != null) assignment.setFileName(fn);
 
         if (reqData.get("subject_id") != null && !((String) reqData.get("subject_id")).trim().isEmpty()) {
             try {
@@ -131,6 +179,8 @@ public class TeacherService {
                 }
             }
             if (reqData.containsKey("attachment")) assignment.setAttachment((String) reqData.get("attachment"));
+            if (reqData.containsKey("file_name")) assignment.setFileName((String) reqData.get("file_name"));
+            else if (reqData.containsKey("fileName")) assignment.setFileName((String) reqData.get("fileName"));
             if (reqData.get("subject_id") != null) {
                 try {
                     assignment.setSubjectId(UUID.fromString((String) reqData.get("subject_id")));
@@ -537,5 +587,327 @@ public class TeacherService {
         map.put("profile_photo", t.getProfilePhoto() != null ? t.getProfilePhoto() : "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80");
         map.put("is_active", t.getIsActive() != null ? t.getIsActive() : true);
         return map;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getAssignmentSubmissions(UUID assignmentId) {
+        List<AssignmentSubmission> dbSubmissions = submissionRepository.findByAssignmentId(assignmentId);
+        Map<UUID, AssignmentSubmission> studentSubMap = new HashMap<>();
+        for (AssignmentSubmission sub : dbSubmissions) {
+            if (sub.getStudentId() != null) {
+                studentSubMap.put(sub.getStudentId(), sub);
+            }
+        }
+
+        List<Student> allStudents = studentRepository.findAll();
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        for (Student s : allStudents) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("assignment_id", assignmentId.toString());
+            map.put("student_id", s.getStudentId() != null ? s.getStudentId().toString() : "");
+            map.put("student_name", (s.getFirstName() + " " + s.getLastName()).trim());
+            map.put("enrollment_no", s.getEnrollmentNo() != null ? s.getEnrollmentNo() : "");
+
+            AssignmentSubmission sub = studentSubMap.get(s.getStudentId());
+            if (sub != null) {
+                map.put("submission_id", sub.getSubmissionId() != null ? sub.getSubmissionId().toString() : "");
+                map.put("submission_date", sub.getSubmissionDate() != null ? sub.getSubmissionDate().toString() : "");
+                map.put("attachment", sub.getAttachment() != null ? sub.getAttachment() : "");
+                map.put("file_name", sub.getFileName() != null ? sub.getFileName() : "");
+                map.put("obtained_marks", sub.getObtainedMarks());
+                map.put("feedback", sub.getFeedback() != null ? sub.getFeedback() : "");
+                String subStatus = sub.getSubmissionStatus();
+                if (subStatus == null || "Submitted".equalsIgnoreCase(subStatus) || "Graded".equalsIgnoreCase(subStatus)) {
+                    Optional<Assignment> asgnOpt = assignmentRepository.findById(assignmentId);
+                    if (asgnOpt.isPresent() && asgnOpt.get().getDueDate() != null && sub.getSubmissionDate() != null) {
+                        LocalDate subDate = sub.getSubmissionDate().toLocalDate();
+                        if (subDate.isAfter(asgnOpt.get().getDueDate())) {
+                            subStatus = "Late";
+                        } else {
+                            subStatus = "Timely";
+                        }
+                    } else {
+                        subStatus = "Timely";
+                    }
+                }
+                map.put("submission_status", subStatus);
+                map.put("submitted", true);
+            } else {
+                map.put("submission_id", "sub-missing-" + (s.getStudentId() != null ? s.getStudentId().toString() : UUID.randomUUID().toString()));
+                map.put("submission_date", "-");
+                map.put("attachment", null);
+                map.put("file_name", null);
+                map.put("obtained_marks", null);
+                map.put("feedback", null);
+                map.put("submission_status", "Missed");
+                map.put("submitted", false);
+            }
+            result.add(map);
+        }
+        return result;
+    }
+
+    @Transactional
+    public AssignmentSubmission gradeSubmission(UUID submissionId, Map<String, Object> reqData) {
+        AssignmentSubmission sub = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new NoSuchElementException("Submission not found with id: " + submissionId));
+
+        if (reqData.get("obtained_marks") != null) {
+            Object marksObj = reqData.get("obtained_marks");
+            if (marksObj instanceof Number) sub.setObtainedMarks(((Number) marksObj).intValue());
+            else if (marksObj instanceof String) {
+                try { sub.setObtainedMarks(Integer.parseInt((String) marksObj)); } catch (Exception ignored) {}
+            }
+        }
+        if (reqData.get("feedback") != null) {
+            sub.setFeedback((String) reqData.get("feedback"));
+        }
+        
+        // Preserve Late or Timely status instead of replacing with "Graded"
+        if (sub.getSubmissionStatus() == null || "Submitted".equalsIgnoreCase(sub.getSubmissionStatus()) || "Graded".equalsIgnoreCase(sub.getSubmissionStatus())) {
+            Optional<Assignment> asgnOpt = assignmentRepository.findById(sub.getAssignmentId());
+            if (asgnOpt.isPresent() && asgnOpt.get().getDueDate() != null && sub.getSubmissionDate() != null) {
+                if (sub.getSubmissionDate().toLocalDate().isAfter(asgnOpt.get().getDueDate())) {
+                    sub.setSubmissionStatus("Late");
+                } else {
+                    sub.setSubmissionStatus("Timely");
+                }
+            } else {
+                sub.setSubmissionStatus("Timely");
+            }
+        }
+        sub.setUpdatedAt(java.time.LocalDateTime.now());
+
+        return submissionRepository.save(sub);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getAllWeeklyTests() {
+        List<WeeklyTest> tests = weeklyTestRepository.findAll();
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (WeeklyTest wt : tests) {
+            Map<String, Object> map = new HashMap<>();
+            String testIdStr = wt.getWeeklyTestId() != null ? wt.getWeeklyTestId().toString() : "";
+            String testDateStr = wt.getTestDate() != null ? wt.getTestDate().toString() : "";
+            map.put("weekly_test_id", testIdStr);
+            map.put("weekly_exam_id", testIdStr);
+            map.put("teacher_subject_id", wt.getTeacherSubjectId() != null ? wt.getTeacherSubjectId().toString() : "");
+            map.put("subject_id", wt.getSubjectId() != null ? wt.getSubjectId().toString() : "");
+            map.put("title", wt.getTitle() != null ? wt.getTitle() : "");
+            map.put("description", wt.getDescription() != null ? wt.getDescription() : "");
+            map.put("test_date", testDateStr);
+            map.put("exam_date", testDateStr);
+            map.put("start_time", wt.getStartTime() != null ? wt.getStartTime().toString() : "10:00:00");
+            map.put("end_time", wt.getEndTime() != null ? wt.getEndTime().toString() : "11:00:00");
+            map.put("total_marks", wt.getTotalMarks() != null ? wt.getTotalMarks() : 25);
+            map.put("created_at", wt.getCreatedAt() != null ? wt.getCreatedAt().toString() : "");
+            if (wt.getSubjectId() != null) {
+                subjectRepository.findById(wt.getSubjectId()).ifPresent(sub -> {
+                    map.put("subject_code", sub.getSubjectCode());
+                    map.put("subject_name", sub.getSubjectName());
+                });
+            }
+            list.add(map);
+        }
+        return list;
+    }
+
+    @Transactional
+    public WeeklyTest createWeeklyTest(Map<String, Object> reqData) {
+        WeeklyTest test = new WeeklyTest();
+        test.setTitle((String) reqData.get("title"));
+        test.setDescription((String) reqData.get("description"));
+
+        Object dateObj = reqData.get("test_date") != null ? reqData.get("test_date") : reqData.get("exam_date");
+        if (dateObj != null) {
+            try { test.setTestDate(LocalDate.parse((String) dateObj)); }
+            catch (Exception e) { test.setTestDate(LocalDate.now().plusDays(7)); }
+        } else {
+            test.setTestDate(LocalDate.now().plusDays(7));
+        }
+
+        if (reqData.get("start_time") != null) {
+            try {
+                String st = (String) reqData.get("start_time");
+                if (st.length() == 5) st = st + ":00";
+                test.setStartTime(LocalTime.parse(st));
+            } catch (Exception ignored) {}
+        }
+        if (test.getStartTime() == null) test.setStartTime(LocalTime.of(10, 0));
+
+        if (reqData.get("end_time") != null) {
+            try {
+                String et = (String) reqData.get("end_time");
+                if (et.length() == 5) et = et + ":00";
+                test.setEndTime(LocalTime.parse(et));
+            } catch (Exception ignored) {}
+        }
+        if (test.getEndTime() == null) test.setEndTime(LocalTime.of(11, 0));
+
+        if (reqData.get("total_marks") != null) {
+            Object marksObj = reqData.get("total_marks");
+            if (marksObj instanceof Number) test.setTotalMarks(((Number) marksObj).intValue());
+            else if (marksObj instanceof String) {
+                try { test.setTotalMarks(Integer.parseInt((String) marksObj)); } catch (Exception ignored) {}
+            }
+        }
+        if (test.getTotalMarks() == null) test.setTotalMarks(25);
+
+        if (reqData.get("subject_id") != null && !((String) reqData.get("subject_id")).trim().isEmpty()) {
+            try { test.setSubjectId(UUID.fromString((String) reqData.get("subject_id"))); } catch (Exception ignored) {}
+        }
+        if (reqData.get("teacher_subject_id") != null && !((String) reqData.get("teacher_subject_id")).trim().isEmpty()) {
+            try { test.setTeacherSubjectId(UUID.fromString((String) reqData.get("teacher_subject_id"))); } catch (Exception ignored) {}
+        }
+
+        return weeklyTestRepository.save(test);
+    }
+
+    @Transactional
+    public WeeklyTest updateWeeklyTest(UUID id, Map<String, Object> reqData) {
+        Optional<WeeklyTest> opt = weeklyTestRepository.findById(id);
+        if (opt.isPresent()) {
+            WeeklyTest test = opt.get();
+            if (reqData.containsKey("title")) test.setTitle((String) reqData.get("title"));
+            if (reqData.containsKey("description")) test.setDescription((String) reqData.get("description"));
+            Object dateObj = reqData.get("test_date") != null ? reqData.get("test_date") : reqData.get("exam_date");
+            if (dateObj != null) {
+                try { test.setTestDate(LocalDate.parse((String) dateObj)); } catch (Exception ignored) {}
+            }
+            if (reqData.get("start_time") != null) {
+                try {
+                    String st = (String) reqData.get("start_time");
+                    if (st.length() == 5) st = st + ":00";
+                    test.setStartTime(LocalTime.parse(st));
+                } catch (Exception ignored) {}
+            }
+            if (reqData.get("end_time") != null) {
+                try {
+                    String et = (String) reqData.get("end_time");
+                    if (et.length() == 5) et = et + ":00";
+                    test.setEndTime(LocalTime.parse(et));
+                } catch (Exception ignored) {}
+            }
+            if (reqData.get("total_marks") != null) {
+                Object marksObj = reqData.get("total_marks");
+                if (marksObj instanceof Number) test.setTotalMarks(((Number) marksObj).intValue());
+                else if (marksObj instanceof String) {
+                    try { test.setTotalMarks(Integer.parseInt((String) marksObj)); } catch (Exception ignored) {}
+                }
+            }
+            return weeklyTestRepository.save(test);
+        }
+        return null;
+    }
+
+    @Transactional
+    public void deleteWeeklyTest(UUID id) {
+        weeklyTestRepository.deleteById(id);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getWeeklyTestResults(UUID testId) {
+        List<WeeklyTestResult> dbResults = weeklyTestResultRepository.findByWeeklyTestId(testId);
+        Map<UUID, WeeklyTestResult> resultMap = new HashMap<>();
+        for (WeeklyTestResult r : dbResults) {
+            if (r.getStudentId() != null) resultMap.put(r.getStudentId(), r);
+        }
+
+        List<Student> students = studentRepository.findAll();
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (Student s : students) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("weekly_test_id", testId.toString());
+            map.put("weekly_exam_id", testId.toString());
+            map.put("student_id", s.getStudentId() != null ? s.getStudentId().toString() : "");
+            map.put("student_name", (s.getFirstName() + " " + s.getLastName()).trim());
+            map.put("enrollment_no", s.getEnrollmentNo() != null ? s.getEnrollmentNo() : "");
+
+            WeeklyTestResult res = resultMap.get(s.getStudentId());
+            if (res != null) {
+                String resIdStr = res.getWeeklyTestResultId() != null ? res.getWeeklyTestResultId().toString() : "";
+                map.put("weekly_test_result_id", resIdStr);
+                map.put("weekly_exam_result_id", resIdStr);
+                map.put("obtained_marks", res.getObtainedMarks());
+                map.put("grade", res.getGrade() != null ? res.getGrade() : "-");
+                map.put("remarks", res.getRemarks() != null ? res.getRemarks() : "");
+            } else {
+                map.put("weekly_test_result_id", null);
+                map.put("weekly_exam_result_id", null);
+                map.put("obtained_marks", null);
+                map.put("grade", "-");
+                map.put("remarks", "");
+            }
+            list.add(map);
+        }
+        return list;
+    }
+
+    @Transactional
+    public List<WeeklyTestResult> saveWeeklyTestResults(UUID testId, List<Map<String, Object>> resultsList) {
+        Optional<WeeklyTest> testOpt = weeklyTestRepository.findById(testId);
+        int totalMarks = testOpt.map(WeeklyTest::getTotalMarks).orElse(25);
+        if (totalMarks <= 0) totalMarks = 25;
+
+        List<WeeklyTestResult> savedList = new ArrayList<>();
+        for (Map<String, Object> item : resultsList) {
+            String studentIdStr = (String) item.get("student_id");
+            if (studentIdStr == null || studentIdStr.trim().isEmpty()) continue;
+
+            UUID studentId;
+            try {
+                studentId = UUID.fromString(studentIdStr.trim());
+            } catch (Exception e) {
+                continue;
+            }
+
+            Integer obtainedMarks = null;
+            if (item.get("obtained_marks") != null) {
+                Object omObj = item.get("obtained_marks");
+                if (omObj instanceof Number) obtainedMarks = ((Number) omObj).intValue();
+                else if (omObj instanceof String && !((String) omObj).trim().isEmpty()) {
+                    try { obtainedMarks = Integer.parseInt(((String) omObj).trim()); } catch (Exception ignored) {}
+                }
+            }
+
+            String remarks = (String) item.get("remarks");
+
+            // Calculate Grade
+            String grade = "-";
+            if (obtainedMarks != null) {
+                double pct = ((double) obtainedMarks / totalMarks) * 100.0;
+                if (pct >= 90) grade = "A+";
+                else if (pct >= 80) grade = "A";
+                else if (pct >= 70) grade = "B+";
+                else if (pct >= 60) grade = "B";
+                else if (pct >= 50) grade = "C";
+                else if (pct >= 40) grade = "D";
+                else grade = "F";
+            }
+
+            List<WeeklyTestResult> existingList = weeklyTestResultRepository.findByWeeklyTestIdAndStudentId(testId, studentId);
+            WeeklyTestResult resRecord;
+            if (!existingList.isEmpty()) {
+                resRecord = existingList.get(0);
+                resRecord.setObtainedMarks(obtainedMarks);
+                resRecord.setGrade(grade);
+                resRecord.setRemarks(remarks);
+                resRecord.setUpdatedAt(java.time.LocalDateTime.now());
+                if (existingList.size() > 1) {
+                    weeklyTestResultRepository.deleteAll(existingList.subList(1, existingList.size()));
+                }
+            } else {
+                resRecord = WeeklyTestResult.builder()
+                        .weeklyTestId(testId)
+                        .studentId(studentId)
+                        .obtainedMarks(obtainedMarks)
+                        .grade(grade)
+                        .remarks(remarks)
+                        .build();
+            }
+            savedList.add(weeklyTestResultRepository.save(resRecord));
+        }
+        return savedList;
     }
 }

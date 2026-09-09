@@ -3,18 +3,25 @@ import { CheckSquare, Calendar, Award, Clock, FileText } from "lucide-react";
 import { studentApi } from "../../services/api";
 
 const StudentWeeklyTests = () => {
-  const [weeklyExams, setWeeklyExams] = useState([]);
-  const [examResults, setExamResults] = useState([]);
+  const [weeklyTests, setWeeklyTests] = useState([]);
+  const [testResults, setTestResults] = useState([]);
 
   useEffect(() => {
     const fetchTests = async () => {
+      const userStr = localStorage.getItem("educonnect_user");
+      const loggedUser = userStr ? JSON.parse(userStr) : null;
+      const enrollmentNo = loggedUser?.enrollment_no || loggedUser?.enrollmentNo || loggedUser?.identifier || "2024MCA001";
+
       try {
-        const data = await studentApi.getWeeklyTests();
+        const data = await studentApi.getWeeklyTests(enrollmentNo);
         if (Array.isArray(data)) {
-          setWeeklyExams(data);
+          setWeeklyTests(data);
+        } else if (data && Array.isArray(data.tests)) {
+          setWeeklyTests(data.tests);
+          if (Array.isArray(data.results)) setTestResults(data.results);
         } else if (data && Array.isArray(data.exams)) {
-          setWeeklyExams(data.exams);
-          if (Array.isArray(data.results)) setExamResults(data.results);
+          setWeeklyTests(data.exams);
+          if (Array.isArray(data.results)) setTestResults(data.results);
         }
       } catch (err) {
         console.error("Weekly tests load error:", err);
@@ -22,6 +29,7 @@ const StudentWeeklyTests = () => {
     };
     fetchTests();
   }, []);
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -33,31 +41,33 @@ const StudentWeeklyTests = () => {
 
       {/* Weekly Tests Reference Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {weeklyExams.map((exam) => {
-          const result = examResults.find((r) => r.weekly_exam_id === exam.weekly_exam_id);
+        {weeklyTests.map((test) => {
+          const testId = test.weekly_test_id || test.weekly_exam_id || test.id;
+          const testDate = test.test_date || test.exam_date;
+          const result = testResults.find((r) => String(r.weekly_test_id || r.weekly_exam_id) === String(testId));
           return (
-            <div key={exam.weekly_exam_id || exam.id} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs flex flex-col justify-between space-y-4">
+            <div key={testId} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs flex flex-col justify-between space-y-4">
               <div className="space-y-2 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="px-2.5 py-0.5 rounded-full bg-[#2563EB]/10 text-[#2563EB] font-mono font-bold text-[11px]">
-                    Exam Date: {exam.exam_date}
+                    Test Date: {testDate}
                   </span>
-                  <span className="font-mono text-[#64748B] text-[11px]">{exam.start_time} - {exam.end_time}</span>
+                  <span className="font-mono text-[#64748B] text-[11px]">{test.start_time} - {test.end_time}</span>
                 </div>
 
-                <h3 className="text-sm font-bold text-[#1E293B]">{exam.title}</h3>
-                <p className="text-[#64748B]">{exam.description}</p>
+                <h3 className="text-sm font-bold text-[#1E293B]">{test.title}</h3>
+                <p className="text-[#64748B]">{test.description}</p>
                 <div className="pt-1 flex items-center justify-between border-t border-[#E2E8F0]">
-                  <span className="font-bold text-[#14B8A6]">Total Marks: {exam.total_marks}</span>
+                  <span className="font-bold text-[#14B8A6]">Total Marks: {test.total_marks}</span>
                   <span className="text-[10px] text-[#64748B]">Conducting Mode: Offline Classroom</span>
                 </div>
               </div>
 
               {/* Result Summary View */}
-              {result ? (
+              {result && result.obtained_marks !== null && result.obtained_marks !== undefined ? (
                 <div className="p-3 bg-[#22C55E]/10 rounded-lg border border-[#22C55E]/20 text-xs space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-[#22C55E]">Evaluated Score: {result.obtained_marks} / {exam.total_marks}</span>
+                    <span className="font-bold text-[#22C55E]">Evaluated Score: {result.obtained_marks} / {test.total_marks}</span>
                     <span className="font-extrabold text-[#22C55E]">Grade: {result.grade}</span>
                   </div>
                   {result.remarks && <p className="text-[11px] text-[#64748B]">Remarks: {result.remarks}</p>}
@@ -72,46 +82,9 @@ const StudentWeeklyTests = () => {
           );
         })}
       </div>
-
-      {/* Full Weekly Test Reference Table */}
-      <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs overflow-hidden">
-        <div className="p-4 border-b border-[#E2E8F0]">
-          <h2 className="text-sm font-bold text-[#1E293B]">Weekly Exams Master Reference Log</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#64748B] font-semibold">
-              <tr>
-                <th className="p-3.5">Exam Date (exam_date)</th>
-                <th className="p-3.5">Test Title (title)</th>
-                <th className="p-3.5">Exam Timing</th>
-                <th className="p-3.5">Total Marks</th>
-                <th className="p-3.5">Obtained Score</th>
-                <th className="p-3.5">Grade</th>
-                <th className="p-3.5">Remarks</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
-              {weeklyExams.map((exam) => {
-                const result = examResults.find((r) => r.weekly_exam_id === exam.weekly_exam_id);
-                return (
-                  <tr key={exam.weekly_exam_id || exam.id} className="hover:bg-[#F8FAFC]">
-                    <td className="p-3.5 font-mono">{exam.exam_date}</td>
-                    <td className="p-3.5 font-bold text-[#2563EB]">{exam.title}</td>
-                    <td className="p-3.5 font-mono text-[#64748B]">{exam.start_time} - {exam.end_time}</td>
-                    <td className="p-3.5 font-bold">{exam.total_marks}</td>
-                    <td className="p-3.5 font-bold text-[#2563EB]">{result ? result.obtained_marks : "-"}</td>
-                    <td className="p-3.5 font-extrabold text-[#22C55E]">{result ? result.grade : "-"}</td>
-                    <td className="p-3.5 text-[#64748B]">{result ? result.remarks : "Pending"}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
   );
 };
 
 export default StudentWeeklyTests;
+

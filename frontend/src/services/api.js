@@ -100,6 +100,8 @@ export const studentApi = {
     handleRequest(() => api.get(`/student/marksheet?enrollmentNo=${enrollmentNo || "2024MCA001"}`), {}),
   getProfile: (enrollmentNo) =>
     handleRequest(() => api.get(`/student/profile?enrollmentNo=${enrollmentNo || "2024MCA001"}`), {}),
+  updateProfile: (data) =>
+    handleMutationRequest(() => api.put("/student/profile", data)),
   getLeaveRequests: (enrollmentNo) =>
     handleRequest(() => api.get(`/student/leave-requests?enrollmentNo=${enrollmentNo || "2024MCA001"}`), []),
   submitLeaveRequest: (data) =>
@@ -110,12 +112,10 @@ export const studentApi = {
     handleMutationRequest(() => api.post("/student/doubts", data)),
   getStudyMaterials: () =>
     handleRequest(() => api.get("/student/study-materials"), []),
-  getOldQuestionPapers: () =>
-    handleRequest(() => api.get("/student/question-papers"), []),
   getQuizzes: () =>
     handleRequest(() => api.get("/student/quizzes"), []),
-  getWeeklyTests: () =>
-    handleRequest(() => api.get("/student/weekly-tests"), []),
+  getWeeklyTests: (enrollmentNo) =>
+    handleRequest(() => api.get(`/student/weekly-tests?enrollmentNo=${enrollmentNo || "2024MCA001"}`), {}),
   getTimetable: (enrollmentNo) =>
     handleRequest(() => api.get(`/student/timetable?enrollmentNo=${enrollmentNo || "2024MCA001"}`), []),
   getSyllabus: () =>
@@ -146,6 +146,10 @@ export const teacherApi = {
     handleMutationRequest(() => api.put(`/teacher/assignments/${id}`, data)),
   deleteAssignment: (id) =>
     handleMutationRequest(() => api.delete(`/teacher/assignments/${id}`)),
+  getAssignmentSubmissions: (assignmentId) =>
+    handleRequest(() => api.get(`/teacher/assignments/${assignmentId}/submissions`), []),
+  gradeSubmission: (submissionId, data) =>
+    handleMutationRequest(() => api.post(`/teacher/submissions/${submissionId}/grade`, data)),
   getPendingGrades: (teacherId) =>
     handleRequest(() => api.get(`/teacher/grades?teacherId=${teacherId || "teach-demo-id"}`), []),
   submitGrades: (data) =>
@@ -162,8 +166,6 @@ export const teacherApi = {
     handleRequest(() => api.get("/teacher/study-materials"), []),
   uploadStudyMaterial: (data) =>
     handleMutationRequest(() => api.post("/teacher/study-materials", data)),
-  getOldQuestionPapers: () =>
-    handleRequest(() => api.get("/teacher/question-papers"), []),
   getQuizzes: () =>
     handleRequest(() => api.get("/teacher/quizzes"), []),
   createQuiz: (data) =>
@@ -172,6 +174,14 @@ export const teacherApi = {
     handleRequest(() => api.get("/teacher/weekly-tests"), []),
   createWeeklyTest: (data) =>
     handleMutationRequest(() => api.post("/teacher/weekly-tests", data)),
+  updateWeeklyTest: (id, data) =>
+    handleMutationRequest(() => api.put(`/teacher/weekly-tests/${id}`, data)),
+  deleteWeeklyTest: (id) =>
+    handleMutationRequest(() => api.delete(`/teacher/weekly-tests/${id}`)),
+  getWeeklyTestResults: (testId) =>
+    handleRequest(() => api.get(`/teacher/weekly-tests/${testId}/results`), []),
+  saveWeeklyTestResults: (testId, data) =>
+    handleMutationRequest(() => api.post(`/teacher/weekly-tests/${testId}/results`, data)),
   getProfile: (identifier) =>
     handleRequest(() => api.get(`/teacher/profile?email=${encodeURIComponent(identifier || "")}&teacherId=${encodeURIComponent(identifier || "")}`), {}),
   updateProfile: (data) =>

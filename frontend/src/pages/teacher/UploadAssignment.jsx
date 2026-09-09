@@ -6,8 +6,7 @@ import {
 import Button from "../../components/common/Button";
 import { teacherApi } from "../../services/api";
 import { notifySuccess, notifyError } from "../../utils/toast";
-import { openFileDocument } from "../../utils/fileViewer";
-
+import { readFileAsDataURL, getDisplayFileName, downloadFile, openFileInNewTab } from "../../utils/fileViewer";
 
 const defaultSubmissions = [
   {
@@ -111,6 +110,12 @@ const TeacherUploadAssignment = () => {
   const [gradeFeedback, setGradeFeedback] = useState("Good work");
   const [reminderSentId, setReminderSentId] = useState(null);
 
+  const [refFileData, setRefFileData] = useState(null);
+
+  const handleViewDocument = (fileUrl, title = "Document Preview") => {
+    openFileInNewTab(fileUrl, title);
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       const userStr = localStorage.getItem("educonnect_user");
@@ -131,6 +136,23 @@ const TeacherUploadAssignment = () => {
         }
         if (Array.isArray(asgnData)) {
           setAssignments(asgnData);
+          try {
+            const subPromises = asgnData.map((a) =>
+              a.assignment_id ? teacherApi.getAssignmentSubmissions(a.assignment_id) : Promise.resolve([])
+            );
+            const subResults = await Promise.all(subPromises);
+            const flatSubs = subResults.flat().filter(Boolean);
+            if (flatSubs.length > 0) {
+              setSubmissions((prev) => {
+                const map = new Map();
+                prev.forEach((s) => map.set(`${s.assignment_id}-${s.student_id}`, s));
+                flatSubs.forEach((s) => map.set(`${s.assignment_id}-${s.student_id}`, s));
+                return Array.from(map.values());
+              });
+            }
+          } catch (subErr) {
+            console.error("Error fetching assignment submissions for stats:", subErr);
+          }
         }
       } catch (err) {
         console.error("Teacher upload assignment data load error:", err);
@@ -139,10 +161,16 @@ const TeacherUploadAssignment = () => {
     fetchData();
   }, []);
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
       setRefFileName(file.name);
+      try {
+        const dataUrl = await readFileAsDataURL(file);
+        setRefFileData(dataUrl);
+      } catch (err) {
+        console.error("Error reading uploaded file as Data URL:", err);
+      }
     }
   };
 
@@ -153,11 +181,13 @@ const TeacherUploadAssignment = () => {
     setNewDueDate("2026-08-25");
     setNewMarks(50);
     setRefFileName("");
+    setRefFileData(null);
     if (assignedSubjects.length > 0) {
       setSelectedSubjectId(assignedSubjects[0].subject_id || "");
     }
     setShowAddModal(true);
   };
+
 
   const handleOpenEditModal = (asgn) => {
     setEditingAssignmentId(asgn.assignment_id);
@@ -165,7 +195,9 @@ const TeacherUploadAssignment = () => {
     setNewDesc(asgn.description);
     setNewDueDate(asgn.due_date);
     setNewMarks(asgn.total_marks);
-    setRefFileName(asgn.attachment ? asgn.attachment.replace("/uploads/assignments/", "") : "");
+    const cleanName = getDisplayFileName(asgn.file_name, asgn.attachment, asgn.title);
+    setRefFileName(cleanName);
+    setRefFileData(null);
     setSelectedSubjectId(asgn.subject_id || (assignedSubjects[0]?.subject_id || ""));
     setShowAddModal(true);
   };
@@ -186,11 +218,12 @@ const TeacherUploadAssignment = () => {
 
   const handleSaveAssignment = async (e) => {
     e.preventDefault();
-    const attachmentPath = refFileName
-      ? refFileName.startsWith("/")
+    const cleanFileName = getDisplayFileName(refFileName, refFileData, newTitle);
+    const attachmentVal = refFileData || (refFileName
+      ? (refFileName.startsWith("data:") || refFileName.startsWith("/"))
         ? refFileName
         : `/uploads/assignments/${refFileName}`
-      : null;
+      : null);
 
     const selectedSubObj = assignedSubjects.find((s) => String(s.subject_id) === String(selectedSubjectId));
     const subName = selectedSubObj ? `${selectedSubObj.subject_code} - ${selectedSubObj.subject_name}` : "Assigned Subject";
@@ -201,7 +234,9 @@ const TeacherUploadAssignment = () => {
       description: newDesc,
       due_date: newDueDate,
       total_marks: Number(newMarks),
-      attachment: attachmentPath,
+      attachment: attachmentVal,
+      file_name: cleanFileName,
+      fileName: cleanFileName,
     };
 
     try {
@@ -230,12 +265,49 @@ const TeacherUploadAssignment = () => {
     setEditingAssignmentId(null);
   };
 
-  const handleGradeSubmission = () => {
+  const handleGradeSubmission = async () => {
     if (!selectedSub) return;
+    try {
+      if (selectedSub.submission_id && !selectedSub.submission_id.startsWith("sub-missing-")) {
+        await teacherApi.gradeSubmission(selectedSub.submission_id, {
+          obtained_marks: Number(gradeMarks),
+          feedback: gradeFeedback,
+        });
+      }
+    } catch (err) {
+      console.error("Error saving grade to database:", err);
+    }
+
+    // Sync to local student submissions storage for seamless offline/immediate UI sync
+    try {
+      const savedSubsStr = localStorage.getItem("educonnect_student_submissions");
+      if (savedSubsStr) {
+        let savedSubs = JSON.parse(savedSubsStr);
+        savedSubs = savedSubs.map((s) => {
+          if (
+            String(s.submission_id) === String(selectedSub.submission_id) ||
+            String(s.assignment_id) === String(selectedSub.assignment_id) ||
+            (s.title && s.title === selectedSub.assignment_title)
+          ) {
+            return {
+              ...s,
+              obtained_marks: Number(gradeMarks),
+              feedback: gradeFeedback,
+              remarks: gradeFeedback,
+            };
+          }
+          return s;
+        });
+        localStorage.setItem("educonnect_student_submissions", JSON.stringify(savedSubs));
+      }
+    } catch (e) {
+      console.error("Error syncing student local submissions:", e);
+    }
+
     setSubmissions(
       submissions.map((s) =>
         s.submission_id === selectedSub.submission_id
-          ? { ...s, obtained_marks: Number(gradeMarks), feedback: gradeFeedback }
+          ? { ...s, obtained_marks: Number(gradeMarks), feedback: gradeFeedback, submission_status: "Graded" }
           : s
       )
     );
@@ -249,30 +321,87 @@ const TeacherUploadAssignment = () => {
     setTimeout(() => setReminderSentId(null), 3000);
   };
 
+  // Helper to determine exact submission status (Timely, Late, or Missed)
+  const getEffectiveSubmissionStatus = (sub, asgn) => {
+    if (!sub || sub.submitted === false || (!sub.attachment && sub.submission_status === "Missed")) {
+      return "Missed";
+    }
+    if (sub.submission_status === "Late") return "Late";
+    if (sub.submission_status === "Timely") return "Timely";
+
+    // Fallback: Compare submission date with due date if status is not explicitly set
+    const dueDateStr = asgn?.due_date || sub?.due_date;
+    const subDateStr = sub?.submission_date;
+    if (dueDateStr && subDateStr && subDateStr !== "-") {
+      try {
+        const due = new Date(dueDateStr);
+        due.setHours(23, 59, 59, 999);
+        const subDate = new Date(subDateStr);
+        if (subDate > due) {
+          return "Late";
+        }
+      } catch (e) {}
+    }
+    return "Timely";
+  };
+
   // Helper to compute stats per assignment
-  const getAssignmentStats = (asgnId) => {
-    const asgnSubs = submissions.filter((s) => s.assignment_id === asgnId);
-    const timely = asgnSubs.filter((s) => s.submission_status === "Timely").length;
-    const late = asgnSubs.filter((s) => s.submission_status === "Late").length;
-    const missed = asgnSubs.filter((s) => s.submission_status === "Missed").length;
-    return { timely, late, missed, total: asgnSubs.length };
+  const getAssignmentStats = (asgnId, asgnObj) => {
+    const asgnSubs = submissions.filter((s) => String(s.assignment_id) === String(asgnId));
+    if (asgnSubs.length > 0) {
+      let timely = 0;
+      let late = 0;
+      let missed = 0;
+      asgnSubs.forEach((s) => {
+        const st = getEffectiveSubmissionStatus(s, asgnObj);
+        if (st === "Late") late++;
+        else if (st === "Timely") timely++;
+        else missed++;
+      });
+      return { timely, late, missed, total: asgnSubs.length };
+    }
+    if (asgnObj) {
+      return {
+        timely: asgnObj.timely_count || 0,
+        late: asgnObj.late_count || 0,
+        missed: asgnObj.missed_count || 0,
+        total: (asgnObj.timely_count || 0) + (asgnObj.late_count || 0) + (asgnObj.missed_count || 0),
+      };
+    }
+    return { timely: 0, late: 0, missed: 0, total: 0 };
   };
 
   // Open Submissions Pop-up Modal for a specific assignment
-  const handleOpenSubmissionsModal = (asgn, initialTab = "timely") => {
+  const handleOpenSubmissionsModal = async (asgn, initialTab = "timely") => {
     setViewSubmissionsAssignment(asgn);
     setModalTab(initialTab);
+    if (asgn?.assignment_id) {
+      try {
+        const dbSubs = await teacherApi.getAssignmentSubmissions(asgn.assignment_id);
+        if (Array.isArray(dbSubs) && dbSubs.length > 0) {
+          setSubmissions((prev) => {
+            const otherSubs = prev.filter((s) => s.assignment_id !== asgn.assignment_id);
+            return [...dbSubs, ...otherSubs];
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching assignment submissions from database:", err);
+      }
+    }
   };
 
   // Filtered submissions inside modal
   const modalSubmissions = viewSubmissionsAssignment
-    ? submissions.filter(
-        (s) =>
-          s.assignment_id === viewSubmissionsAssignment.assignment_id &&
-          ((modalTab === "timely" && s.submission_status === "Timely") ||
-            (modalTab === "late" && s.submission_status === "Late") ||
-            (modalTab === "missed" && s.submission_status === "Missed"))
-      )
+    ? submissions.filter((s) => {
+        if (String(s.assignment_id) !== String(viewSubmissionsAssignment.assignment_id)) {
+          return false;
+        }
+        const st = getEffectiveSubmissionStatus(s, viewSubmissionsAssignment);
+        if (modalTab === "timely") return st === "Timely";
+        if (modalTab === "late") return st === "Late";
+        if (modalTab === "missed") return st === "Missed";
+        return false;
+      })
     : [];
 
   return (
@@ -302,7 +431,7 @@ const TeacherUploadAssignment = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {assignments.map((asgn) => {
-            const stats = getAssignmentStats(asgn.assignment_id);
+            const stats = getAssignmentStats(asgn.assignment_id, asgn);
             return (
               <div
                 key={asgn.assignment_id}
@@ -349,11 +478,11 @@ const TeacherUploadAssignment = () => {
                   {asgn.attachment && (
                     <div className="pt-1">
                       <button
-                        onClick={() => openFileDocument(asgn.attachment, asgn.title)}
+                        onClick={() => handleViewDocument(asgn.attachment, asgn.title)}
                         className="inline-flex items-center gap-1.5 font-mono font-bold text-xs text-[#14B8A6] bg-[#14B8A6]/10 hover:bg-[#14B8A6] hover:text-white px-3 py-1 rounded-lg border border-[#14B8A6]/20 transition-all cursor-pointer"
-                        title="Click to open reference document"
+                        title="Click to view document in a new tab"
                       >
-                        <Paperclip className="w-3.5 h-3.5" /> Ref File: {asgn.attachment}
+                        <Paperclip className="w-3.5 h-3.5" /> Ref File: {getDisplayFileName(asgn.file_name, asgn.attachment, asgn.title)}
                       </button>
                     </div>
                   )}
@@ -446,7 +575,7 @@ const TeacherUploadAssignment = () => {
                 }`}
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                Submitted Timely ({getAssignmentStats(viewSubmissionsAssignment.assignment_id).timely})
+                Submitted Timely ({getAssignmentStats(viewSubmissionsAssignment.assignment_id, viewSubmissionsAssignment).timely})
               </button>
 
               <button
@@ -458,7 +587,7 @@ const TeacherUploadAssignment = () => {
                 }`}
               >
                 <Clock className="w-3.5 h-3.5" />
-                Submitted Late ({getAssignmentStats(viewSubmissionsAssignment.assignment_id).late})
+                Submitted Late ({getAssignmentStats(viewSubmissionsAssignment.assignment_id, viewSubmissionsAssignment).late})
               </button>
 
               <button
@@ -470,7 +599,7 @@ const TeacherUploadAssignment = () => {
                 }`}
               >
                 <AlertTriangle className="w-3.5 h-3.5" />
-                Missed / Pending ({getAssignmentStats(viewSubmissionsAssignment.assignment_id).missed})
+                Missed / Pending ({getAssignmentStats(viewSubmissionsAssignment.assignment_id, viewSubmissionsAssignment).missed})
               </button>
             </div>
 
@@ -497,21 +626,28 @@ const TeacherUploadAssignment = () => {
                       </div>
 
                       {/* Status Badge */}
-                      {sub.submission_status === "Timely" && (
-                        <span className="px-2 py-0.5 rounded-full bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20 text-[10px] font-bold">
-                          Timely
-                        </span>
-                      )}
-                      {sub.submission_status === "Late" && (
-                        <span className="px-2 py-0.5 rounded-full bg-[#F97316]/10 text-[#F97316] border border-[#F97316]/20 text-[10px] font-bold">
-                          Late
-                        </span>
-                      )}
-                      {sub.submission_status === "Missed" && (
-                        <span className="px-2 py-0.5 rounded-full bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/20 text-[10px] font-bold">
-                          Missed
-                        </span>
-                      )}
+                      {(() => {
+                        const statusBadge = getEffectiveSubmissionStatus(sub, viewSubmissionsAssignment);
+                        if (statusBadge === "Timely") {
+                          return (
+                            <span className="px-2 py-0.5 rounded-full bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20 text-[10px] font-bold">
+                              Timely
+                            </span>
+                          );
+                        }
+                        if (statusBadge === "Late") {
+                          return (
+                            <span className="px-2 py-0.5 rounded-full bg-[#F97316]/10 text-[#F97316] border border-[#F97316]/20 text-[10px] font-bold">
+                              Late
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="px-2 py-0.5 rounded-full bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/20 text-[10px] font-bold">
+                            Missed
+                          </span>
+                        );
+                      })()}
                     </div>
 
                     {/* Submission Info Box */}
@@ -520,11 +656,11 @@ const TeacherUploadAssignment = () => {
                         <span className="text-[10px] text-[#64748B] font-semibold">File Attached:</span>
                         {sub.attachment ? (
                           <button
-                            onClick={() => setViewFileModal(sub)}
+                            onClick={() => handleViewDocument(sub.attachment, `${sub.student_name}'s Submission`)}
                             className="inline-flex items-center gap-1 font-mono font-bold text-[#2563EB] bg-[#2563EB]/10 hover:bg-[#2563EB] hover:text-white px-2.5 py-1 rounded transition-all cursor-pointer text-[11px]"
-                            title="Click file name to open document"
+                            title="Click file name to view document in a new tab"
                           >
-                            <Paperclip className="w-3 h-3" /> {sub.attachment}
+                            <Paperclip className="w-3 h-3" /> {getDisplayFileName(sub.file_name, sub.attachment, `${sub.student_name}_Submission`)}
                           </button>
                         ) : (
                           <span className="text-[#EF4444] font-semibold text-[10px]">No File Uploaded</span>
@@ -686,8 +822,8 @@ const TeacherUploadAssignment = () => {
                   className="w-full text-xs text-[#64748B] file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#2563EB]/10 file:text-[#2563EB] cursor-pointer"
                 />
                 {refFileName && (
-                  <p className="text-[11px] text-[#14B8A6] font-semibold font-mono">
-                    Selected Document: {refFileName}
+                  <p className="text-[11px] text-[#14B8A6] font-semibold font-mono truncate">
+                    Selected Document: {getDisplayFileName(refFileName, refFileData, newTitle)}
                   </p>
                 )}
               </div>
@@ -729,11 +865,11 @@ const TeacherUploadAssignment = () => {
                   <span className="text-[10px] font-bold text-[#64748B] uppercase block">Submitted File Attachment</span>
                   {selectedSub.attachment ? (
                     <button
-                      onClick={() => openFileDocument(selectedSub.attachment, selectedSub.student_name)}
+                      onClick={() => handleViewDocument(selectedSub.attachment, `${selectedSub.student_name}'s Submission`)}
                       className="font-mono font-bold text-[#2563EB] text-xs hover:underline cursor-pointer flex items-center gap-1 mt-0.5"
-                      title="Click file name to open document"
+                      title="Click file name to view document in a new tab"
                     >
-                      <Paperclip className="w-3.5 h-3.5" /> {selectedSub.attachment}
+                      <Paperclip className="w-3.5 h-3.5" /> {getDisplayFileName(selectedSub.file_name, selectedSub.attachment, `${selectedSub.student_name}_Submission`)}
                     </button>
                   ) : (
                     <span className="text-gray-400 text-xs italic">No file uploaded</span>
@@ -810,7 +946,7 @@ const TeacherUploadAssignment = () => {
                 <Paperclip className="w-10 h-10 text-[#2563EB] mx-auto animate-bounce" />
                 <div>
                   <h4 className="text-sm font-extrabold text-[#1E293B] font-mono truncate max-w-xs mx-auto">
-                    {viewFileModal.attachment || "assignment_document.zip"}
+                    {getDisplayFileName(viewFileModal.file_name, viewFileModal.attachment, `${viewFileModal.student_name}_Submission`)}
                   </h4>
                   <p className="text-[11px] text-[#64748B] mt-0.5">
                     Official Student Document • Submitted for Evaluation
@@ -822,7 +958,7 @@ const TeacherUploadAssignment = () => {
                     variant="accent"
                     size="sm"
                     icon={Paperclip}
-                    onClick={() => openFileDocument(viewFileModal.attachment, viewFileModal.student_name)}
+                    onClick={() => handleViewDocument(viewFileModal.attachment, `${viewFileModal.student_name}'s Submission`)}
                     className="text-xs"
                   >
                     Download Attachment
@@ -831,10 +967,10 @@ const TeacherUploadAssignment = () => {
                     variant="outline"
                     size="sm"
                     icon={Eye}
-                    onClick={() => openFileDocument(viewFileModal.attachment, viewFileModal.student_name)}
+                    onClick={() => handleViewDocument(viewFileModal.attachment, `${viewFileModal.student_name}'s Submission`)}
                     className="text-xs"
                   >
-                    Open Document Preview
+                    Open Full-Screen Document Preview
                   </Button>
                 </div>
               </div>
@@ -842,8 +978,10 @@ const TeacherUploadAssignment = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };
 
 export default TeacherUploadAssignment;
+

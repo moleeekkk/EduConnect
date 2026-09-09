@@ -61,4 +61,17 @@ public class StudentController {
         Map<String, Object> profile = studentService.getStudentProfile(enrollmentNo);
         return ResponseEntity.ok(profile);
     }
+
+    @PutMapping("/profile")
+    public ResponseEntity<Map<String, Object>> updateStudentProfile(
+            @RequestBody Map<String, Object> reqData) {
+        Map<String, Object> updated = studentService.updateStudentProfile(reqData);
+        return ResponseEntity.ok(updated);
+    }
+
+    @GetMapping("/weekly-tests")
+    public ResponseEntity<Map<String, Object>> getWeeklyTests(
+            @RequestParam(required = false, defaultValue = "2024MCA001") String enrollmentNo) {
+        return ResponseEntity.ok(studentService.getWeeklyTestsForStudent(enrollmentNo));
+    }
 }

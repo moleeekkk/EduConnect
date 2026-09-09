@@ -2,13 +2,14 @@ import React, { useState, useEffect } from "react";
 import { CheckSquare, Plus, Eye, Award, CheckCircle2, Clock, Edit, Trash2, X } from "lucide-react";
 import Button from "../../components/common/Button";
 import { teacherApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const TeacherWeeklyTests = () => {
-  const [exams, setExams] = useState([]);
+  const [tests, setTests] = useState([]);
   const [results, setResults] = useState([]);
   const [students, setStudents] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [editingExamId, setEditingExamId] = useState(null);
+  const [editingTestId, setEditingTestId] = useState(null);
   const [viewResultsModal, setViewResultsModal] = useState(null);
 
   useEffect(() => {
@@ -19,9 +20,12 @@ const TeacherWeeklyTests = () => {
           teacherApi.getStudents(),
         ]);
         if (Array.isArray(testsData)) {
-          setExams(testsData);
+          setTests(testsData);
+        } else if (testsData && Array.isArray(testsData.tests)) {
+          setTests(testsData.tests);
+          if (Array.isArray(testsData.results)) setResults(testsData.results);
         } else if (testsData && Array.isArray(testsData.exams)) {
-          setExams(testsData.exams);
+          setTests(testsData.exams);
           if (Array.isArray(testsData.results)) setResults(testsData.results);
         }
         if (Array.isArray(stuData)) {
@@ -42,7 +46,7 @@ const TeacherWeeklyTests = () => {
   const [totalMarks, setTotalMarks] = useState(25);
 
   const handleOpenAddModal = () => {
-    setEditingExamId(null);
+    setEditingTestId(null);
     setTitle("");
     setDesc("");
     setDate("2026-08-18");
@@ -52,65 +56,116 @@ const TeacherWeeklyTests = () => {
     setShowAddModal(true);
   };
 
-  const handleOpenEditModal = (exam) => {
-    setEditingExamId(exam.weekly_exam_id);
-    setTitle(exam.title);
-    setDesc(exam.description);
-    setDate(exam.exam_date);
-    setStartTime(exam.start_time ? exam.start_time.substring(0, 5) : "10:00");
-    setEndTime(exam.end_time ? exam.end_time.substring(0, 5) : "11:00");
-    setTotalMarks(exam.total_marks);
+  const handleOpenEditModal = (test) => {
+    const id = test.weekly_test_id || test.weekly_exam_id;
+    const testDate = test.test_date || test.exam_date;
+    setEditingTestId(id);
+    setTitle(test.title);
+    setDesc(test.description);
+    setDate(testDate);
+    setStartTime(test.start_time ? test.start_time.substring(0, 5) : "10:00");
+    setEndTime(test.end_time ? test.end_time.substring(0, 5) : "11:00");
+    setTotalMarks(test.total_marks);
     setShowAddModal(true);
   };
 
-  const handleDeleteTest = (id) => {
-    if (window.confirm("Are you sure you want to delete this weekly test?")) {
-      setExams(exams.filter((e) => e.weekly_exam_id !== id));
+  const handleDeleteTest = async (id) => {
+    if (window.confirm("Are you sure you want to delete this weekly test from database?")) {
+      try {
+        await teacherApi.deleteWeeklyTest(id);
+        setTests((prev) => prev.filter((e) => String(e.weekly_test_id || e.weekly_exam_id) !== String(id)));
+        notifySuccess("Weekly test deleted successfully from database!");
+      } catch (err) {
+        console.error("Error deleting weekly test:", err);
+        notifyError("Failed to delete weekly test from database.");
+      }
     }
   };
 
-  const handleSaveTest = (e) => {
+  const handleSaveTest = async (e) => {
     e.preventDefault();
     const formattedStartTime = startTime.length === 5 ? `${startTime}:00` : startTime;
     const formattedEndTime = endTime.length === 5 ? `${endTime}:00` : endTime;
 
-    if (editingExamId) {
-      // Update Existing Exam
-      setExams(
-        exams.map((ex) =>
-          ex.weekly_exam_id === editingExamId
-            ? {
-                ...ex,
-                title,
-                description: desc,
-                exam_date: date,
-                start_time: formattedStartTime,
-                end_time: formattedEndTime,
-                total_marks: Number(totalMarks),
-                updated_at: new Date().toISOString(),
-              }
-            : ex
-        )
-      );
-    } else {
-      // Create New Exam
-      const created = {
-        weekly_exam_id: `wexam-00${exams.length + 1}`,
-        teacher_subject_id: "ts-001",
-        title,
-        description: desc,
-        exam_date: date,
-        start_time: formattedStartTime,
-        end_time: formattedEndTime,
-        total_marks: Number(totalMarks),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      setExams([created, ...exams]);
+    const payload = {
+      title,
+      description: desc,
+      test_date: date,
+      exam_date: date,
+      start_time: formattedStartTime,
+      end_time: formattedEndTime,
+      total_marks: Number(totalMarks),
+    };
+
+    try {
+      if (editingTestId) {
+        await teacherApi.updateWeeklyTest(editingTestId, payload);
+        notifySuccess(`Weekly test '${title}' updated in database successfully!`);
+      } else {
+        await teacherApi.createWeeklyTest(payload);
+        notifySuccess(`Weekly test '${title}' saved to database successfully!`);
+      }
+
+      // Refresh test list from database
+      const testsData = await teacherApi.getWeeklyTests();
+      if (Array.isArray(testsData)) {
+        setTests(testsData);
+      } else if (testsData && Array.isArray(testsData.tests)) {
+        setTests(testsData.tests);
+      } else if (testsData && Array.isArray(testsData.exams)) {
+        setTests(testsData.exams);
+      }
+    } catch (err) {
+      console.error("Error saving weekly test to database:", err);
+      notifyError("Failed to save weekly test to database.");
     }
 
     setShowAddModal(false);
-    setEditingExamId(null);
+    setEditingTestId(null);
+  };
+
+  const handleOpenResultsModal = async (test) => {
+    setViewResultsModal(test);
+    const testId = test?.weekly_test_id || test?.weekly_exam_id;
+    if (testId) {
+      try {
+        const resData = await teacherApi.getWeeklyTestResults(testId);
+        if (Array.isArray(resData)) {
+          setResults(resData);
+        }
+      } catch (err) {
+        console.error("Error fetching weekly test results from database:", err);
+      }
+    }
+  };
+
+  const handleMarksChange = (studentId, value) => {
+    setResults((prev) =>
+      prev.map((r) =>
+        r.student_id === studentId ? { ...r, obtained_marks: value === "" ? "" : Number(value) } : r
+      )
+    );
+  };
+
+  const handleRemarksChange = (studentId, value) => {
+    setResults((prev) =>
+      prev.map((r) =>
+        r.student_id === studentId ? { ...r, remarks: value } : r
+      )
+    );
+  };
+
+  const handleSaveResults = async () => {
+    const testId = viewResultsModal?.weekly_test_id || viewResultsModal?.weekly_exam_id;
+    if (!testId) return;
+    try {
+      await teacherApi.saveWeeklyTestResults(testId, results);
+      notifySuccess(`Weekly test marks saved to database for '${viewResultsModal.title}'!`);
+      setViewResultsModal(null);
+    } catch (err) {
+      console.error("Error saving weekly test results:", err);
+      notifyError("Failed to save weekly test marks to database.");
+    }
   };
 
   return (
@@ -128,60 +183,64 @@ const TeacherWeeklyTests = () => {
 
       {/* Test List */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {exams.map((exam) => (
-          <div key={exam.weekly_exam_id} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs flex flex-col justify-between space-y-4">
-            <div className="space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="px-2.5 py-0.5 rounded-full bg-[#2563EB]/10 text-[#2563EB] font-mono font-bold text-[11px]">
-                  Exam Date: {exam.exam_date}
-                </span>
-                <span className="font-bold text-[#14B8A6]">Total Marks: {exam.total_marks}</span>
+        {tests.map((test) => {
+          const testId = test.weekly_test_id || test.weekly_exam_id;
+          const testDate = test.test_date || test.exam_date;
+          return (
+            <div key={testId} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs flex flex-col justify-between space-y-4">
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#2563EB]/10 text-[#2563EB] font-mono font-bold text-[11px]">
+                    Test Date: {testDate}
+                  </span>
+                  <span className="font-bold text-[#14B8A6]">Total Marks: {test.total_marks}</span>
+                </div>
+
+                <h3 className="text-sm font-bold text-[#1E293B]">{test.title}</h3>
+                <p className="text-[#64748B]">{test.description}</p>
+
+                {/* Start & End Timing Info */}
+                <div className="pt-2 border-t border-[#E2E8F0] flex items-center gap-1.5 text-xs text-[#1E293B] font-mono font-medium">
+                  <Clock className="w-3.5 h-3.5 text-[#2563EB]" />
+                  <span>Test Schedule: {test.start_time} to {test.end_time}</span>
+                </div>
               </div>
 
-              <h3 className="text-sm font-bold text-[#1E293B]">{exam.title}</h3>
-              <p className="text-[#64748B]">{exam.description}</p>
-
-              {/* Start & End Timing Info */}
-              <div className="pt-2 border-t border-[#E2E8F0] flex items-center gap-1.5 text-xs text-[#1E293B] font-mono font-medium">
-                <Clock className="w-3.5 h-3.5 text-[#2563EB]" />
-                <span>Exam Schedule: {exam.start_time} to {exam.end_time}</span>
-              </div>
-            </div>
-
-            <div className="border-t border-[#E2E8F0] pt-3 flex flex-wrap items-center justify-between gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                icon={Eye}
-                onClick={() => setViewResultsModal(exam)}
-                className="text-xs"
-              >
-                View Student Results
-              </Button>
-
-              <div className="flex items-center gap-2">
+              <div className="border-t border-[#E2E8F0] pt-3 flex flex-wrap items-center justify-between gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  icon={Edit}
-                  onClick={() => handleOpenEditModal(exam)}
+                  icon={Eye}
+                  onClick={() => handleOpenResultsModal(test)}
                   className="text-xs"
                 >
-                  Edit
+                  Grade / Enter Student Marks
                 </Button>
-                <Button
-                  variant="danger"
-                  size="sm"
-                  icon={Trash2}
-                  onClick={() => handleDeleteTest(exam.weekly_exam_id)}
-                  className="text-xs !bg-[#EF4444]/10 !text-[#EF4444] hover:!bg-[#EF4444] hover:!text-white border-transparent"
-                >
-                  Delete
-                </Button>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={Edit}
+                    onClick={() => handleOpenEditModal(test)}
+                    className="text-xs"
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    icon={Trash2}
+                    onClick={() => handleDeleteTest(testId)}
+                    className="text-xs !bg-[#EF4444]/10 !text-[#EF4444] hover:!bg-[#EF4444] hover:!text-white border-transparent"
+                  >
+                    Delete
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Add / Edit Modal */}
@@ -189,7 +248,7 @@ const TeacherWeeklyTests = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl border border-[#E2E8F0] space-y-4">
             <h3 className="text-base font-bold text-[#1E293B] border-b border-[#E2E8F0] pb-2">
-              {editingExamId ? "Edit Weekly Test Details" : "Create Weekly Test"}
+              {editingTestId ? "Edit Weekly Test Details" : "Create Weekly Test"}
             </h3>
 
             <form onSubmit={handleSaveTest} className="space-y-3 text-xs">
@@ -219,7 +278,7 @@ const TeacherWeeklyTests = () => {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[#64748B] mb-1 font-medium">Exam Date (exam_date)</label>
+                  <label className="block text-[#64748B] mb-1 font-medium">Test Date (test_date)</label>
                   <input
                     type="date"
                     required
@@ -269,7 +328,7 @@ const TeacherWeeklyTests = () => {
                   Cancel
                 </Button>
                 <Button variant="accent" size="sm" type="submit">
-                  {editingExamId ? "Save Changes" : "Save Exam"}
+                  {editingTestId ? "Save Changes" : "Save Test"}
                 </Button>
               </div>
             </form>
@@ -277,14 +336,19 @@ const TeacherWeeklyTests = () => {
         </div>
       )}
 
-      {/* Results Modal */}
+      {/* Results / Grade Marks Modal */}
       {viewResultsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl border border-[#E2E8F0] space-y-4">
-            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2">
-              <h3 className="text-base font-bold text-[#1E293B]">
-                Class Exam Results ({viewResultsModal.title})
-              </h3>
+          <div className="bg-white rounded-xl max-w-2xl w-full p-6 shadow-xl border border-[#E2E8F0] space-y-4 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3 shrink-0">
+              <div>
+                <h3 className="text-base font-bold text-[#1E293B]">
+                  Class Test Results & Grading ({viewResultsModal.title})
+                </h3>
+                <p className="text-xs text-[#64748B]">
+                  Total Marks: {viewResultsModal.total_marks} • Test Date: {viewResultsModal.test_date || viewResultsModal.exam_date}
+                </p>
+              </div>
               <button
                 onClick={() => setViewResultsModal(null)}
                 className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
@@ -294,23 +358,56 @@ const TeacherWeeklyTests = () => {
               </button>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-y-auto flex-1 custom-scrollbar pr-1">
               <table className="w-full text-left text-xs">
-                <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#64748B]">
+                <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#64748B] sticky top-0">
                   <tr>
-                    <th className="p-2">Student</th>
-                    <th className="p-2">Marks Obtained</th>
-                    <th className="p-2">Grade</th>
+                    <th className="p-2.5">Student Name</th>
+                    <th className="p-2.5">Enrollment No</th>
+                    <th className="p-2.5 w-28">Marks ({viewResultsModal.total_marks})</th>
+                    <th className="p-2.5 w-16 text-center">Grade</th>
+                    <th className="p-2.5">Remarks</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E2E8F0]">
                   {results.map((r) => {
-                    const stu = students.find((s) => s.student_id === r.student_id || s.id === r.student_id);
+                    const om = r.obtained_marks;
+                    let grade = r.grade || "-";
+                    if (om !== null && om !== "" && !isNaN(om)) {
+                      const pct = (Number(om) / (viewResultsModal.total_marks || 25)) * 100;
+                      if (pct >= 90) grade = "A+";
+                      else if (pct >= 80) grade = "A";
+                      else if (pct >= 70) grade = "B+";
+                      else if (pct >= 60) grade = "B";
+                      else if (pct >= 50) grade = "C";
+                      else if (pct >= 40) grade = "D";
+                      else grade = "F";
+                    }
                     return (
-                      <tr key={r.weekly_exam_result_id || r.id}>
-                        <td className="p-2 font-bold">{stu ? `${stu.first_name || ""} ${stu.last_name || ""}` : "Student"}</td>
-                        <td className="p-2 font-bold text-[#2563EB]">{r.obtained_marks} / {viewResultsModal.total_marks}</td>
-                        <td className="p-2 font-extrabold text-[#22C55E]">{r.grade}</td>
+                      <tr key={r.student_id} className="hover:bg-[#F8FAFC]">
+                        <td className="p-2.5 font-bold text-[#1E293B]">{r.student_name}</td>
+                        <td className="p-2.5 font-mono text-[#2563EB] font-bold">{r.enrollment_no}</td>
+                        <td className="p-2.5">
+                          <input
+                            type="number"
+                            min="0"
+                            max={viewResultsModal.total_marks}
+                            value={r.obtained_marks ?? ""}
+                            onChange={(e) => handleMarksChange(r.student_id, e.target.value)}
+                            placeholder="Score"
+                            className="w-full p-1.5 rounded border border-[#E2E8F0] font-bold text-[#2563EB] bg-white focus:outline-none focus:border-[#2563EB]"
+                          />
+                        </td>
+                        <td className="p-2.5 font-extrabold text-[#22C55E] text-center">{grade}</td>
+                        <td className="p-2.5">
+                          <input
+                            type="text"
+                            value={r.remarks || ""}
+                            onChange={(e) => handleRemarksChange(r.student_id, e.target.value)}
+                            placeholder="Optional feedback..."
+                            className="w-full p-1.5 rounded border border-[#E2E8F0] text-[#64748B] bg-white focus:outline-none focus:border-[#2563EB]"
+                          />
+                        </td>
                       </tr>
                     );
                   })}
@@ -318,7 +415,14 @@ const TeacherWeeklyTests = () => {
               </table>
             </div>
 
-
+            <div className="flex justify-end gap-2 pt-3 border-t border-[#E2E8F0] shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setViewResultsModal(null)}>
+                Cancel
+              </Button>
+              <Button variant="accent" size="sm" onClick={handleSaveResults}>
+                Save Class Marks
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -327,3 +431,4 @@ const TeacherWeeklyTests = () => {
 };
 
 export default TeacherWeeklyTests;
+
