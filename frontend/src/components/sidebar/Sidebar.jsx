@@ -96,6 +96,8 @@ const Sidebar = ({
     Admin: "bg-[#F59E0B] text-white shadow-amber-500/20",
   };
 
+  const dashboardPath = role === "Admin" ? "/admin/dashboard" : role === "Teacher" ? "/teacher/dashboard" : "/student/dashboard";
+
   return (
     <>
       {/* Mobile Backdrop Overlay */}
@@ -126,7 +128,7 @@ const Sidebar = ({
           {/* Brand Header */}
           <div className="p-4 border-b border-[#E2E8F0] shrink-0 flex items-center justify-between min-h-[64px]">
             <Link
-              to="/"
+              to={dashboardPath}
               onClick={onCloseMobile}
               className="flex items-center gap-3 overflow-hidden"
               title="EduConnect"

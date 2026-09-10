@@ -10,10 +10,80 @@ const api = axios.create({
   timeout: 10000,
 });
 
+// Helpers for multi-role, multi-tab session storage
+export const getAuthToken = () => {
+  const path = window.location.pathname;
+  if (path.startsWith("/admin")) {
+    return (
+      sessionStorage.getItem("educonnect_token_admin") ||
+      sessionStorage.getItem("educonnect_token") ||
+      localStorage.getItem("educonnect_token_admin") ||
+      localStorage.getItem("educonnect_token")
+    );
+  }
+  if (path.startsWith("/teacher")) {
+    return (
+      sessionStorage.getItem("educonnect_token_teacher") ||
+      sessionStorage.getItem("educonnect_token") ||
+      localStorage.getItem("educonnect_token_teacher") ||
+      localStorage.getItem("educonnect_token")
+    );
+  }
+  if (path.startsWith("/student")) {
+    return (
+      sessionStorage.getItem("educonnect_token_student") ||
+      sessionStorage.getItem("educonnect_token") ||
+      localStorage.getItem("educonnect_token_student") ||
+      localStorage.getItem("educonnect_token")
+    );
+  }
+  return (
+    sessionStorage.getItem("educonnect_token") ||
+    localStorage.getItem("educonnect_token")
+  );
+};
+
+export const getAuthUser = () => {
+  const path = window.location.pathname;
+  let userStr = null;
+  if (path.startsWith("/admin")) {
+    userStr =
+      sessionStorage.getItem("educonnect_user_admin") ||
+      sessionStorage.getItem("educonnect_user") ||
+      localStorage.getItem("educonnect_user_admin") ||
+      localStorage.getItem("educonnect_user");
+  } else if (path.startsWith("/teacher")) {
+    userStr =
+      sessionStorage.getItem("educonnect_user_teacher") ||
+      sessionStorage.getItem("educonnect_user") ||
+      localStorage.getItem("educonnect_user_teacher") ||
+      localStorage.getItem("educonnect_user");
+  } else if (path.startsWith("/student")) {
+    userStr =
+      sessionStorage.getItem("educonnect_user_student") ||
+      sessionStorage.getItem("educonnect_user") ||
+      localStorage.getItem("educonnect_user_student") ||
+      localStorage.getItem("educonnect_user");
+  } else {
+    userStr =
+      sessionStorage.getItem("educonnect_user") ||
+      localStorage.getItem("educonnect_user");
+  }
+
+  if (userStr) {
+    try {
+      return JSON.parse(userStr);
+    } catch (e) {
+      return null;
+    }
+  }
+  return null;
+};
+
 // Interceptor to add Authorization token if present
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("educonnect_token");
+    const token = getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -53,24 +123,45 @@ export const authApi = {
   verifyStudentOtp: async (enrollmentNo, otp) => {
     const response = await api.post("/auth/student/verify-otp", { enrollmentNo, enrollment_no: enrollmentNo, otp });
     if (response.data?.token) {
+      const dataStr = JSON.stringify(response.data);
+      sessionStorage.setItem("educonnect_token_student", response.data.token);
+      sessionStorage.setItem("educonnect_user_student", dataStr);
+      sessionStorage.setItem("educonnect_token", response.data.token);
+      sessionStorage.setItem("educonnect_user", dataStr);
+      localStorage.setItem("educonnect_token_student", response.data.token);
+      localStorage.setItem("educonnect_user_student", dataStr);
       localStorage.setItem("educonnect_token", response.data.token);
-      localStorage.setItem("educonnect_user", JSON.stringify(response.data));
+      localStorage.setItem("educonnect_user", dataStr);
     }
     return response.data;
   },
   teacherLogin: async (email, password) => {
     const response = await api.post("/auth/teacher/login", { email, password });
     if (response.data?.token) {
+      const dataStr = JSON.stringify(response.data);
+      sessionStorage.setItem("educonnect_token_teacher", response.data.token);
+      sessionStorage.setItem("educonnect_user_teacher", dataStr);
+      sessionStorage.setItem("educonnect_token", response.data.token);
+      sessionStorage.setItem("educonnect_user", dataStr);
+      localStorage.setItem("educonnect_token_teacher", response.data.token);
+      localStorage.setItem("educonnect_user_teacher", dataStr);
       localStorage.setItem("educonnect_token", response.data.token);
-      localStorage.setItem("educonnect_user", JSON.stringify(response.data));
+      localStorage.setItem("educonnect_user", dataStr);
     }
     return response.data;
   },
   adminLogin: async (email, password) => {
     const response = await api.post("/auth/admin/login", { email, password });
     if (response.data?.token) {
+      const dataStr = JSON.stringify(response.data);
+      sessionStorage.setItem("educonnect_token_admin", response.data.token);
+      sessionStorage.setItem("educonnect_user_admin", dataStr);
+      sessionStorage.setItem("educonnect_token", response.data.token);
+      sessionStorage.setItem("educonnect_user", dataStr);
+      localStorage.setItem("educonnect_token_admin", response.data.token);
+      localStorage.setItem("educonnect_user_admin", dataStr);
       localStorage.setItem("educonnect_token", response.data.token);
-      localStorage.setItem("educonnect_user", JSON.stringify(response.data));
+      localStorage.setItem("educonnect_user", dataStr);
     }
     return response.data;
   },

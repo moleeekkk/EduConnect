@@ -21,6 +21,7 @@ public class EmailService {
     public boolean sendOtpEmail(String toEmail, String studentName, String otpCode) {
         log.info("==================================================");
         log.info("DISPATCHING OTP EMAIL TO: {} ({})", toEmail, studentName);
+        log.info("GENERATED OTP CODE: [ {} ]", otpCode);
         log.info("==================================================");
 
         try {
@@ -88,6 +89,7 @@ public class EmailService {
     public boolean sendResetEmail(String toEmail, String recipientName, String resetCode) {
         log.info("==================================================");
         log.info("DISPATCHING PASSWORD RESET CODE TO: {} ({})", toEmail, recipientName);
+        log.info("GENERATED RESET CODE: [ {} ]", resetCode);
         log.info("==================================================");
 
         try {

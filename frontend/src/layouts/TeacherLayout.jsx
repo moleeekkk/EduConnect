@@ -1,23 +1,19 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "./DashboardLayout";
+import { getAuthUser, getAuthToken } from "../services/api";
 
 const TeacherLayout = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const userStr = localStorage.getItem("educonnect_user");
-    const token = localStorage.getItem("educonnect_token");
-    if (!token || !userStr) {
+    const user = getAuthUser();
+    const token = getAuthToken();
+    if (!token || !user) {
       navigate("/teacher-login", { replace: true });
       return;
     }
-    try {
-      const user = JSON.parse(userStr);
-      if (user.role && user.role !== "ROLE_TEACHER" && user.role !== "Teacher") {
-        navigate("/teacher-login", { replace: true });
-      }
-    } catch (e) {
+    if (user.role && user.role !== "ROLE_TEACHER" && user.role !== "Teacher") {
       navigate("/teacher-login", { replace: true });
     }
   }, [navigate]);

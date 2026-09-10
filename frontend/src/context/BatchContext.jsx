@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { adminApi } from "../services/api";
+import { adminApi, getAuthToken, getAuthUser } from "../services/api";
 
 const BatchContext = createContext();
 
@@ -19,7 +19,24 @@ export const BatchProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const fetchBatches = async () => {
+    const token = getAuthToken();
+    const user = getAuthUser();
+    if (!token || !user) {
+      setLoading(false);
+      return;
+    }
+
     try {
+      const isAuthorized =
+        user?.role === "ROLE_ADMIN" ||
+        user?.role === "Admin" ||
+        user?.role === "ROLE_TEACHER" ||
+        user?.role === "Teacher";
+      if (!isAuthorized) {
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       const res = await adminApi.getBatches();
       if (Array.isArray(res)) {
@@ -38,7 +55,7 @@ export const BatchProvider = ({ children }) => {
         }
       }
     } catch (err) {
-      console.error("Error loading batches from database:", err);
+      console.warn("Batch list notice:", err.message);
     } finally {
       setLoading(false);
     }

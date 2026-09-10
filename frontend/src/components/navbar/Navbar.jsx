@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Search, Bell, User, LogOut, ChevronDown, Sparkles, GraduationCap, Menu, PanelLeftClose, PanelLeftOpen, CalendarRange } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useBatch } from "../../context/BatchContext";
+import { getAuthUser } from "../../services/api";
 
 const Navbar = ({
   role = "Student",
@@ -18,8 +19,7 @@ const Navbar = ({
 
   const { batches, selectedBatch, setSelectedBatch } = useBatch();
 
-  const userStr = localStorage.getItem("educonnect_user");
-  const loggedUser = userStr ? JSON.parse(userStr) : null;
+  const loggedUser = getAuthUser();
   const isRoleMatch = loggedUser && (
     (role === "Admin" && (loggedUser.role === "ROLE_ADMIN" || loggedUser.role === "Admin")) ||
     (role === "Teacher" && (loggedUser.role === "ROLE_TEACHER" || loggedUser.role === "Teacher")) ||
@@ -51,6 +51,31 @@ const Navbar = ({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  const handleSignOut = () => {
+    setShowDropdown(false);
+    if (role === "Admin") {
+      sessionStorage.removeItem("educonnect_token_admin");
+      sessionStorage.removeItem("educonnect_user_admin");
+      localStorage.removeItem("educonnect_token_admin");
+      localStorage.removeItem("educonnect_user_admin");
+    } else if (role === "Teacher") {
+      sessionStorage.removeItem("educonnect_token_teacher");
+      sessionStorage.removeItem("educonnect_user_teacher");
+      localStorage.removeItem("educonnect_token_teacher");
+      localStorage.removeItem("educonnect_user_teacher");
+    } else {
+      sessionStorage.removeItem("educonnect_token_student");
+      sessionStorage.removeItem("educonnect_user_student");
+      localStorage.removeItem("educonnect_token_student");
+      localStorage.removeItem("educonnect_user_student");
+    }
+    sessionStorage.removeItem("educonnect_token");
+    sessionStorage.removeItem("educonnect_user");
+    localStorage.removeItem("educonnect_token");
+    localStorage.removeItem("educonnect_user");
+    navigate("/");
+  };
 
   const roleColors = {
     Student: "bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/20",
@@ -143,12 +168,7 @@ const Navbar = ({
                 <p className="text-[10px] text-[#64748B]">{role} Portal</p>
               </div>
               <button
-                onClick={() => {
-                  setShowDropdown(false);
-                  localStorage.removeItem("educonnect_token");
-                  localStorage.removeItem("educonnect_user");
-                  navigate("/");
-                }}
+                onClick={handleSignOut}
                 className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs text-[#EF4444] font-medium rounded-xl hover:bg-[#EF4444]/10 transition-colors cursor-pointer"
               >
                 <LogOut className="w-4 h-4" /> Sign Out
