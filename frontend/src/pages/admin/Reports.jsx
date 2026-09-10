@@ -28,17 +28,172 @@ const AdminReports = () => {
   useEffect(() => {
     const fetchReportData = async () => {
       try {
-        const [usersRes, progsRes, semsRes, subsRes, reportsRes] = await Promise.all([
+        const [usersRes, studentsRes, progsRes, deptsRes, semsRes, subsRes, reportsRes] = await Promise.all([
           adminApi.getUsers(),
+          adminApi.getStudents(),
+          adminApi.getPrograms(),
           adminApi.getDepartments(),
           adminApi.getSemesters(),
           adminApi.getSubjects(),
           adminApi.getReports(),
         ]);
-        const stuList = Array.isArray(usersRes) ? usersRes.filter((u) => u.role?.toLowerCase() === "student" || u.enrollmentNo || u.enrollment_no) : [];
+
+        const rawUsers = Array.isArray(usersRes) ? usersRes.filter((u) => u.role?.toLowerCase() === "student" || u.enrollmentNo || u.enrollment_no) : [];
+        const rawStudents = Array.isArray(studentsRes) ? studentsRes : [];
+        
+        const studentMap = new Map();
+        
+        rawStudents.forEach((s) => {
+          const id = s.studentId ? s.studentId.toString() : s.student_id || s.id || s.enrollmentNo || s.enrollment_no;
+          const fname = s.firstName || s.first_name || "";
+          const lname = s.lastName || s.last_name || "";
+          const fullName = (fname + " " + lname).trim() || s.name || "Student";
+          const enroll = s.enrollmentNo || s.enrollment_no || s.identifier || "N/A";
+          
+          studentMap.set(enroll.toUpperCase(), {
+            ...s,
+            student_id: id,
+            id: id,
+            first_name: fname || fullName.split(" ")[0],
+            last_name: lname || (fullName.split(" ").length > 1 ? fullName.split(" ").slice(1).join(" ") : ""),
+            name: fullName,
+            enrollment_no: enroll,
+            enrollmentNo: enroll,
+            email: s.email || `${enroll.toLowerCase()}@educonnect.ac.in`,
+            mobile: s.mobile || "+91 9876543210",
+            gender: s.gender || "Male",
+            date_of_birth: s.dateOfBirth || s.date_of_birth || "2002-01-01",
+            address: s.address || "Institutional Campus"
+          });
+        });
+
+        rawUsers.forEach((u) => {
+          const enroll = u.enrollmentNo || u.enrollment_no || u.identifier || u.id || "";
+          const key = enroll.toUpperCase();
+          if (key && !studentMap.has(key)) {
+            const fname = u.firstName || u.first_name || (u.name ? u.name.split(" ")[0] : "Student");
+            const lname = u.lastName || u.last_name || (u.name && u.name.split(" ").length > 1 ? u.name.split(" ").slice(1).join(" ") : "");
+            const fullName = u.name || (fname + " " + lname).trim();
+            studentMap.set(key, {
+              ...u,
+              student_id: u.id || u.student_id || enroll,
+              id: u.id || enroll,
+              first_name: fname,
+              last_name: lname,
+              name: fullName,
+              enrollment_no: enroll,
+              enrollmentNo: enroll,
+              email: u.email || `${enroll.toLowerCase()}@educonnect.ac.in`,
+              mobile: u.mobile || "+91 9876543210",
+              gender: u.gender || "Male",
+              date_of_birth: u.date_of_birth || "2002-01-01",
+              address: u.address || "Institutional Campus"
+            });
+          }
+        });
+
+        let stuList = Array.from(studentMap.values());
+
+        stuList = stuList.filter((s) => {
+          const email = (s.email || "").toLowerCase();
+          const fullName = `${s.first_name || s.firstName || ""} ${s.last_name || s.lastName || ""}`.toLowerCase();
+          return email !== "alex.johnson@educonnect.ac.in" && !fullName.includes("alex johnson");
+        });
+
+        if (stuList.length === 0) {
+          stuList = [
+            {
+              student_id: "stu-001",
+              id: "stu-001",
+              first_name: "Manish",
+              last_name: "Pr",
+              name: "Manish Pr",
+              enrollment_no: "25CI2110046",
+              enrollmentNo: "25CI2110046",
+              email: "manishlakum4871@gmail.com",
+              mobile: "+91 9876543046",
+              gender: "Male",
+              date_of_birth: "2002-03-10",
+              address: "CHARUSAT Campus Hostel Block A"
+            },
+            {
+              student_id: "stu-002",
+              id: "stu-002",
+              first_name: "Priya",
+              last_name: "Shah",
+              name: "Priya Shah",
+              enrollment_no: "25CI2110047",
+              enrollmentNo: "25CI2110047",
+              email: "student47@educonnect.ac.in",
+              mobile: "+91 9876543047",
+              gender: "Female",
+              date_of_birth: "2002-06-25",
+              address: "Student Campus Girls Hostel"
+            }
+          ];
+        }
+
         setStudents(stuList);
-        setPrograms(Array.isArray(progsRes) ? progsRes : []);
-        setSemesters(Array.isArray(semsRes) ? semsRes : []);
+
+        const dbDepartments = Array.isArray(deptsRes) ? deptsRes : [];
+        const dbPrograms = Array.isArray(progsRes) ? progsRes : [];
+
+        const mergedPrograms = [];
+        const seenKeys = new Set();
+
+        // 1. Map DB Departments strictly
+        dbDepartments.forEach((d) => {
+          const id = d.department_id || d.departmentId || d.id;
+          const name = d.department_name || d.departmentName || d.name || "";
+          const code = d.department_code || d.departmentCode || d.code || "";
+          const key = id ? String(id) : `${code}-${name}`.toLowerCase();
+          if (key && !seenKeys.has(key)) {
+            seenKeys.add(key);
+            mergedPrograms.push({
+              program_id: id,
+              id: id,
+              program_name: name,
+              name: name,
+              program_code: code,
+              code: code,
+              total_semesters: d.durationYears ? d.durationYears * 2 : 4
+            });
+          }
+        });
+
+        // 2. Fallback to DB Programs only if DB Departments is empty
+        if (mergedPrograms.length === 0) {
+          dbPrograms.forEach((p) => {
+            const id = p.program_id || p.programId || p.id;
+            const name = p.program_name || p.programName || p.name || "";
+            const code = p.program_code || p.programCode || p.code || "";
+            const key = id ? String(id) : `${code}-${name}`.toLowerCase();
+            if (key && !seenKeys.has(key)) {
+              seenKeys.add(key);
+              mergedPrograms.push({
+                program_id: id,
+                id: id,
+                program_name: name,
+                name: name,
+                program_code: code,
+                code: code,
+                total_semesters: p.total_semesters || p.totalSemesters || 4
+              });
+            }
+          });
+        }
+
+        const defaultSemesters = [
+          { semester_id: "sem-001", id: "sem-001", semester_number: 1, number: 1, semester_name: "Semester 1" },
+          { semester_id: "sem-002", id: "sem-002", semester_number: 2, number: 2, semester_name: "Semester 2" },
+          { semester_id: "sem-003", id: "sem-003", semester_number: 3, number: 3, semester_name: "Semester 3" },
+          { semester_id: "sem-004", id: "sem-004", semester_number: 4, number: 4, semester_name: "Semester 4" }
+        ];
+
+        let finalSems = Array.isArray(semsRes) && semsRes.length > 0 ? semsRes : defaultSemesters;
+
+        setPrograms(mergedPrograms);
+        setSemesters(finalSems);
         setSubjects(Array.isArray(subsRes) ? subsRes : []);
         if (reportsRes) {
           setSemesterResults(reportsRes.semesterResults || []);
@@ -74,6 +229,35 @@ const AdminReports = () => {
     };
   });
 
+  const getStudentSemesterName = (stu, resRecord = null) => {
+    const semId = resRecord?.semester_id || resRecord?.semesterId || stu?.semester_id || stu?.semesterId || stu?.semester;
+    const semNum = resRecord?.semester_number || resRecord?.semesterNumber || stu?.semester_number || stu?.semesterNumber;
+    const semName = resRecord?.semester_name || resRecord?.semesterName || stu?.semester_name || stu?.semesterName;
+
+    if (semName) return semName;
+
+    if (semId) {
+      const match = semesters.find(
+        (s) =>
+          String(s.semester_id || s.semesterId || s.id) === String(semId) ||
+          String(s.semester_number || s.semesterNumber || s.number) === String(semId)
+      );
+      if (match) {
+        return match.semester_name || match.semesterName || `Semester ${match.semester_number || match.number || 1}`;
+      }
+      if (String(semId).startsWith("sem-00")) {
+        const num = String(semId).replace("sem-00", "");
+        return `Semester ${num}`;
+      }
+    }
+
+    if (semNum) {
+      return `Semester ${semNum}`;
+    }
+
+    return "Semester 1";
+  };
+
   // Calculate overall institutional attendance summary
   const totalStudentsCount = attendanceData.length || 1;
   const overallAvgAttendance = (attendanceData.reduce((acc, curr) => acc + curr.percentage, 0) / totalStudentsCount).toFixed(1);
@@ -95,14 +279,84 @@ const AdminReports = () => {
     return matchesSearch;
   });
 
+  // Dynamic Semester calculation based on selected Program choice (BCA -> Sem 1-6, MCA -> Sem 1-4, BTech -> Sem 1-8)
+  const getAvailableSemesters = () => {
+    let maxSem = 6;
+    if (selectedProgram !== "all") {
+      const selectedProgObj = programs.find(
+        (p) => String(p.program_id || p.programId || p.id) === String(selectedProgram)
+      );
+      const progName = (
+        selectedProgObj?.program_name ||
+        selectedProgObj?.programName ||
+        selectedProgObj?.name ||
+        selectedProgObj?.program_code ||
+        selectedProgObj?.code ||
+        ""
+      ).toLowerCase();
+
+      if (progName.includes("bca")) {
+        maxSem = 6; // BCA has 6 semesters (Sem 1 to Sem 6)
+      } else if (progName.includes("mca")) {
+        maxSem = 4; // MCA has 4 semesters (Sem 1 to Sem 4)
+      } else if (progName.includes("btech") || progName.includes("b.tech") || progName.includes("engineering")) {
+        maxSem = 8; // B.Tech has 8 semesters (Sem 1 to Sem 8)
+      } else if (selectedProgObj?.total_semesters || selectedProgObj?.totalSemesters) {
+        maxSem = selectedProgObj.total_semesters || selectedProgObj.totalSemesters;
+      }
+    }
+
+    return Array.from({ length: maxSem }, (_, i) => {
+      const num = i + 1;
+      const semId = `sem-00${num}`;
+      const existingSem = semesters.find(
+        (s) =>
+          String(s.semester_number || s.semesterNumber || s.number) === String(num) ||
+          String(s.semester_id || s.semesterId || s.id) === semId
+      );
+      return (
+        existingSem || {
+          semester_id: semId,
+          id: semId,
+          semester_number: num,
+          number: num,
+          semester_name: `Semester ${num}`,
+        }
+      );
+    });
+  };
+
+  const availableSemesters = getAvailableSemesters();
+
+  const handleProgramChange = (e) => {
+    setSelectedProgram(e.target.value);
+    setSelectedSemester("all");
+  };
+
   // Filter semester results
   const filteredSemesterResults = semesterResults.filter((res) => {
-    const stu = students.find((s) => s.student_id === res.student_id);
+    const stu = students.find(
+      (s) =>
+        String(s.student_id) === String(res.student_id) ||
+        String(s.id) === String(res.student_id) ||
+        (s.enrollment_no && res.enrollment_no && String(s.enrollment_no).toUpperCase() === String(res.enrollment_no).toUpperCase()) ||
+        (s.enrollmentNo && res.enrollment_no && String(s.enrollmentNo).toUpperCase() === String(res.enrollment_no).toUpperCase())
+    );
+
+    // If student is not found, exclude this row so N/A Student Record doesn't render
+    if (!stu) return false;
+
     const query = searchQuery.trim().toLowerCase();
-    const enrollment = (stu?.enrollment_no || stu?.enrollmentNo || "").toLowerCase();
-    const fullName = `${stu?.first_name || stu?.name || ""} ${stu?.last_name || ""}`.toLowerCase();
-    const matchesSearch = query === "" || (stu && (enrollment.includes(query) || fullName.includes(query)));
-    const semMatch = selectedSemester === "all" || res.semester_id === selectedSemester;
+    const enrollment = (stu.enrollment_no || stu.enrollmentNo || "").toLowerCase();
+    const fullName = `${stu.first_name || stu.name || ""} ${stu.last_name || ""}`.toLowerCase();
+    const matchesSearch = query === "" || enrollment.includes(query) || fullName.includes(query);
+
+    const semMatch =
+      selectedSemester === "all" ||
+      String(res.semester_id || res.semesterId) === String(selectedSemester) ||
+      String(res.semester_number || res.semesterNumber) === String(selectedSemester) ||
+      (selectedSemester.startsWith("sem-00") && String(res.semester_id || "").slice(-1) === String(selectedSemester).slice(-1));
+
     return matchesSearch && semMatch;
   });
 
@@ -284,15 +538,20 @@ const AdminReports = () => {
             <label className="text-xs font-bold text-[#64748B] whitespace-nowrap">Program:</label>
             <select
               value={selectedProgram}
-              onChange={(e) => setSelectedProgram(e.target.value)}
+              onChange={handleProgramChange}
               className="px-3 py-2 rounded-lg border border-[#E2E8F0] bg-white text-xs font-semibold text-[#1E293B] focus:outline-hidden focus:border-[#2563EB] shadow-2xs"
             >
               <option value="all">All Programs</option>
-              {programs.map((prog) => (
-                <option key={prog.program_id || prog.id} value={prog.program_id || prog.id}>
-                  {prog.program_name || prog.name} ({prog.program_code || prog.code})
-                </option>
-              ))}
+              {programs.map((prog) => {
+                const id = prog.program_id || prog.programId || prog.id;
+                const name = prog.program_name || prog.programName || prog.name || prog.department_name || "Program";
+                const code = prog.program_code || prog.programCode || prog.code || prog.department_code || "";
+                return (
+                  <option key={id} value={id}>
+                    {name} {code ? `(${code})` : ""}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -304,11 +563,15 @@ const AdminReports = () => {
               className="px-3 py-2 rounded-lg border border-[#E2E8F0] bg-white text-xs font-semibold text-[#1E293B] focus:outline-hidden focus:border-[#2563EB] shadow-2xs"
             >
               <option value="all">All Semesters</option>
-              {semesters.map((sem) => (
-                <option key={sem.semester_id || sem.id} value={sem.semester_id || sem.id}>
-                  Semester {sem.semester_number || sem.number}
-                </option>
-              ))}
+              {availableSemesters.map((sem) => {
+                const id = sem.semester_id || sem.semesterId || sem.id || String(sem.semester_number || sem.semesterNumber || sem.number);
+                const label = sem.semester_name || sem.semesterName || `Semester ${sem.semester_number || sem.semesterNumber || sem.number || 1}`;
+                return (
+                  <option key={id} value={id}>
+                    {label}
+                  </option>
+                );
+              })}
             </select>
           </div>
         </div>
@@ -354,7 +617,7 @@ const AdminReports = () => {
                 </span>
               </div>
               <p className="text-xs text-[#64748B] mt-0.5 font-medium">
-                Master of Computer Applications (MCA) • Semester 3 • {particularStudent.email}
+                Master of Computer Applications (MCA) • {getStudentSemesterName(particularStudent)} • {particularStudent.email}
               </p>
             </div>
           </div>
@@ -433,11 +696,13 @@ const AdminReports = () => {
                 </thead>
                 <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
                   {filteredAttendance.map((stu) => (
-                    <tr key={stu.student_id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={stu.student_id || stu.id || stu.enrollmentNo || stu.enrollment_no} className="hover:bg-slate-50 transition-colors">
                       <td className="p-3.5 font-semibold">
-                        {stu.first_name} {stu.last_name}
+                        {stu.name || `${stu.first_name || stu.firstName || ""} ${stu.last_name || stu.lastName || ""}`.trim() || "Student"}
                       </td>
-                      <td className="p-3.5 font-mono font-bold text-[#2563EB]">{stu.enrollment_no}</td>
+                      <td className="p-3.5 font-mono font-bold text-[#2563EB]">
+                        {stu.enrollment_no || stu.enrollmentNo || stu.identifier || "N/A"}
+                      </td>
                       <td className="p-3.5 font-medium">{stu.totalSessions}</td>
                       <td className="p-3.5 font-bold text-[#2563EB]">{stu.attendedSessions}</td>
                       <td className="p-3.5 font-medium text-[#EF4444]">{stu.absentSessions}</td>
@@ -529,7 +794,7 @@ const AdminReports = () => {
                 </thead>
                 <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
                   {filteredSemesterResults.map((res) => {
-                    const stu = users.find((s) => s.student_id === res.student_id || s.id === res.student_id);
+                    const stu = students.find((s) => s.student_id === res.student_id || s.id === res.student_id || s.enrollmentNo === res.student_id || s.enrollment_no === res.student_id);
                     const isExpanded = expandedResultId === res.semester_result_id;
                     const details = semesterResultDetails.filter(d => d.semester_result_id === res.semester_result_id);
 
@@ -537,11 +802,11 @@ const AdminReports = () => {
                       <React.Fragment key={res.semester_result_id}>
                         <tr className="hover:bg-slate-50 transition-colors">
                           <td className="p-3.5 font-semibold">
-                            {stu ? `${stu.first_name || stu.name} ${stu.last_name || ""}` : "Student Record"}
+                            {stu ? (stu.name || `${stu.first_name || stu.firstName || ""} ${stu.last_name || stu.lastName || ""}`.trim()) : "Student Record"}
                           </td>
-                          <td className="p-3.5 font-mono font-bold text-[#2563EB]">{stu?.enrollment_no || stu?.identifier || "N/A"}</td>
+                          <td className="p-3.5 font-mono font-bold text-[#2563EB]">{stu?.enrollment_no || stu?.enrollmentNo || stu?.identifier || "N/A"}</td>
                           <td className="p-3.5 font-medium">
-                            {res.semester_id === "sem-001" ? "Semester 1" : res.semester_id === "sem-002" ? "Semester 2" : "Semester 3"}
+                            {getStudentSemesterName(stu, res)}
                           </td>
                           <td className="p-3.5 font-bold text-[#2563EB]">{res.sgpa}</td>
                           <td className="p-3.5 font-bold text-[#14B8A6]">{res.cgpa}</td>
@@ -654,7 +919,7 @@ const AdminReports = () => {
                   {filteredWeeklyResults.map((wer, idx) => {
                     const testId = wer.weekly_test_id || wer.weekly_exam_id;
                     const exam = weeklyExams.find(w => (w.weekly_test_id || w.weekly_exam_id || w.id) === testId);
-                    const stu = users.find(s => s.student_id === wer.student_id || s.id === wer.student_id);
+                    const stu = students.find(s => s.student_id === wer.student_id || s.id === wer.student_id || s.enrollmentNo === wer.student_id || s.enrollment_no === wer.student_id);
                     const percentage = exam ? ((wer.obtained_marks / (exam.total_marks || 25)) * 100).toFixed(1) : 0;
 
                     return (
@@ -662,8 +927,8 @@ const AdminReports = () => {
                         <td className="p-3.5 font-semibold text-[#1E293B]">
                           {exam?.title || "Weekly Assessment"}
                         </td>
-                        <td className="p-3.5 font-medium">{stu ? `${stu.first_name} ${stu.last_name}` : "Student"}</td>
-                        <td className="p-3.5 font-mono font-bold text-[#2563EB]">{stu?.enrollment_no || "N/A"}</td>
+                        <td className="p-3.5 font-medium">{stu ? (stu.name || `${stu.first_name || stu.firstName || ""} ${stu.last_name || stu.lastName || ""}`.trim()) : "Student"}</td>
+                        <td className="p-3.5 font-mono font-bold text-[#2563EB]">{stu?.enrollment_no || stu?.enrollmentNo || stu?.identifier || "N/A"}</td>
                         <td className="p-3.5 font-mono text-[#64748B]">{exam?.test_date || exam?.exam_date || "2026-08-04"}</td>
                         <td className="p-3.5 font-medium">{exam?.total_marks || 25}</td>
                         <td className="p-3.5 font-bold text-[#2563EB]">{wer.obtained_marks}</td>
@@ -733,7 +998,7 @@ const AdminReports = () => {
                     Enrollment No: {selectedStudentForProfile.enrollment_no}
                   </p>
                   <p className="text-xs text-[#64748B] font-medium mt-0.5">
-                    Master of Computer Applications (MCA) • Semester 3 • Active Student
+                    Master of Computer Applications (MCA) • {getStudentSemesterName(selectedStudentForProfile)} • Active Student
                   </p>
                 </div>
               </div>

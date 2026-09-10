@@ -311,6 +311,9 @@ public class AdminService {
             res.put("student_id", s.getStudentId() != null ? s.getStudentId().toString() : "");
             res.put("student_name", (s.getFirstName() + " " + s.getLastName()).trim());
             res.put("enrollment_no", s.getEnrollmentNo());
+            res.put("semester_id", s.getSemesterId() != null ? s.getSemesterId().toString() : "sem-001");
+            res.put("semester_number", 1);
+            res.put("semester_name", "Semester 1");
             res.put("sgpa", 8.4);
             res.put("cgpa", 8.2);
             res.put("total_credits", 24);

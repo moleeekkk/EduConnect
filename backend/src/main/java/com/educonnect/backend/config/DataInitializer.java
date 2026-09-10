@@ -108,32 +108,32 @@ public class DataInitializer implements CommandLineRunner {
 
             // 5. Seed Program
             if (programRepository.count() == 0) {
-                Program prog = Program.builder()
-                        .programCode("MCA-REG")
-                        .programName("Master of Computer Applications")
+                programRepository.save(Program.builder()
+                        .programCode("MCA")
+                        .programName("Master of com app")
                         .departmentId(dept.getDepartmentId())
                         .instituteId(inst.getInstituteId())
                         .degreeType("Master")
                         .totalSemesters(4)
                         .durationYears(2)
-                        .description("Postgraduate professional degree in computer applications and software engineering.")
+                        .description("Postgraduate professional degree in computer applications.")
                         .isActive(true)
-                        .build();
-                programRepository.save(prog);
-                log.info("Program created in DB: MCA-REG");
+                        .build());
+                log.info("Program created in DB: MCA");
             }
 
             // 6. Seed Semesters
             Semester sem1 = null;
-            if (semesterRepository.count() == 0) {
-                sem1 = semesterRepository.save(Semester.builder().semesterNumber(1).semesterName("Semester 1").departmentId(dept.getDepartmentId()).isActive(true).build());
-                semesterRepository.save(Semester.builder().semesterNumber(2).semesterName("Semester 2").departmentId(dept.getDepartmentId()).isActive(true).build());
-                semesterRepository.save(Semester.builder().semesterNumber(3).semesterName("Semester 3").departmentId(dept.getDepartmentId()).isActive(true).build());
-                semesterRepository.save(Semester.builder().semesterNumber(4).semesterName("Semester 4").departmentId(dept.getDepartmentId()).isActive(true).build());
-                log.info("Semesters 1 to 4 created in DB");
-            } else {
-                sem1 = semesterRepository.findAllByOrderBySemesterNumberAsc().get(0);
+            if (semesterRepository.count() < 4) {
+                for (int i = 1; i <= 4; i++) {
+                    final int semNum = i;
+                    if (semesterRepository.findAll().stream().noneMatch(s -> s.getSemesterNumber() != null && s.getSemesterNumber() == semNum)) {
+                        semesterRepository.save(Semester.builder().semesterNumber(semNum).semesterName("Semester " + semNum).departmentId(dept.getDepartmentId()).isActive(true).build());
+                    }
+                }
+                log.info("Ensured Semesters 1 to 4 exist in DB");
             }
+            sem1 = semesterRepository.findAllByOrderBySemesterNumberAsc().get(0);
 
             // 7. Seed Batches
             Batch batch = null;
@@ -146,6 +146,16 @@ public class DataInitializer implements CommandLineRunner {
             }
 
             // 8. Seed Students
+            studentRepository.findAll().forEach(s -> {
+                String e = s.getEmail() != null ? s.getEmail().toLowerCase() : "";
+                String fn = s.getFirstName() != null ? s.getFirstName().toLowerCase() : "";
+                String ln = s.getLastName() != null ? s.getLastName().toLowerCase() : "";
+                if (e.contains("alex.johnson") || (fn.contains("alex") && ln.contains("johnson"))) {
+                    studentRepository.delete(s);
+                    log.info("Deleted legacy Alex Johnson student record from DB");
+                }
+            });
+
             if (studentRepository.count() == 0) {
                 Student s1 = Student.builder()
                         .enrollmentNo("25CI2110046")

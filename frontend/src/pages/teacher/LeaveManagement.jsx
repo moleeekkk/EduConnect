@@ -18,7 +18,14 @@ const TeacherLeaveManagement = () => {
           teacherApi.getStudents(),
         ]);
         setRequests(Array.isArray(leavesData) ? leavesData : []);
-        setStudents(Array.isArray(stuData) ? stuData : []);
+        if (Array.isArray(stuData)) {
+          const cleaned = stuData.filter((s) => {
+            const email = (s.email || "").toLowerCase();
+            const fullName = `${s.first_name || s.firstName || ""} ${s.last_name || s.lastName || ""}`.toLowerCase();
+            return email !== "alex.johnson@educonnect.ac.in" && !fullName.includes("alex johnson");
+          });
+          setStudents(cleaned);
+        }
       } catch (err) {
         console.error("Leave management load error:", err);
       }

@@ -12,7 +12,12 @@ const TeacherGrades = () => {
     const fetchGrades = async () => {
       try {
         const data = await teacherApi.getPendingGrades();
-        setSubmissions(Array.isArray(data) ? data : []);
+        const cleaned = (Array.isArray(data) ? data : []).filter((s) => {
+          const email = (s.email || "").toLowerCase();
+          const fullName = (s.studentName || `${s.first_name || ""} ${s.last_name || ""}`).toLowerCase();
+          return email !== "alex.johnson@educonnect.ac.in" && !fullName.includes("alex johnson");
+        });
+        setSubmissions(cleaned);
       } catch (err) {
         setSubmissions([]);
       }

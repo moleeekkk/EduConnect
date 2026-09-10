@@ -28,26 +28,52 @@ const StudentManagement = () => {
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      const [stuRes, instRes, progRes, semRes, batchRes] = await Promise.all([
+      const [stuRes, instRes, deptRes, semRes, batchRes] = await Promise.all([
         adminApi.getStudents(),
         adminApi.getInstitutes(),
-        adminApi.getPrograms(),
+        adminApi.getDepartments(),
         adminApi.getSemesters(),
         adminApi.getBatches(),
       ]);
 
       const instList = Array.isArray(instRes) ? instRes : [];
-      const progList = Array.isArray(progRes) ? progRes : [];
+      const deptList = Array.isArray(deptRes) ? deptRes : [];
       const semList = Array.isArray(semRes) ? semRes : [];
       const batchList = Array.isArray(batchRes) ? batchRes : [];
 
+      // Clean duplicate department entries if any exist
+      const uniqueDepts = [];
+      const seenKeys = new Set();
+      deptList.forEach((d) => {
+        const id = d.department_id || d.departmentId || d.id;
+        const code = (d.department_code || d.departmentCode || d.code || "").toUpperCase();
+        const name = (d.department_name || d.departmentName || d.name || "").toLowerCase();
+        const key = id ? String(id) : `${code}-${name}`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          uniqueDepts.push({
+            ...d,
+            department_id: id,
+            departmentId: id,
+            id: id,
+            department_name: d.department_name || d.departmentName || d.name,
+            department_code: d.department_code || d.departmentCode || d.code,
+          });
+        }
+      });
+
       setInstitutes(instList);
-      setPrograms(progList);
+      setPrograms(uniqueDepts);
       setSemesters(semList);
       setBatches(batchList);
 
       if (Array.isArray(stuRes)) {
-        setStudents(stuRes);
+        const cleanedStudents = stuRes.filter((s) => {
+          const email = (s.email || "").toLowerCase();
+          const fullName = `${s.first_name || s.firstName || ""} ${s.last_name || s.lastName || ""}`.toLowerCase();
+          return email !== "alex.johnson@educonnect.ac.in" && !fullName.includes("alex johnson");
+        });
+        setStudents(cleanedStudents);
       }
     } catch (err) {
       console.error("Student management load error:", err);
@@ -205,13 +231,16 @@ const StudentManagement = () => {
   });
 
   // Departments available in student add/edit form based on selected institute
-  const formAvailableDepartments = studentForm.institute_id
-    ? programs.filter((p) => {
+  const formAvailableDepartments = (() => {
+    if (!programs || programs.length === 0) return [];
+    if (!studentForm.institute_id) return programs;
+    const filtered = programs.filter((p) => {
       const pInstId = p.institute_id || p.instituteId;
       if (!pInstId) return true;
       return String(pInstId) === String(studentForm.institute_id) || getInstituteCode(pInstId) === getInstituteCode(studentForm.institute_id);
-    })
-    : [];
+    });
+    return filtered.length > 0 ? filtered : programs;
+  })();
 
   // Semesters available in student add/edit form based on selected department
   const formAvailableSemesters = studentForm.department_id
@@ -792,30 +821,19 @@ const StudentManagement = () => {
                       batch_id: "",
                     });
                   }}
-                  className={`w-full p-2.5 border border-[#E2E8F0] rounded-lg font-semibold ${!studentForm.institute_id
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "bg-[#F8FAFC] focus:bg-white text-[#1E293B]"
-                    }`}
+                  className="w-full p-2.5 border border-[#E2E8F0] rounded-lg font-semibold bg-[#F8FAFC] focus:bg-white text-[#1E293B]"
                 >
-                  {!studentForm.institute_id ? (
-                    <option value="">-- Select Institute First --</option>
-                  ) : (
-                    <>
-                      <option value="">-- Select Department --</option>
-                      {formAvailableDepartments.length > 0 ? (
-                        formAvailableDepartments.map((dept) => {
-                          const dId = dept.department_id || dept.departmentId || dept.id;
-                          return (
-                            <option key={dId} value={dId}>
-                              {dept.department_code || dept.code} - {dept.department_name || dept.name}
-                            </option>
-                          );
-                        })
-                      ) : (
-                        <option value="" disabled>No departments found for selected institute</option>
-                      )}
-                    </>
-                  )}
+                  <option value="">-- Select Department --</option>
+                  {formAvailableDepartments.map((dept) => {
+                    const dId = dept.department_id || dept.departmentId || dept.program_id || dept.id;
+                    const dCode = dept.department_code || dept.departmentCode || dept.program_code || dept.code || "";
+                    const dName = dept.department_name || dept.departmentName || dept.program_name || dept.name || "Department";
+                    return (
+                      <option key={dId} value={dId}>
+                        {dCode ? `${dCode} - ${dName}` : dName}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 

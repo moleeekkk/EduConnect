@@ -19,8 +19,15 @@ const TeacherParentEmail = () => {
       try {
         const data = await teacherApi.getStudents();
         if (Array.isArray(data) && data.length > 0) {
-          setStudents(data);
-          setSelectedStudent(data[0]);
+          const cleaned = data.filter((s) => {
+            const email = (s.email || "").toLowerCase();
+            const fullName = `${s.first_name || s.firstName || ""} ${s.last_name || s.lastName || ""}`.toLowerCase();
+            return email !== "alex.johnson@educonnect.ac.in" && !fullName.includes("alex johnson");
+          });
+          setStudents(cleaned);
+          if (cleaned.length > 0) {
+            setSelectedStudent(cleaned[0]);
+          }
         }
       } catch (err) {
         console.error("ParentEmail students load error:", err);

@@ -25,9 +25,14 @@ const TeacherAttendanceMarker = () => {
           adminApi.getSubjects(),
         ]);
         if (Array.isArray(stuData)) {
-          setStudents(stuData);
+          const cleaned = stuData.filter((s) => {
+            const email = (s.email || "").toLowerCase();
+            const fullName = `${s.first_name || s.firstName || ""} ${s.last_name || s.lastName || ""}`.toLowerCase();
+            return email !== "alex.johnson@educonnect.ac.in" && !fullName.includes("alex johnson");
+          });
+          setStudents(cleaned);
           const initialStatus = {};
-          stuData.forEach((s) => {
+          cleaned.forEach((s) => {
             initialStatus[s.student_id || s.id] = "Present";
           });
           setStudentStatus(initialStatus);

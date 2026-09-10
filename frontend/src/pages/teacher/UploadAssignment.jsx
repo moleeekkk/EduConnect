@@ -13,10 +13,10 @@ const defaultSubmissions = [
     submission_id: "sub-001",
     assignment_id: "asgn-001",
     student_id: "stu-001",
-    student_name: "Maulik Dabhi",
-    enrollment_no: "25CI2110016",
+    student_name: "Manish Pr",
+    enrollment_no: "25CI2110046",
     submission_date: "2026-08-10 14:30",
-    attachment: "maulik_asgn1_final.zip",
+    attachment: "manish_asgn1_final.zip",
     obtained_marks: 46,
     feedback: "Excellent architecture and well-documented component layout.",
     submission_status: "Timely",
@@ -25,34 +25,22 @@ const defaultSubmissions = [
     submission_id: "sub-002",
     assignment_id: "asgn-001",
     student_id: "stu-002",
-    student_name: "Aanya Sharma",
-    enrollment_no: "25CI2110017",
+    student_name: "Priya Shah",
+    enrollment_no: "25CI2110047",
     submission_date: "2026-08-11 09:15",
-    attachment: "aanya_microservices_v2.pdf",
+    attachment: "priya_microservices_v2.pdf",
     obtained_marks: 42,
     feedback: "Good work, try to submit before the deadline next time.",
     submission_status: "Late",
   },
   {
-    submission_id: "sub-003",
-    assignment_id: "asgn-001",
-    student_id: "stu-003",
-    student_name: "Rohan Verma",
-    enrollment_no: "25CI2110018",
-    submission_date: "-",
-    attachment: null,
-    obtained_marks: null,
-    feedback: null,
-    submission_status: "Missed",
-  },
-  {
     submission_id: "sub-004",
     assignment_id: "asgn-002",
     student_id: "stu-001",
-    student_name: "Maulik Dabhi",
-    enrollment_no: "25CI2110016",
+    student_name: "Manish Pr",
+    enrollment_no: "25CI2110046",
     submission_date: "2026-08-14 11:00",
-    attachment: "maulik_devops_docker.zip",
+    attachment: "manish_devops_docker.zip",
     obtained_marks: 48,
     feedback: "Outstanding Docker pipeline setup.",
     submission_status: "Timely",
@@ -61,25 +49,13 @@ const defaultSubmissions = [
     submission_id: "sub-005",
     assignment_id: "asgn-002",
     student_id: "stu-002",
-    student_name: "Aanya Sharma",
-    enrollment_no: "25CI2110017",
+    student_name: "Priya Shah",
+    enrollment_no: "25CI2110047",
     submission_date: "2026-08-16 18:45",
-    attachment: "aanya_devops_doc.pdf",
+    attachment: "priya_devops_doc.pdf",
     obtained_marks: 38,
     feedback: "Submitted past due date.",
     submission_status: "Late",
-  },
-  {
-    submission_id: "sub-006",
-    assignment_id: "asgn-002",
-    student_id: "stu-003",
-    student_name: "Rohan Verma",
-    enrollment_no: "25CI2110018",
-    submission_date: "-",
-    attachment: null,
-    obtained_marks: null,
-    feedback: null,
-    submission_status: "Missed",
   },
 ];
 
@@ -98,9 +74,19 @@ const TeacherUploadAssignment = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingAssignmentId, setEditingAssignmentId] = useState(null);
 
+  const getTodayDateString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const todayStr = getTodayDateString();
+
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
-  const [newDueDate, setNewDueDate] = useState("2026-08-25");
+  const [newDueDate, setNewDueDate] = useState(todayStr);
   const [newMarks, setNewMarks] = useState(50);
   const [refFileName, setRefFileName] = useState("");
 
@@ -141,13 +127,21 @@ const TeacherUploadAssignment = () => {
               a.assignment_id ? teacherApi.getAssignmentSubmissions(a.assignment_id) : Promise.resolve([])
             );
             const subResults = await Promise.all(subPromises);
-            const flatSubs = subResults.flat().filter(Boolean);
+            const flatSubs = subResults.flat().filter(Boolean).filter((s) => {
+              const email = (s.email || s.student_email || "").toLowerCase();
+              const fullName = (s.student_name || s.studentName || `${s.first_name || ""} ${s.last_name || ""}`).toLowerCase();
+              return email !== "alex.johnson@educonnect.ac.in" && !fullName.includes("alex johnson");
+            });
             if (flatSubs.length > 0) {
               setSubmissions((prev) => {
                 const map = new Map();
                 prev.forEach((s) => map.set(`${s.assignment_id}-${s.student_id}`, s));
                 flatSubs.forEach((s) => map.set(`${s.assignment_id}-${s.student_id}`, s));
-                return Array.from(map.values());
+                return Array.from(map.values()).filter((s) => {
+                  const email = (s.email || s.student_email || "").toLowerCase();
+                  const fullName = (s.student_name || s.studentName || `${s.first_name || ""} ${s.last_name || ""}`).toLowerCase();
+                  return email !== "alex.johnson@educonnect.ac.in" && !fullName.includes("alex johnson");
+                });
               });
             }
           } catch (subErr) {
@@ -794,8 +788,17 @@ const TeacherUploadAssignment = () => {
                   <input
                     type="date"
                     required
+                    min={todayStr}
                     value={newDueDate}
-                    onChange={(e) => setNewDueDate(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val && val < todayStr) {
+                        notifyError("Past dates cannot be selected for assignment due dates!");
+                        setNewDueDate(todayStr);
+                      } else {
+                        setNewDueDate(val);
+                      }
+                    }}
                     className="w-full p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
                   />
                 </div>

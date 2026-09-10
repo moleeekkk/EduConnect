@@ -10,19 +10,75 @@ const TeacherQuizPractice = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+      const userStr = localStorage.getItem("educonnect_user");
+      const loggedUser = userStr ? JSON.parse(userStr) : null;
+      const identifier = loggedUser?.identifier || loggedUser?.email || loggedUser?.userId;
+
+      const localQuizzesStr = localStorage.getItem("educonnect_quizzes");
+      const localMcqsStr = localStorage.getItem("educonnect_quiz_mcqs");
+
+      const initialLocalQuizzes = localQuizzesStr ? JSON.parse(localQuizzesStr) : [];
+      const initialLocalMcqs = localMcqsStr ? JSON.parse(localMcqsStr) : [];
+
       try {
-        const [quizData, subData] = await Promise.all([
+        const [quizData, assignedSubsRes, adminSubsRes] = await Promise.all([
           teacherApi.getQuizzes(),
+          teacherApi.getAssignedSubjects(identifier),
           adminApi.getSubjects(),
         ]);
-        if (Array.isArray(quizData)) {
-          setQuizzes(quizData);
+
+        let finalQuizzes = initialLocalQuizzes;
+        if (Array.isArray(quizData) && quizData.length > 0) {
+          const map = new Map();
+          initialLocalQuizzes.forEach((q) => map.set(q.quiz_id || q.id, q));
+          quizData.forEach((q) => map.set(q.quiz_id || q.id, q));
+          finalQuizzes = Array.from(map.values());
         }
-        if (Array.isArray(subData)) {
-          setSubjects(subData);
+
+        setQuizzes(finalQuizzes);
+        setMcqs(initialLocalMcqs);
+        localStorage.setItem("educonnect_quizzes", JSON.stringify(finalQuizzes));
+        localStorage.setItem("educonnect_quiz_mcqs", JSON.stringify(initialLocalMcqs));
+
+        const assignedList = Array.isArray(assignedSubsRes) ? assignedSubsRes : [];
+        const adminList = Array.isArray(adminSubsRes) ? adminSubsRes : [];
+
+        // Fallback subjects if database lists are empty
+        const defaultSubjects = [
+          { subject_id: "subj-101", id: "subj-101", subject_code: "MCA101", code: "MCA101", subject_name: "Enterprise Java Architecture", name: "Enterprise Java Architecture" },
+          { subject_id: "subj-102", id: "subj-102", subject_code: "MCA102", code: "MCA102", subject_name: "Cloud Microservices & JWT Security", name: "Cloud Microservices & JWT Security" },
+          { subject_id: "subj-103", id: "subj-103", subject_code: "MCA103", code: "MCA103", subject_name: "Relational Database Systems (PostgreSQL)", name: "Relational Database Systems (PostgreSQL)" },
+        ];
+
+        // Deduplicate merged subjects
+        const mergedMap = new Map();
+        [...assignedList, ...adminList].forEach((s) => {
+          const id = s.subject_id || s.subjectId || s.id;
+          const code = s.subject_code || s.subjectCode || s.code || "";
+          const key = id ? String(id) : code.toUpperCase();
+          if (key && !mergedMap.has(key)) {
+            mergedMap.set(key, s);
+          }
+        });
+
+        const mergedList = Array.from(mergedMap.values());
+        const finalSubjects = mergedList.length > 0 ? mergedList : defaultSubjects;
+
+        setSubjects(finalSubjects);
+
+        if (finalSubjects.length > 0) {
+          const firstSubId = finalSubjects[0].subject_id || finalSubjects[0].subjectId || finalSubjects[0].id || "subj-101";
+          setSubjectId(firstSubId);
         }
       } catch (err) {
         console.error("Teacher quiz practice load error:", err);
+        const fallbackSubs = [
+          { subject_id: "subj-101", id: "subj-101", subject_code: "MCA101", code: "MCA101", subject_name: "Enterprise Java Architecture", name: "Enterprise Java Architecture" },
+          { subject_id: "subj-102", id: "subj-102", subject_code: "MCA102", code: "MCA102", subject_name: "Cloud Microservices & JWT Security", name: "Cloud Microservices & JWT Security" },
+          { subject_id: "subj-103", id: "subj-103", subject_code: "MCA103", code: "MCA103", subject_name: "Relational Database Systems (PostgreSQL)", name: "Relational Database Systems (PostgreSQL)" },
+        ];
+        setSubjects(fallbackSubs);
+        setSubjectId("subj-101");
       }
     };
     fetchData();
@@ -51,7 +107,8 @@ const TeacherQuizPractice = () => {
     setEditingQuizId(null);
     setTitle("");
     setDesc("");
-    setSubjectId("subj-101");
+    const defaultSubId = subjects.length > 0 ? (subjects[0].subject_id || subjects[0].subjectId || subjects[0].id || "subj-101") : "subj-101";
+    setSubjectId(defaultSubId);
     setLearnerType("Fast");
     setShowAddModal(true);
   };
@@ -60,40 +117,45 @@ const TeacherQuizPractice = () => {
     setEditingQuizId(quiz.quiz_id);
     setTitle(quiz.title);
     setDesc(quiz.description);
-    setSubjectId(quiz.subject_id || "subj-101");
+    const quizSubId = quiz.subject_id || (subjects.length > 0 ? (subjects[0].subject_id || subjects[0].subjectId || subjects[0].id) : "subj-101");
+    setSubjectId(quizSubId);
     setLearnerType(quiz.learner_type);
     setShowAddModal(true);
   };
 
   const handleDeleteQuiz = (id) => {
     if (window.confirm("Are you sure you want to delete this practice quiz and its questions?")) {
-      setQuizzes(quizzes.filter((q) => q.quiz_id !== id));
-      setMcqs(mcqs.filter((m) => m.quiz_id !== id));
+      const nextQuizzes = quizzes.filter((q) => q.quiz_id !== id && q.id !== id);
+      const nextMcqs = mcqs.filter((m) => m.quiz_id !== id);
+      setQuizzes(nextQuizzes);
+      setMcqs(nextMcqs);
+      localStorage.setItem("educonnect_quizzes", JSON.stringify(nextQuizzes));
+      localStorage.setItem("educonnect_quiz_mcqs", JSON.stringify(nextMcqs));
     }
   };
 
   const handleSaveQuiz = (e) => {
     e.preventDefault();
+    let updatedQuizzes = [];
     if (editingQuizId) {
       // Edit Quiz
-      setQuizzes(
-        quizzes.map((q) =>
-          q.quiz_id === editingQuizId
-            ? {
-                ...q,
-                title,
-                description: desc,
-                subject_id: subjectId,
-                learner_type: learnerType,
-                updated_at: new Date().toISOString(),
-              }
-            : q
-        )
+      updatedQuizzes = quizzes.map((q) =>
+        (q.quiz_id === editingQuizId || q.id === editingQuizId)
+          ? {
+              ...q,
+              title,
+              description: desc,
+              subject_id: subjectId,
+              learner_type: learnerType,
+              updated_at: new Date().toISOString(),
+            }
+          : q
       );
     } else {
       // Create Quiz
       const created = {
         quiz_id: `quiz-00${quizzes.length + 1}`,
+        id: `quiz-00${quizzes.length + 1}`,
         teacher_subject_id: "ts-001",
         subject_id: subjectId,
         title,
@@ -103,8 +165,16 @@ const TeacherQuizPractice = () => {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
-      setQuizzes([...quizzes, created]);
+      updatedQuizzes = [created, ...quizzes];
+      try {
+        teacherApi.createQuiz(created);
+      } catch (err) {
+        console.warn("Backend quiz sync failed:", err);
+      }
     }
+
+    setQuizzes(updatedQuizzes);
+    localStorage.setItem("educonnect_quizzes", JSON.stringify(updatedQuizzes));
 
     setShowAddModal(false);
     setEditingQuizId(null);
@@ -115,9 +185,11 @@ const TeacherQuizPractice = () => {
     e.preventDefault();
     if (!activeQuizForMcq) return;
 
+    const quizId = activeQuizForMcq.quiz_id || activeQuizForMcq.id;
     const newMcqObj = {
       mcq_id: `mcq-00${mcqs.length + 1}`,
-      quiz_id: activeQuizForMcq.quiz_id,
+      id: `mcq-00${mcqs.length + 1}`,
+      quiz_id: quizId,
       question: newQuestion,
       option_a: optA,
       option_b: optB,
@@ -129,16 +201,18 @@ const TeacherQuizPractice = () => {
       updated_at: new Date().toISOString(),
     };
 
-    setMcqs([...mcqs, newMcqObj]);
-
-    // Update Question Count in Quiz
-    setQuizzes(
-      quizzes.map((q) =>
-        q.quiz_id === activeQuizForMcq.quiz_id
-          ? { ...q, total_questions: (q.total_questions || 0) + 1 }
-          : q
-      )
+    const nextMcqs = [...mcqs, newMcqObj];
+    const nextQuizzes = quizzes.map((q) =>
+      (q.quiz_id === quizId || q.id === quizId)
+        ? { ...q, total_questions: (q.total_questions || 0) + 1 }
+        : q
     );
+
+    setMcqs(nextMcqs);
+    setQuizzes(nextQuizzes);
+
+    localStorage.setItem("educonnect_quiz_mcqs", JSON.stringify(nextMcqs));
+    localStorage.setItem("educonnect_quizzes", JSON.stringify(nextQuizzes));
 
     // Reset Form
     setNewQuestion("");
@@ -151,15 +225,19 @@ const TeacherQuizPractice = () => {
   };
 
   const handleDeleteMcq = (mcqId) => {
-    setMcqs(mcqs.filter((m) => m.mcq_id !== mcqId));
+    const nextMcqs = mcqs.filter((m) => m.mcq_id !== mcqId && m.id !== mcqId);
+    setMcqs(nextMcqs);
+    localStorage.setItem("educonnect_quiz_mcqs", JSON.stringify(nextMcqs));
+
     if (activeQuizForMcq) {
-      setQuizzes(
-        quizzes.map((q) =>
-          q.quiz_id === activeQuizForMcq.quiz_id
-            ? { ...q, total_questions: Math.max(0, (q.total_questions || 1) - 1) }
-            : q
-        )
+      const targetId = activeQuizForMcq.quiz_id || activeQuizForMcq.id;
+      const nextQuizzes = quizzes.map((q) =>
+        (q.quiz_id === targetId || q.id === targetId)
+          ? { ...q, total_questions: Math.max(0, (q.total_questions || 1) - 1) }
+          : q
       );
+      setQuizzes(nextQuizzes);
+      localStorage.setItem("educonnect_quizzes", JSON.stringify(nextQuizzes));
     }
   };
 
@@ -281,13 +359,18 @@ const TeacherQuizPractice = () => {
                   <select
                     value={subjectId}
                     onChange={(e) => setSubjectId(e.target.value)}
-                    className="w-full p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
+                    className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] text-xs font-semibold text-[#1E293B]"
                   >
-                    {subjects.map((s) => (
-                      <option key={s.subject_id || s.id} value={s.subject_id || s.id}>
-                        {s.subject_code || s.code} - {s.subject_name || s.name}
-                      </option>
-                    ))}
+                    {subjects.map((s, index) => {
+                      const sId = s.subject_id || s.subjectId || s.id || `subj-${index}`;
+                      const sCode = s.subject_code || s.subjectCode || s.code || "";
+                      const sName = s.subject_name || s.subjectName || s.name || s.title || "Subject";
+                      return (
+                        <option key={sId} value={sId}>
+                          {sCode ? `${sCode} - ${sName}` : sName}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
                 <div>

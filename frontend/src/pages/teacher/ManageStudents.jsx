@@ -26,7 +26,12 @@ const TeacherManageStudents = () => {
         ]);
 
         if (Array.isArray(studentData)) {
-          setStudents(studentData);
+          const cleaned = studentData.filter((s) => {
+            const email = (s.email || "").toLowerCase();
+            const fullName = `${s.first_name || s.firstName || ""} ${s.last_name || s.lastName || ""}`.toLowerCase();
+            return email !== "alex.johnson@educonnect.ac.in" && !fullName.includes("alex johnson");
+          });
+          setStudents(cleaned);
         }
         if (Array.isArray(deptData)) {
           setDepartments(deptData);

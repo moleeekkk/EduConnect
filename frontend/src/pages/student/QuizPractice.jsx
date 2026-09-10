@@ -6,6 +6,7 @@ import { studentApi } from "../../services/api";
 const StudentQuizPractice = () => {
   const [selectedLearnerType, setSelectedLearnerType] = useState("Fast");
   const [selectedSubjectId, setSelectedSubjectId] = useState("subj-101");
+  const [selectedQuizId, setSelectedQuizId] = useState("");
   const [userAnswers, setUserAnswers] = useState({});
   const [showExplanations, setShowExplanations] = useState(false);
 
@@ -15,30 +16,136 @@ const StudentQuizPractice = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+      const localQuizzesStr = localStorage.getItem("educonnect_quizzes");
+      const localMcqsStr = localStorage.getItem("educonnect_quiz_mcqs");
+
+      const defaultQuizzes = [
+        {
+          quiz_id: "quiz-001",
+          id: "quiz-001",
+          subject_id: "subj-101",
+          title: "Java OOPs & Multithreading Practice",
+          description: "Foundational practice MCQs on Java classes, inheritance, threads & concurrency.",
+          learner_type: "Fast",
+          total_questions: 2,
+        },
+        {
+          quiz_id: "quiz-002",
+          id: "quiz-002",
+          subject_id: "subj-102",
+          title: "Microservices Architecture Basics",
+          description: "Practice questions covering REST endpoints, API gateway & JWT tokens.",
+          learner_type: "Slow",
+          total_questions: 1,
+        },
+      ];
+
+      const defaultMcqs = [
+        {
+          mcq_id: "mcq-001",
+          id: "mcq-001",
+          quiz_id: "quiz-001",
+          question: "Which Java keyword is used to implement multiple inheritance through interfaces?",
+          option_a: "extends",
+          option_b: "implements",
+          option_c: "inherits",
+          option_d: "using",
+          correct_answer: "B",
+          explanation: "In Java, a class uses the 'implements' keyword to inherit behavior from interfaces.",
+        },
+        {
+          mcq_id: "mcq-002",
+          id: "mcq-002",
+          quiz_id: "quiz-001",
+          question: "What is the entry point method executed when a Java Thread is started via thread.start()?",
+          option_a: "init()",
+          option_b: "start()",
+          option_c: "run()",
+          option_d: "execute()",
+          correct_answer: "C",
+          explanation: "Calling start() creates a new call stack and triggers the thread's run() method.",
+        },
+        {
+          mcq_id: "mcq-003",
+          id: "mcq-003",
+          quiz_id: "quiz-002",
+          question: "What type of authentication header is typically used to transmit JWT tokens in Microservices?",
+          option_a: "Basic Auth",
+          option_b: "Bearer Token (Authorization)",
+          option_c: "Session ID",
+          option_d: "Cookie Token",
+          correct_answer: "B",
+          explanation: "JWT tokens are sent in the 'Authorization: Bearer <token>' header.",
+        },
+      ];
+
+      const localQuizzes = localQuizzesStr ? JSON.parse(localQuizzesStr) : defaultQuizzes;
+      const localMcqs = localMcqsStr ? JSON.parse(localMcqsStr) : defaultMcqs;
+
       try {
         const [quizData, syllabusData] = await Promise.all([
           studentApi.getQuizzes(),
           studentApi.getSyllabus(),
         ]);
-        if (Array.isArray(quizData)) {
-          setQuizzes(quizData);
+
+        let finalQuizzes = localQuizzes;
+        if (Array.isArray(quizData) && quizData.length > 0) {
+          const map = new Map();
+          localQuizzes.forEach((q) => map.set(q.quiz_id || q.id, q));
+          quizData.forEach((q) => map.set(q.quiz_id || q.id, q));
+          finalQuizzes = Array.from(map.values());
         }
-        if (Array.isArray(syllabusData)) {
-          setSubjects(syllabusData);
+
+        const defaultSubjects = [
+          { subject_id: "subj-101", id: "subj-101", subject_code: "MCA101", code: "MCA101", subject_name: "Enterprise Java Architecture", name: "Enterprise Java Architecture" },
+          { subject_id: "subj-102", id: "subj-102", subject_code: "MCA102", code: "MCA102", subject_name: "Cloud Microservices & JWT Security", name: "Cloud Microservices & JWT Security" },
+          { subject_id: "subj-103", id: "subj-103", subject_code: "MCA103", code: "MCA103", subject_name: "Relational Database Systems (PostgreSQL)", name: "Relational Database Systems (PostgreSQL)" },
+        ];
+
+        const rawSubs = Array.isArray(syllabusData) && syllabusData.length > 0 ? syllabusData : defaultSubjects;
+        setSubjects(rawSubs);
+        setQuizzes(finalQuizzes);
+        setMcqs(localMcqs);
+
+        if (rawSubs.length > 0) {
+          setSelectedSubjectId(rawSubs[0].subject_id || rawSubs[0].id || "subj-101");
         }
       } catch (err) {
         console.error("Quiz load error:", err);
+        setQuizzes(localQuizzes);
+        setMcqs(localMcqs);
+        setSubjects([
+          { subject_id: "subj-101", id: "subj-101", subject_code: "MCA101", code: "MCA101", subject_name: "Enterprise Java Architecture", name: "Enterprise Java Architecture" },
+          { subject_id: "subj-102", id: "subj-102", subject_code: "MCA102", code: "MCA102", subject_name: "Cloud Microservices & JWT Security", name: "Cloud Microservices & JWT Security" },
+          { subject_id: "subj-103", id: "subj-103", subject_code: "MCA103", code: "MCA103", subject_name: "Relational Database Systems (PostgreSQL)", name: "Relational Database Systems (PostgreSQL)" },
+        ]);
       }
     };
     fetchData();
   }, []);
 
-  const matchingQuizzes = quizzes.filter(
-    (q) => q.learner_type === selectedLearnerType && (q.subject_id === selectedSubjectId || !q.subject_id)
-  );
+  // Filter Quizzes by selected Learner Type & Subject
+  const matchingQuizzes = quizzes.filter((q) => {
+    const catMatch = !selectedLearnerType || (q.learner_type || "").toLowerCase() === selectedLearnerType.toLowerCase();
+    const qSubId = q.subject_id || q.subjectId || "";
+    
+    // Find subject code for selectedSubjectId
+    const currentSubObj = subjects.find(s => String(s.subject_id || s.id) === String(selectedSubjectId));
+    const subCode = currentSubObj?.subject_code || currentSubObj?.code || "";
 
-  const activeQuiz = matchingQuizzes[0] || quizzes.find((q) => q.learner_type === selectedLearnerType) || quizzes[0];
-  const quizMcqs = mcqs.filter((m) => m.quiz_id === activeQuiz?.quiz_id) || activeQuiz?.mcqs || [];
+    const subMatch =
+      !selectedSubjectId ||
+      !qSubId ||
+      String(qSubId).toLowerCase() === String(selectedSubjectId).toLowerCase() ||
+      (subCode && String(qSubId).toUpperCase() === subCode.toUpperCase());
+
+    return catMatch && subMatch;
+  });
+
+  const availableQuizzes = matchingQuizzes.length > 0 ? matchingQuizzes : quizzes.filter(q => (q.learner_type || "").toLowerCase() === selectedLearnerType.toLowerCase());
+
+  const activeQuiz = availableQuizzes.find(q => String(q.quiz_id || q.id) === String(selectedQuizId)) || availableQuizzes[0] || quizzes[0];
+  const quizMcqs = mcqs.filter((m) => String(m.quiz_id || m.quizId) === String(activeQuiz?.quiz_id || activeQuiz?.id)) || activeQuiz?.mcqs || [];
 
   const handleSelectOption = (mcqId, option) => {
     if (showExplanations) return;
@@ -105,6 +212,27 @@ const StudentQuizPractice = () => {
               ))}
             </select>
           </div>
+
+          {/* Module Selector */}
+          {availableQuizzes.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs font-bold text-[#64748B]">Module:</label>
+              <select
+                value={activeQuiz?.quiz_id || activeQuiz?.id || ""}
+                onChange={(e) => {
+                  setSelectedQuizId(e.target.value);
+                  resetQuiz();
+                }}
+                className="p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] text-xs font-bold text-[#1E293B] cursor-pointer outline-none focus:border-[#2563EB]"
+              >
+                {availableQuizzes.map((q) => (
+                  <option key={q.quiz_id || q.id} value={q.quiz_id || q.id}>
+                    {q.title} ({(mcqs.filter(m => (m.quiz_id || m.quizId) === (q.quiz_id || q.id)).length) || q.total_questions || 0} Qs)
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 

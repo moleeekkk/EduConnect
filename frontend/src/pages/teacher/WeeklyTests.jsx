@@ -29,7 +29,12 @@ const TeacherWeeklyTests = () => {
           if (Array.isArray(testsData.results)) setResults(testsData.results);
         }
         if (Array.isArray(stuData)) {
-          setStudents(stuData);
+          const cleaned = stuData.filter((s) => {
+            const email = (s.email || "").toLowerCase();
+            const fullName = `${s.first_name || s.firstName || ""} ${s.last_name || s.lastName || ""}`.toLowerCase();
+            return email !== "alex.johnson@educonnect.ac.in" && !fullName.includes("alex johnson");
+          });
+          setStudents(cleaned);
         }
       } catch (err) {
         console.error("Teacher weekly tests load error:", err);
@@ -38,9 +43,19 @@ const TeacherWeeklyTests = () => {
     fetchData();
   }, []);
 
+  const getTodayDateString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const todayStr = getTodayDateString();
+
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
-  const [date, setDate] = useState("2026-08-18");
+  const [date, setDate] = useState(todayStr);
   const [startTime, setStartTime] = useState("10:00");
   const [endTime, setEndTime] = useState("11:00");
   const [totalMarks, setTotalMarks] = useState(25);
@@ -49,7 +64,7 @@ const TeacherWeeklyTests = () => {
     setEditingTestId(null);
     setTitle("");
     setDesc("");
-    setDate("2026-08-18");
+    setDate(getTodayDateString());
     setStartTime("10:00");
     setEndTime("11:00");
     setTotalMarks(25);
@@ -84,6 +99,10 @@ const TeacherWeeklyTests = () => {
 
   const handleSaveTest = async (e) => {
     e.preventDefault();
+    if (date && date < todayStr) {
+      notifyError("Past dates cannot be selected. Please select today or a future date.");
+      return;
+    }
     const formattedStartTime = startTime.length === 5 ? `${startTime}:00` : startTime;
     const formattedEndTime = endTime.length === 5 ? `${endTime}:00` : endTime;
 
@@ -282,8 +301,17 @@ const TeacherWeeklyTests = () => {
                   <input
                     type="date"
                     required
+                    min={todayStr}
                     value={date}
-                    onChange={(e) => setDate(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val && val < todayStr) {
+                        notifyError("Past dates cannot be selected for weekly tests!");
+                        setDate(todayStr);
+                      } else {
+                        setDate(val);
+                      }
+                    }}
                     className="w-full p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
                   />
                 </div>
