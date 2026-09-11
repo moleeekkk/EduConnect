@@ -1,3 +1,5 @@
+import { fileApi } from "../services/api";
+
 /**
  * Helper to read a local File object into a base64 Data URL for instant in-app previews.
  */
@@ -91,9 +93,9 @@ export const getDisplayFileName = (fileName, attachment, fallbackTitle = "Docume
 };
 
 /**
- * Triggers clean download for Data URLs, Blob URLs, or remote file paths.
+ * Triggers clean download for Data URLs, Blob URLs, or remote API file paths with authentication.
  */
-export const downloadFile = (fileUrl, fileName = "Document") => {
+export const downloadFile = async (fileUrl, fileName = "Document") => {
   if (!fileUrl) return;
 
   const cleanName = getDisplayFileName(fileName, fileUrl, "Document");
@@ -113,6 +115,23 @@ export const downloadFile = (fileUrl, fileName = "Document") => {
     }
   }
 
+  if (fileUrl.startsWith("http") || fileUrl.startsWith("/api")) {
+    try {
+      const blob = await fileApi.getFileBlob(fileUrl);
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = cleanName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+      return;
+    } catch (err) {
+      console.error("Authenticated file download error:", err);
+    }
+  }
+
   const a = document.createElement("a");
   a.href = fileUrl;
   a.download = cleanName;
@@ -123,9 +142,9 @@ export const downloadFile = (fileUrl, fileName = "Document") => {
 };
 
 /**
- * Safely opens a file in a new tab without popup blocker errors or empty iframe issues.
+ * Safely opens a file in a new tab using authenticated blob stream or window.open.
  */
-export const openFileInNewTab = (fileUrl, title = "Document Preview") => {
+export const openFileInNewTab = async (fileUrl, title = "Document Preview") => {
   if (!fileUrl) return;
 
   if (fileUrl.startsWith("data:")) {
@@ -143,6 +162,26 @@ export const openFileInNewTab = (fileUrl, title = "Document Preview") => {
         document.body.removeChild(a);
       }
       return;
+    }
+  }
+
+  if (fileUrl.startsWith("http") || fileUrl.startsWith("/api")) {
+    try {
+      const blob = await fileApi.getFileBlob(fileUrl);
+      const blobUrl = URL.createObjectURL(blob);
+      const win = window.open(blobUrl, "_blank", "noopener,noreferrer");
+      if (!win) {
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+      return;
+    } catch (err) {
+      console.error("Authenticated file preview error:", err);
     }
   }
 

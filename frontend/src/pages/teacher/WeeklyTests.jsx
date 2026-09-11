@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { CheckSquare, Plus, Eye, Award, CheckCircle2, Clock, Edit, Trash2, X } from "lucide-react";
+import { CheckSquare, Plus, Eye, Award, CheckCircle2, Clock, Edit, Trash2, X, Send } from "lucide-react";
 import Button from "../../components/common/Button";
 import { teacherApi } from "../../services/api";
 import { notifySuccess, notifyError } from "../../utils/toast";
@@ -8,38 +8,44 @@ const TeacherWeeklyTests = () => {
   const [tests, setTests] = useState([]);
   const [results, setResults] = useState([]);
   const [students, setStudents] = useState([]);
+  const [subjects, setSubjects] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTestId, setEditingTestId] = useState(null);
   const [viewResultsModal, setViewResultsModal] = useState(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [testsData, stuData] = await Promise.all([
-          teacherApi.getWeeklyTests(),
-          teacherApi.getStudents(),
-        ]);
-        if (Array.isArray(testsData)) {
-          setTests(testsData);
-        } else if (testsData && Array.isArray(testsData.tests)) {
-          setTests(testsData.tests);
-          if (Array.isArray(testsData.results)) setResults(testsData.results);
-        } else if (testsData && Array.isArray(testsData.exams)) {
-          setTests(testsData.exams);
-          if (Array.isArray(testsData.results)) setResults(testsData.results);
-        }
-        if (Array.isArray(stuData)) {
-          const cleaned = stuData.filter((s) => {
-            const email = (s.email || "").toLowerCase();
-            const fullName = `${s.first_name || s.firstName || ""} ${s.last_name || s.lastName || ""}`.toLowerCase();
-            return email !== "alex.johnson@educonnect.ac.in" && !fullName.includes("alex johnson");
-          });
-          setStudents(cleaned);
-        }
-      } catch (err) {
-        console.error("Teacher weekly tests load error:", err);
+  const fetchData = async () => {
+    try {
+      const [testsData, stuData, subjData] = await Promise.all([
+        teacherApi.getWeeklyTests(),
+        teacherApi.getStudents(),
+        teacherApi.getAssignedSubjects(),
+      ]);
+      if (Array.isArray(testsData)) {
+        setTests(testsData);
+      } else if (testsData && Array.isArray(testsData.tests)) {
+        setTests(testsData.tests);
+        if (Array.isArray(testsData.results)) setResults(testsData.results);
+      } else if (testsData && Array.isArray(testsData.exams)) {
+        setTests(testsData.exams);
+        if (Array.isArray(testsData.results)) setResults(testsData.results);
       }
-    };
+      if (Array.isArray(stuData)) {
+        const cleaned = stuData.filter((s) => {
+          const email = (s.email || "").toLowerCase();
+          const fullName = `${s.first_name || s.firstName || ""} ${s.last_name || s.lastName || ""}`.toLowerCase();
+          return email !== "alex.johnson@educonnect.ac.in" && !fullName.includes("alex johnson");
+        });
+        setStudents(cleaned);
+      }
+      if (Array.isArray(subjData)) {
+        setSubjects(subjData);
+      }
+    } catch (err) {
+      console.error("Teacher weekly tests load error:", err);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -59,6 +65,7 @@ const TeacherWeeklyTests = () => {
   const [startTime, setStartTime] = useState("10:00");
   const [endTime, setEndTime] = useState("11:00");
   const [totalMarks, setTotalMarks] = useState(25);
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
 
   const handleOpenAddModal = () => {
     setEditingTestId(null);
@@ -68,6 +75,7 @@ const TeacherWeeklyTests = () => {
     setStartTime("10:00");
     setEndTime("11:00");
     setTotalMarks(25);
+    setSelectedSubjectId(subjects.length > 0 ? subjects[0].subject_id : "");
     setShowAddModal(true);
   };
 
@@ -75,12 +83,13 @@ const TeacherWeeklyTests = () => {
     const id = test.weekly_test_id || test.weekly_exam_id;
     const testDate = test.test_date || test.exam_date;
     setEditingTestId(id);
-    setTitle(test.title);
-    setDesc(test.description);
-    setDate(testDate);
+    setTitle(test.title || "");
+    setDesc(test.description || "");
+    setDate(testDate || getTodayDateString());
     setStartTime(test.start_time ? test.start_time.substring(0, 5) : "10:00");
     setEndTime(test.end_time ? test.end_time.substring(0, 5) : "11:00");
-    setTotalMarks(test.total_marks);
+    setTotalMarks(test.total_marks || 25);
+    setSelectedSubjectId(test.subject_id || (subjects.length > 0 ? subjects[0].subject_id : ""));
     setShowAddModal(true);
   };
 
@@ -92,7 +101,22 @@ const TeacherWeeklyTests = () => {
         notifySuccess("Weekly test deleted successfully from database!");
       } catch (err) {
         console.error("Error deleting weekly test:", err);
-        notifyError("Failed to delete weekly test from database.");
+        const errMsg = err?.response?.data?.message || err?.message || "Failed to delete weekly test from database.";
+        notifyError(errMsg);
+      }
+    }
+  };
+
+  const handlePublishTest = async (id, testTitle) => {
+    if (window.confirm(`Publish results for '${testTitle}'? Published marks will become visible to cohort students.`)) {
+      try {
+        await teacherApi.publishWeeklyTest(id);
+        notifySuccess(`Weekly test '${testTitle}' published successfully!`);
+        fetchData();
+      } catch (err) {
+        console.error("Error publishing weekly test:", err);
+        const errMsg = err?.response?.data?.message || err?.message || "Failed to publish weekly test results.";
+        notifyError(errMsg);
       }
     }
   };
@@ -101,6 +125,10 @@ const TeacherWeeklyTests = () => {
     e.preventDefault();
     if (date && date < todayStr) {
       notifyError("Past dates cannot be selected. Please select today or a future date.");
+      return;
+    }
+    if (startTime >= endTime) {
+      notifyError("Start time must be strictly before end time.");
       return;
     }
     const formattedStartTime = startTime.length === 5 ? `${startTime}:00` : startTime;
@@ -114,6 +142,7 @@ const TeacherWeeklyTests = () => {
       start_time: formattedStartTime,
       end_time: formattedEndTime,
       total_marks: Number(totalMarks),
+      subject_id: selectedSubjectId,
     };
 
     try {
@@ -125,22 +154,14 @@ const TeacherWeeklyTests = () => {
         notifySuccess(`Weekly test '${title}' saved to database successfully!`);
       }
 
-      // Refresh test list from database
-      const testsData = await teacherApi.getWeeklyTests();
-      if (Array.isArray(testsData)) {
-        setTests(testsData);
-      } else if (testsData && Array.isArray(testsData.tests)) {
-        setTests(testsData.tests);
-      } else if (testsData && Array.isArray(testsData.exams)) {
-        setTests(testsData.exams);
-      }
+      await fetchData();
+      setShowAddModal(false);
+      setEditingTestId(null);
     } catch (err) {
       console.error("Error saving weekly test to database:", err);
-      notifyError("Failed to save weekly test to database.");
+      const errMsg = err?.response?.data?.message || err?.message || "Failed to save weekly test to database.";
+      notifyError(errMsg);
     }
-
-    setShowAddModal(false);
-    setEditingTestId(null);
   };
 
   const handleOpenResultsModal = async (test) => {
@@ -154,6 +175,8 @@ const TeacherWeeklyTests = () => {
         }
       } catch (err) {
         console.error("Error fetching weekly test results from database:", err);
+        const errMsg = err?.response?.data?.message || err?.message || "Failed to load cohort test results.";
+        notifyError(errMsg);
       }
     }
   };
@@ -181,9 +204,11 @@ const TeacherWeeklyTests = () => {
       await teacherApi.saveWeeklyTestResults(testId, results);
       notifySuccess(`Weekly test marks saved to database for '${viewResultsModal.title}'!`);
       setViewResultsModal(null);
+      fetchData();
     } catch (err) {
       console.error("Error saving weekly test results:", err);
-      notifyError("Failed to save weekly test marks to database.");
+      const errMsg = err?.response?.data?.message || err?.message || "Failed to save weekly test marks to database.";
+      notifyError(errMsg);
     }
   };
 
@@ -193,6 +218,7 @@ const TeacherWeeklyTests = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
           <h1 className="text-xl font-bold text-[#1E293B]">Weekly Tests</h1>
+          <p className="text-xs text-[#64748B] mt-0.5">Schedule weekly tests, manage cohort marks, and publish final results.</p>
         </div>
 
         <Button variant="accent" size="sm" icon={Plus} onClick={handleOpenAddModal} className="text-xs">
@@ -205,36 +231,77 @@ const TeacherWeeklyTests = () => {
         {tests.map((test) => {
           const testId = test.weekly_test_id || test.weekly_exam_id;
           const testDate = test.test_date || test.exam_date;
+          const isPub = Boolean(test.is_published);
+
           return (
             <div key={testId} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs flex flex-col justify-between space-y-4">
               <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#2563EB]/10 text-[#2563EB] font-mono font-bold text-[11px]">
-                    Test Date: {testDate}
-                  </span>
-                  <span className="font-bold text-[#14B8A6]">Total Marks: {test.total_marks}</span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#2563EB]/10 text-[#2563EB] font-mono font-bold text-[11px]">
+                      Test Date: {testDate}
+                    </span>
+                    {test.subject_name && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-[#1E293B] font-bold text-[11px]">
+                        {test.subject_code ? `${test.subject_code}` : test.subject_name}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {isPub ? (
+                      <span className="px-2.5 py-0.5 rounded-full bg-[#22C55E]/10 text-[#22C55E] font-bold text-[11px]">
+                        Published
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 font-bold text-[11px]">
+                        Draft
+                      </span>
+                    )}
+                    <span className="font-bold text-[#14B8A6]">Total: {test.total_marks} Marks</span>
+                  </div>
                 </div>
 
                 <h3 className="text-sm font-bold text-[#1E293B]">{test.title}</h3>
                 <p className="text-[#64748B]">{test.description}</p>
 
                 {/* Start & End Timing Info */}
-                <div className="pt-2 border-t border-[#E2E8F0] flex items-center gap-1.5 text-xs text-[#1E293B] font-mono font-medium">
-                  <Clock className="w-3.5 h-3.5 text-[#2563EB]" />
-                  <span>Test Schedule: {test.start_time} to {test.end_time}</span>
+                <div className="pt-2 border-t border-[#E2E8F0] flex items-center justify-between text-xs text-[#1E293B]">
+                  <div className="flex items-center gap-1.5 font-mono font-medium">
+                    <Clock className="w-3.5 h-3.5 text-[#2563EB]" />
+                    <span>Schedule: {test.start_time} to {test.end_time}</span>
+                  </div>
+
+                  {test.subject_name && (
+                    <span className="text-[11px] text-[#64748B] font-medium">{test.subject_name}</span>
+                  )}
                 </div>
               </div>
 
               <div className="border-t border-[#E2E8F0] pt-3 flex flex-wrap items-center justify-between gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  icon={Eye}
-                  onClick={() => handleOpenResultsModal(test)}
-                  className="text-xs"
-                >
-                  Grade / Enter Student Marks
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={Eye}
+                    onClick={() => handleOpenResultsModal(test)}
+                    className="text-xs"
+                  >
+                    Grade / Enter Marks
+                  </Button>
+
+                  {!isPub && (
+                    <Button
+                      variant="accent"
+                      size="sm"
+                      icon={Send}
+                      onClick={() => handlePublishTest(testId, test.title)}
+                      className="text-xs !bg-[#22C55E] hover:!bg-[#16A34A]"
+                    >
+                      Publish Results
+                    </Button>
+                  )}
+                </div>
 
                 <div className="flex items-center gap-2">
                   <Button
@@ -271,6 +338,23 @@ const TeacherWeeklyTests = () => {
             </h3>
 
             <form onSubmit={handleSaveTest} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-[#64748B] mb-1 font-medium">Subject / Class Allocation</label>
+                <select
+                  required
+                  value={selectedSubjectId}
+                  onChange={(e) => setSelectedSubjectId(e.target.value)}
+                  className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-medium"
+                >
+                  <option value="">-- Select Subject Allocation --</option>
+                  {subjects.map((s) => (
+                    <option key={s.subject_id} value={s.subject_id}>
+                      {s.subject_code ? `${s.subject_code} - ${s.subject_name}` : s.subject_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="block text-[#64748B] mb-1 font-medium">Test Title (title)</label>
                 <input
@@ -320,6 +404,7 @@ const TeacherWeeklyTests = () => {
                   <input
                     type="number"
                     required
+                    min="1"
                     value={totalMarks}
                     onChange={(e) => setTotalMarks(e.target.value)}
                     className="w-full p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
@@ -459,4 +544,3 @@ const TeacherWeeklyTests = () => {
 };
 
 export default TeacherWeeklyTests;
-

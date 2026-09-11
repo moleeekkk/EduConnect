@@ -58,6 +58,48 @@ public class AssignmentSubmission {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    public UUID getSubmissionId() { return submissionId; }
+    public void setSubmissionId(UUID submissionId) { this.submissionId = submissionId; }
+
+    public UUID getAssignmentId() { return assignmentId; }
+    public void setAssignmentId(UUID assignmentId) { this.assignmentId = assignmentId; }
+
+    public UUID getStudentId() { return studentId; }
+    public void setStudentId(UUID studentId) { this.studentId = studentId; }
+
+    public LocalDateTime getSubmissionDate() { return submissionDate; }
+    public void setSubmissionDate(LocalDateTime submissionDate) { this.submissionDate = submissionDate; }
+
+    public String getAttachment() { return attachment; }
+    public void setAttachment(String attachment) { this.attachment = attachment; }
+
+    public String getFileName() { return fileName; }
+    public void setFileName(String fileName) { this.fileName = fileName; }
+
+    public String getFilePath() { return filePath; }
+    public void setFilePath(String filePath) { this.filePath = filePath; }
+
+    public String getFileType() { return fileType; }
+    public void setFileType(String fileType) { this.fileType = fileType; }
+
+    public Long getFileSize() { return fileSize; }
+    public void setFileSize(Long fileSize) { this.fileSize = fileSize; }
+
+    public Integer getObtainedMarks() { return obtainedMarks; }
+    public void setObtainedMarks(Integer obtainedMarks) { this.obtainedMarks = obtainedMarks; }
+
+    public String getFeedback() { return feedback; }
+    public void setFeedback(String feedback) { this.feedback = feedback; }
+
+    public String getSubmissionStatus() { return submissionStatus; }
+    public void setSubmissionStatus(String submissionStatus) { this.submissionStatus = submissionStatus; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
     @PrePersist
     protected void onCreate() {
         if (submissionDate == null) submissionDate = LocalDateTime.now();

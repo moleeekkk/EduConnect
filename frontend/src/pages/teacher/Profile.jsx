@@ -1,42 +1,51 @@
 import React, { useState, useEffect, useRef } from "react";
 import { User, Save, Edit, Check, Lock, KeyRound, Loader2, Camera, Upload } from "lucide-react";
 import Button from "../../components/common/Button";
-import { teacherApi } from "../../services/api";
+import { fileApi, teacherApi } from "../../services/api";
 import { notifySuccess, notifyError } from "../../utils/toast";
 
 const TeacherProfile = () => {
   const fileInputRef = useRef(null);
-  const userStr = localStorage.getItem("educonnect_user");
-  const loggedUser = userStr ? JSON.parse(userStr) : null;
 
   const [profile, setProfile] = useState({
-    teacher_id: loggedUser?.userId || "teach-001",
-    employee_id: loggedUser?.identifier || "",
-    first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : "Faculty",
-    last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : "Member",
-    email: loggedUser?.identifier || "teacher@educonnect.ac.in",
-    mobile: "+91 98111 22334",
+    teacher_id: "",
+    employee_id: "",
+    first_name: "",
+    last_name: "",
+    email: "",
+    mobile: "",
     gender: "Female",
-    date_of_birth: "1985-04-12",
-    address: "Faculty Quarters Enclave",
-    qualification: "Ph.D. in Computer Science",
-    designation: "Assistant Professor",
-    experience: 5,
-    joining_date: "2018-06-15",
-    profile_photo: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
+    date_of_birth: "",
+    address: "",
+    qualification: "",
+    designation: "",
+    experience: 0,
+    joining_date: "",
+    profile_photo: "",
     is_active: true,
   });
   const [isEditing, setIsEditing] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // Handle local image file selection
-  const handleImageFileSelect = (e) => {
+  // Handle local image file selection / upload
+  const handleImageFileSelect = async (e) => {
     const file = e.target.files && e.target.files[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        notifyError("Image file size must be less than 2MB.");
+      if (file.size > 5 * 1024 * 1024) {
+        notifyError("Image file size must be less than 5MB.");
         return;
       }
+      try {
+        const metadata = await fileApi.uploadFile(file, "profile");
+        if (metadata && metadata.filePath) {
+          setProfile((prev) => ({ ...prev, profile_photo: metadata.filePath }));
+          notifySuccess("Photo uploaded! Click 'Save Profile' to persist your new photo.");
+          return;
+        }
+      } catch (err) {
+        console.warn("Direct upload failed, falling back to local preview:", err);
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64Str = reader.result;
@@ -73,8 +82,6 @@ const TeacherProfile = () => {
     setChangingPass(true);
     try {
       await teacherApi.changePassword({
-        email: profile.email,
-        teacher_id: profile.teacher_id,
         current_password: passForm.current_password,
         new_password: passForm.new_password,
       });
@@ -91,27 +98,16 @@ const TeacherProfile = () => {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      const userStr = localStorage.getItem("educonnect_user");
-      const loggedUser = userStr ? JSON.parse(userStr) : null;
-      const identifier = loggedUser?.identifier || loggedUser?.email || loggedUser?.userId;
-
-      if (identifier) {
-        try {
-          const data = await teacherApi.getProfile(identifier);
-          if (data && (data.teacher_id || data.email)) {
-            setProfile((prev) => ({
-              ...prev,
-              ...data,
-              first_name: data.first_name || prev.first_name,
-              last_name: data.last_name || prev.last_name,
-              email: data.email || prev.email,
-              employee_id: data.employee_id || prev.employee_id,
-              teacher_id: data.teacher_id || prev.teacher_id,
-            }));
-          }
-        } catch (err) {
-          console.error("Teacher profile load error:", err);
+      try {
+        const data = await teacherApi.getProfile();
+        if (data && (data.teacher_id || data.email)) {
+          setProfile((prev) => ({
+            ...prev,
+            ...data,
+          }));
         }
+      } catch (err) {
+        console.error("Teacher profile load error:", err);
       }
     };
     fetchProfile();
@@ -122,16 +118,31 @@ const TeacherProfile = () => {
   };
 
   const handleSave = async (e) => {
-    e.preventDefault();
-    setIsEditing(false);
+    if (e && e.preventDefault) e.preventDefault();
     try {
-      await teacherApi.updateProfile(profile);
+      const updated = await teacherApi.updateProfile(profile);
+      if (updated && (updated.email || updated.teacher_id)) {
+        setProfile((prev) => ({ ...prev, ...updated }));
+        const fullName = `${updated.first_name || ""} ${updated.last_name || ""}`.trim();
+        const userObj = {
+          role: "ROLE_TEACHER",
+          name: fullName || "Faculty Member",
+          email: updated.email,
+          identifier: updated.email,
+          userId: updated.teacher_id,
+        };
+        sessionStorage.setItem("educonnect_user_teacher", JSON.stringify(userObj));
+        sessionStorage.setItem("educonnect_user", JSON.stringify(userObj));
+        localStorage.setItem("educonnect_user_teacher", JSON.stringify(userObj));
+        localStorage.setItem("educonnect_user", JSON.stringify(userObj));
+      }
+      setIsEditing(false);
       setSavedSuccess(true);
-      notifySuccess("Teacher profile details updated successfully in database!");
+      notifySuccess("Teacher profile details updated successfully!");
       setTimeout(() => setSavedSuccess(false), 3000);
     } catch (err) {
       console.error("Teacher profile save error:", err);
-      notifyError("Failed to save profile changes to database.");
+      notifyError(err.message || "Failed to save profile changes.");
     }
   };
 

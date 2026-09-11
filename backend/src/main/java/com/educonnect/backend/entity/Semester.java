@@ -47,6 +47,27 @@ public class Semester {
     @JsonProperty("updated_at")
     private LocalDateTime updatedAt;
 
+    public UUID getSemesterId() { return semesterId; }
+    public void setSemesterId(UUID semesterId) { this.semesterId = semesterId; }
+
+    public UUID getDepartmentId() { return departmentId; }
+    public void setDepartmentId(UUID departmentId) { this.departmentId = departmentId; }
+
+    public String getSemesterName() { return semesterName; }
+    public void setSemesterName(String semesterName) { this.semesterName = semesterName; }
+
+    public Integer getSemesterNumber() { return semesterNumber; }
+    public void setSemesterNumber(Integer semesterNumber) { this.semesterNumber = semesterNumber; }
+
+    public Boolean getIsActive() { return isActive; }
+    public void setIsActive(Boolean isActive) { this.isActive = isActive; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {
@@ -61,5 +82,30 @@ public class Semester {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+    public static SemesterBuilder builder() {
+        return new SemesterBuilder();
+    }
+
+    public static class SemesterBuilder {
+        private UUID departmentId;
+        private String semesterName;
+        private Integer semesterNumber;
+        private Boolean isActive = true;
+
+        public SemesterBuilder departmentId(UUID departmentId) { this.departmentId = departmentId; return this; }
+        public SemesterBuilder semesterName(String semesterName) { this.semesterName = semesterName; return this; }
+        public SemesterBuilder semesterNumber(Integer semesterNumber) { this.semesterNumber = semesterNumber; return this; }
+        public SemesterBuilder isActive(Boolean isActive) { this.isActive = isActive; return this; }
+
+        public Semester build() {
+            Semester s = new Semester();
+            s.setDepartmentId(departmentId);
+            s.setSemesterName(semesterName);
+            s.setSemesterNumber(semesterNumber);
+            s.setIsActive(isActive);
+            return s;
+        }
     }
 }

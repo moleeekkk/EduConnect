@@ -92,14 +92,50 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Helper for read queries (safe fallback)
-const handleRequest = async (requestFn, fallbackValue = []) => {
+// Interceptor to handle 401 Unauthorized errors and clear session per role
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      const path = window.location.pathname;
+      if (path.startsWith("/admin")) {
+        sessionStorage.removeItem("educonnect_token_admin");
+        sessionStorage.removeItem("educonnect_user_admin");
+        localStorage.removeItem("educonnect_token_admin");
+        localStorage.removeItem("educonnect_user_admin");
+        if (window.location.pathname !== "/admin-login") {
+          window.location.href = "/admin-login";
+        }
+      } else if (path.startsWith("/teacher")) {
+        sessionStorage.removeItem("educonnect_token_teacher");
+        sessionStorage.removeItem("educonnect_user_teacher");
+        localStorage.removeItem("educonnect_token_teacher");
+        localStorage.removeItem("educonnect_user_teacher");
+        if (window.location.pathname !== "/teacher-login") {
+          window.location.href = "/teacher-login";
+        }
+      } else if (path.startsWith("/student")) {
+        sessionStorage.removeItem("educonnect_token_student");
+        sessionStorage.removeItem("educonnect_user_student");
+        localStorage.removeItem("educonnect_token_student");
+        localStorage.removeItem("educonnect_user_student");
+        if (window.location.pathname !== "/student-login") {
+          window.location.href = "/student-login";
+        }
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Helper for read queries - now propagates errors so promise rejects cleanly
+const handleRequest = async (requestFn) => {
   try {
     const response = await requestFn();
     return response.data;
   } catch (error) {
-    console.warn("API Query fallback:", error.message);
-    return fallbackValue;
+    console.error("API Query Error:", error);
+    throw error;
   }
 };
 
@@ -169,8 +205,8 @@ export const authApi = {
     const response = await api.post("/auth/forgot-password/send-code", { email, role });
     return response.data;
   },
-  resetPassword: async (email, code, newPassword) => {
-    const response = await api.post("/auth/forgot-password/reset", { email, code, newPassword, new_password: newPassword });
+  resetPassword: async (email, code, newPassword, role) => {
+    const response = await api.post("/auth/forgot-password/reset", { email, code, newPassword, new_password: newPassword, role });
     return response.data;
   },
 };
@@ -185,10 +221,22 @@ export const studentApi = {
     handleRequest(() => api.get(`/student/assignments${enrollmentNo ? `?enrollmentNo=${enrollmentNo}` : ""}`), []),
   submitAssignment: (assignmentId, data) =>
     handleMutationRequest(() => api.post(`/student/assignments/${assignmentId}/submit`, data)),
-  getResults: (enrollmentNo) =>
-    handleRequest(() => api.get(`/student/results${enrollmentNo ? `?enrollmentNo=${enrollmentNo}` : ""}`), {}),
-  getMarksheet: (enrollmentNo) =>
-    handleRequest(() => api.get(`/student/marksheet${enrollmentNo ? `?enrollmentNo=${enrollmentNo}` : ""}`), {}),
+  getResults: (semesterId, enrollmentNo) =>
+    handleRequest(() => {
+      const params = new URLSearchParams();
+      if (semesterId) params.append("semesterId", semesterId);
+      if (enrollmentNo) params.append("enrollmentNo", enrollmentNo);
+      const query = params.toString();
+      return api.get(`/student/results${query ? `?${query}` : ""}`);
+    }, {}),
+  getMarksheet: (semesterId, enrollmentNo) =>
+    handleRequest(() => {
+      const params = new URLSearchParams();
+      if (semesterId) params.append("semesterId", semesterId);
+      if (enrollmentNo) params.append("enrollmentNo", enrollmentNo);
+      const query = params.toString();
+      return api.get(`/student/marksheet${query ? `?${query}` : ""}`);
+    }, {}),
   getProfile: (enrollmentNo) =>
     handleRequest(() => api.get(`/student/profile${enrollmentNo ? `?enrollmentNo=${enrollmentNo}` : ""}`), {}),
   updateProfile: (data) =>
@@ -205,6 +253,16 @@ export const studentApi = {
     handleRequest(() => api.get("/student/study-materials"), []),
   getQuizzes: () =>
     handleRequest(() => api.get("/student/quizzes"), []),
+  startQuizAttempt: (quizId) =>
+    handleMutationRequest(() => api.post(`/student/quizzes/${quizId}/attempts/start`)),
+  saveQuizAttempt: (quizId, attemptId, data) =>
+    handleMutationRequest(() => api.post(`/student/quizzes/${quizId}/attempts/${attemptId}/save`, data)),
+  submitQuizAttempt: (quizId, attemptId, data) =>
+    handleMutationRequest(() => api.post(`/student/quizzes/${quizId}/attempts/${attemptId}/submit`, data)),
+  getQuizAttemptHistory: (quizId) =>
+    handleRequest(() => api.get(`/student/quizzes/${quizId}/attempts/history`), []),
+  getQuizAttemptDetail: (attemptId) =>
+    handleRequest(() => api.get(`/student/attempts/${attemptId}`), {}),
   getWeeklyTests: (enrollmentNo) =>
     handleRequest(() => api.get(`/student/weekly-tests${enrollmentNo ? `?enrollmentNo=${enrollmentNo}` : ""}`), {}),
   getTimetable: (enrollmentNo) =>
@@ -213,6 +271,12 @@ export const studentApi = {
     handleRequest(() => api.get("/student/syllabus"), []),
   getDigitalID: (enrollmentNo) =>
     handleRequest(() => api.get(`/student/digital-id${enrollmentNo ? `?enrollmentNo=${enrollmentNo}` : ""}`), {}),
+  getNotices: () =>
+    handleRequest(() => api.get("/student/notices"), []),
+  getSubjects: (enrollmentNo) =>
+    handleRequest(() => api.get(`/student/subjects${enrollmentNo ? `?enrollmentNo=${enrollmentNo}` : ""}`), []),
+  getBatches: (enrollmentNo) =>
+    handleRequest(() => api.get(`/student/batches${enrollmentNo ? `?enrollmentNo=${enrollmentNo}` : ""}`), []),
 };
 
 // Teacher Endpoints
@@ -220,13 +284,29 @@ export const teacherApi = {
   getDashboard: (teacherId) =>
     handleRequest(() => api.get(`/teacher/dashboard${teacherId ? `?teacherId=${teacherId}` : ""}`), {}),
   markAttendance: (attendanceData) =>
-    handleMutationRequest(() => api.post("/teacher/attendance/mark", attendanceData)),
+    handleMutationRequest(() => api.post("/teacher/attendance", attendanceData)),
+  getAttendanceSessions: (subjectId, date) =>
+    handleRequest(() => {
+      const params = new URLSearchParams();
+      if (subjectId) params.append("subjectId", subjectId);
+      if (date) params.append("date", date);
+      const query = params.toString();
+      return api.get(`/teacher/attendance/sessions${query ? `?${query}` : ""}`);
+    }),
+  getAttendanceSessionDetail: (sessionId) =>
+    handleRequest(() => api.get(`/teacher/attendance/sessions/${sessionId}`)),
+  updateAttendanceSession: (sessionId, attendanceData) =>
+    handleMutationRequest(() => api.put(`/teacher/attendance/sessions/${sessionId}`, attendanceData)),
   getStudents: () =>
     handleRequest(() => api.get("/teacher/students"), []),
   getDepartments: () =>
     handleRequest(() => api.get("/teacher/departments"), []),
   getSemesters: () =>
     handleRequest(() => api.get("/teacher/semesters"), []),
+  getSubjects: () =>
+    handleRequest(() => api.get("/teacher/subjects"), []),
+  getBatches: () =>
+    handleRequest(() => api.get("/teacher/batches"), []),
   getAssignedSubjects: (identifier) =>
     handleRequest(() => api.get(`/teacher/assigned-subjects${identifier ? `?email=${encodeURIComponent(identifier)}&teacherId=${encodeURIComponent(identifier)}` : ""}`), []),
   getAssignments: (identifier) =>
@@ -247,8 +327,8 @@ export const teacherApi = {
     handleMutationRequest(() => api.post("/teacher/grades", data)),
   getLeaveRequests: () =>
     handleRequest(() => api.get("/teacher/leave-requests"), []),
-  updateLeaveStatus: (id, status) =>
-    handleMutationRequest(() => api.put(`/teacher/leave-requests/${id}`, { status })),
+  updateLeaveStatus: (id, status, remarks) =>
+    handleMutationRequest(() => api.put(`/teacher/leave-requests/${id}`, { status, remarks })),
   getDoubts: () =>
     handleRequest(() => api.get("/teacher/doubts"), []),
   replyDoubt: (id, reply) =>
@@ -256,11 +336,35 @@ export const teacherApi = {
   getStudyMaterials: () =>
     handleRequest(() => api.get("/teacher/study-materials"), []),
   uploadStudyMaterial: (data) =>
-    handleMutationRequest(() => api.post("/teacher/study-materials", data)),
+    handleMutationRequest(() =>
+      api.post("/teacher/study-materials", data, data instanceof FormData ? { headers: { "Content-Type": "multipart/form-data" } } : {})
+    ),
+  updateStudyMaterial: (id, data) =>
+    handleMutationRequest(() =>
+      api.put(`/teacher/study-materials/${id}`, data, data instanceof FormData ? { headers: { "Content-Type": "multipart/form-data" } } : {})
+    ),
+  deleteStudyMaterial: (id) =>
+    handleMutationRequest(() => api.delete(`/teacher/study-materials/${id}`)),
   getQuizzes: () =>
     handleRequest(() => api.get("/teacher/quizzes"), []),
   createQuiz: (data) =>
     handleMutationRequest(() => api.post("/teacher/quizzes", data)),
+  updateQuiz: (id, data) =>
+    handleMutationRequest(() => api.put(`/teacher/quizzes/${id}`, data)),
+  publishQuiz: (id) =>
+    handleMutationRequest(() => api.post(`/teacher/quizzes/${id}/publish`)),
+  archiveQuiz: (id) =>
+    handleMutationRequest(() => api.post(`/teacher/quizzes/${id}/archive`)),
+  deleteQuiz: (id) =>
+    handleMutationRequest(() => api.delete(`/teacher/quizzes/${id}`)),
+  getQuizMcqs: (id) =>
+    handleRequest(() => api.get(`/teacher/quizzes/${id}/mcqs`), []),
+  addQuizMcq: (id, data) =>
+    handleMutationRequest(() => api.post(`/teacher/quizzes/${id}/mcqs`, data)),
+  updateQuizMcq: (id, mcqId, data) =>
+    handleMutationRequest(() => api.put(`/teacher/quizzes/${id}/mcqs/${mcqId}`, data)),
+  deleteQuizMcq: (id, mcqId) =>
+    handleMutationRequest(() => api.delete(`/teacher/quizzes/${id}/mcqs/${mcqId}`)),
   getWeeklyTests: () =>
     handleRequest(() => api.get("/teacher/weekly-tests"), []),
   createWeeklyTest: (data) =>
@@ -273,12 +377,44 @@ export const teacherApi = {
     handleRequest(() => api.get(`/teacher/weekly-tests/${testId}/results`), []),
   saveWeeklyTestResults: (testId, data) =>
     handleMutationRequest(() => api.post(`/teacher/weekly-tests/${testId}/results`, data)),
+  publishWeeklyTest: (id) =>
+    handleMutationRequest(() => api.post(`/teacher/weekly-tests/${id}/publish`)),
   getProfile: (identifier) =>
     handleRequest(() => api.get(`/teacher/profile${identifier ? `?email=${encodeURIComponent(identifier)}&teacherId=${encodeURIComponent(identifier)}` : ""}`), {}),
   updateProfile: (data) =>
     handleMutationRequest(() => api.put("/teacher/profile", data)),
+  changePassword: (data) =>
+    handleMutationRequest(() => api.post("/teacher/change-password", data)),
   sendParentEmail: (data) =>
-    handleMutationRequest(() => api.post("/teacher/parent-email", data)),
+    handleMutationRequest(() => api.post("/teacher/parent-email/send", data)),
+  previewParentEmail: (data) =>
+    handleMutationRequest(() => api.post("/teacher/parent-email/preview", data)),
+  sendAssignmentReminder: (assignmentId) =>
+    handleMutationRequest(() => api.post(`/teacher/assignments/${assignmentId}/reminders`)),
+  getSyllabus: () =>
+    handleRequest(() => api.get("/teacher/syllabus"), []),
+  saveSyllabus: (subjectId, formData) =>
+    handleMutationRequest(() =>
+      api.post(`/teacher/subjects/${subjectId}/syllabus`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+    ),
+  getSchedule: (identifier) =>
+    handleRequest(() => api.get(`/teacher/schedule${identifier ? `?email=${encodeURIComponent(identifier)}&teacherId=${encodeURIComponent(identifier)}` : ""}`), []),
+  getTimetable: (identifier) =>
+    handleRequest(() => api.get(`/teacher/timetable${identifier ? `?email=${encodeURIComponent(identifier)}&teacherId=${encodeURIComponent(identifier)}` : ""}`), []),
+  getSemesterMarks: (subjectId, semesterId) =>
+    handleRequest(() => api.get(`/teacher/semester-marks?subjectId=${subjectId}${semesterId ? `&semesterId=${semesterId}` : ""}`), []),
+  saveSemesterMarks: (payload) =>
+    handleMutationRequest(() => api.post("/teacher/semester-marks", payload)),
+  getNotices: () =>
+    handleRequest(() => api.get("/teacher/notices"), []),
+  createNotice: (data) =>
+    handleMutationRequest(() => api.post("/teacher/notices", data)),
+  updateNotice: (id, data) =>
+    handleMutationRequest(() => api.put(`/teacher/notices/${id}`, data)),
+  archiveNotice: (id) =>
+    handleMutationRequest(() => api.post(`/teacher/notices/${id}/archive`)),
 };
 
 // Admin Endpoints
@@ -343,11 +479,13 @@ export const adminApi = {
     handleRequest(() => api.get("/admin/teacher-subjects"), []),
   assignTeacherSubject: (data) =>
     handleMutationRequest(() => api.post("/admin/teacher-subjects", data)),
-  toggleTeacherSubject: (teacherId, subjectId) =>
+  toggleTeacherSubject: (teacherId, subjectId, batchId, semesterId) =>
     handleMutationRequest(() =>
       api.post("/admin/teacher-subjects/toggle", {
         teacher_id: teacherId,
         subject_id: subjectId,
+        batch_id: batchId || null,
+        semester_id: semesterId || null,
       })
     ),
   deleteTeacherSubject: (id) =>
@@ -356,6 +494,8 @@ export const adminApi = {
     handleRequest(() => api.get("/admin/reports"), {}),
   getProfile: () =>
     handleRequest(() => api.get("/admin/profile"), {}),
+  updateProfile: (data) =>
+    handleMutationRequest(() => api.put("/admin/profile", data)),
   getSystemSettings: () =>
     handleRequest(() => api.get("/admin/settings"), {}),
   updateSystemSettings: (data) =>
@@ -386,6 +526,45 @@ export const adminApi = {
     handleMutationRequest(() => api.put(`/admin/students/${id}`, data)),
   deleteStudent: (id) =>
     handleMutationRequest(() => api.delete(`/admin/students/${id}`)),
+  getTimetables: () =>
+    handleRequest(() => api.get("/admin/timetables"), []),
+  createTimetable: (data) =>
+    handleMutationRequest(() => api.post("/admin/timetables", data)),
+  updateTimetable: (id, data) =>
+    handleMutationRequest(() => api.put(`/admin/timetables/${id}`, data)),
+  archiveTimetable: (id) =>
+    handleMutationRequest(() => api.patch(`/admin/timetables/${id}/archive`)),
+  getSemesterResults: (departmentId, semesterId) =>
+    handleRequest(() => api.get(`/admin/semester-results?departmentId=${departmentId}&semesterId=${semesterId}`), []),
+  publishSemesterResults: (payload) =>
+    handleMutationRequest(() => api.post("/admin/semester-results/publish", payload)),
+  getNotices: () =>
+    handleRequest(() => api.get("/admin/notices"), []),
+  createNotice: (data) =>
+    handleMutationRequest(() => api.post("/admin/notices", data)),
+  updateNotice: (id, data) =>
+    handleMutationRequest(() => api.put(`/admin/notices/${id}`, data)),
+  archiveNotice: (id) =>
+    handleMutationRequest(() => api.post(`/admin/notices/${id}/archive`)),
+};
+
+// File Upload and Retrieval Endpoints
+export const fileApi = {
+  uploadFile: async (file, purpose = "attachments") => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("purpose", purpose);
+    const response = await api.post("/files/upload", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  },
+  getFileBlob: async (url) => {
+    const response = await api.get(url, { responseType: "blob" });
+    return response.data;
+  },
 };
 
 export default api;

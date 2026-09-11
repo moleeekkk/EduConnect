@@ -2,27 +2,25 @@ import React, { useState, useEffect } from "react";
 import { User, Mail, Phone, Calendar, MapPin, Heart, Shield, Edit, Save, Check } from "lucide-react";
 import Button from "../../components/common/Button";
 import { studentApi } from "../../services/api";
-import { notifySuccess } from "../../utils/toast";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const StudentProfile = () => {
-  const userStr = localStorage.getItem("educonnect_user");
-  const loggedUser = userStr ? JSON.parse(userStr) : null;
-
   const [profile, setProfile] = useState({
-    student_id: "stu-001",
-    enrollment_no: loggedUser?.identifier || "25CI2110016",
-    first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : "Student",
-    last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : "User",
-    email: loggedUser?.identifier ? loggedUser.identifier.toLowerCase() + "@educonnect.ac.in" : "student@educonnect.ac.in",
-    mobile: "+91 98765 43210",
+    student_id: "",
+    enrollment_no: "",
+    first_name: "",
+    last_name: "",
+    email: "",
+    mobile: "",
     gender: "Male",
-    date_of_birth: "2003-01-01",
-    address: "EduConnect Campus Hostel",
-    blood_group: "O+",
-    parent_name: "Parent / Guardian",
-    parent_mobile: "+91 98765 00001",
-    admission_date: "2025-07-15",
-    profile_photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+    date_of_birth: "",
+    address: "",
+    blood_group: "",
+    parent_name: "",
+    parent_mobile: "",
+    parent_email: "",
+    admission_date: "",
+    profile_photo: "",
     is_active: true,
   });
   const [isEditing, setIsEditing] = useState(false);
@@ -31,7 +29,7 @@ const StudentProfile = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const data = await studentApi.getProfile(profile.enrollment_no);
+        const data = await studentApi.getProfile();
         if (data && (data.enrollment_no || data.enrollmentNo || data.student_id || data.studentId)) {
           setProfile((prev) => ({
             ...prev,
@@ -47,6 +45,7 @@ const StudentProfile = () => {
             blood_group: data.blood_group || data.bloodGroup || prev.blood_group,
             parent_name: data.parent_name || data.parentName || prev.parent_name,
             parent_mobile: data.parent_mobile || data.parentMobile || prev.parent_mobile,
+            parent_email: data.parent_email || data.parentEmail || prev.parent_email,
             admission_date: data.admission_date || data.admissionDate || prev.admission_date,
             profile_photo: data.profile_photo || data.profilePhoto || prev.profile_photo,
             is_active: data.is_active !== undefined ? data.is_active : (data.isActive !== undefined ? data.isActive : prev.is_active),
@@ -82,9 +81,22 @@ const StudentProfile = () => {
           blood_group: updated.blood_group || updated.bloodGroup || prev.blood_group,
           parent_name: updated.parent_name || updated.parentName || prev.parent_name,
           parent_mobile: updated.parent_mobile || updated.parentMobile || prev.parent_mobile,
+          parent_email: updated.parent_email || updated.parentEmail || prev.parent_email,
           admission_date: updated.admission_date || updated.admissionDate || prev.admission_date,
           profile_photo: updated.profile_photo || updated.profilePhoto || prev.profile_photo,
         }));
+
+        const fullName = `${updated.first_name || ""} ${updated.last_name || ""}`.trim();
+        const userObj = {
+          role: "ROLE_STUDENT",
+          name: fullName || "Student User",
+          identifier: updated.enrollment_no || updated.enrollmentNo,
+          email: updated.email,
+        };
+        sessionStorage.setItem("educonnect_user_student", JSON.stringify(userObj));
+        sessionStorage.setItem("educonnect_user", JSON.stringify(userObj));
+        localStorage.setItem("educonnect_user_student", JSON.stringify(userObj));
+        localStorage.setItem("educonnect_user", JSON.stringify(userObj));
       }
       setIsEditing(false);
       setSavedSuccess(true);
@@ -92,10 +104,7 @@ const StudentProfile = () => {
       setTimeout(() => setSavedSuccess(false), 3000);
     } catch (err) {
       console.error("Failed to save student profile:", err);
-      setIsEditing(false);
-      setSavedSuccess(true);
-      notifySuccess("Student profile updated!");
-      setTimeout(() => setSavedSuccess(false), 3000);
+      notifyError(err.message || "Failed to save student profile.");
     }
   };
 

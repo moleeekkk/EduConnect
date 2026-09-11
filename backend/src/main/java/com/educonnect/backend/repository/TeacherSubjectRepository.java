@@ -11,7 +11,10 @@ import java.util.UUID;
 @Repository
 public interface TeacherSubjectRepository extends JpaRepository<TeacherSubject, UUID> {
     List<TeacherSubject> findByTeacherId(UUID teacherId);
+    List<TeacherSubject> findByTeacherIdAndIsActiveTrue(UUID teacherId);
     List<TeacherSubject> findBySubjectId(UUID subjectId);
     Optional<TeacherSubject> findByTeacherIdAndSubjectId(UUID teacherId, UUID subjectId);
+    List<TeacherSubject> findByTeacherIdAndSubjectIdAndIsActiveTrue(UUID teacherId, UUID subjectId);
+    Optional<TeacherSubject> findByTeacherIdAndSubjectIdAndBatchId(UUID teacherId, UUID subjectId, UUID batchId);
     void deleteByTeacherIdAndSubjectId(UUID teacherId, UUID subjectId);
 }

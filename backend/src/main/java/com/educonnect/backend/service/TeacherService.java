@@ -4,6 +4,7 @@ import com.educonnect.backend.dto.AttendanceMarkRequest;
 import com.educonnect.backend.entity.Assignment;
 import com.educonnect.backend.entity.AttendanceRecord;
 import com.educonnect.backend.entity.AttendanceSession;
+import com.educonnect.backend.entity.Batch;
 import com.educonnect.backend.entity.Department;
 import com.educonnect.backend.entity.Semester;
 import com.educonnect.backend.entity.Student;
@@ -19,21 +20,27 @@ import com.educonnect.backend.repository.AssignmentRepository;
 import com.educonnect.backend.repository.AssignmentSubmissionRepository;
 import com.educonnect.backend.repository.AttendanceRecordRepository;
 import com.educonnect.backend.repository.AttendanceSessionRepository;
+import com.educonnect.backend.repository.BatchRepository;
 import com.educonnect.backend.repository.StudentRepository;
 import com.educonnect.backend.repository.SubjectRepository;
 import com.educonnect.backend.repository.TeacherRepository;
 import com.educonnect.backend.repository.TeacherSubjectRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TeacherService {
 
     private final TeacherRepository teacherRepository;
@@ -46,13 +53,49 @@ public class TeacherService {
     private final TeacherSubjectRepository teacherSubjectRepository;
     private final WeeklyTestRepository weeklyTestRepository;
     private final WeeklyTestResultRepository weeklyTestResultRepository;
+    private final BatchRepository batchRepository;
     private final PasswordEncoder passwordEncoder;
+
+    private Optional<Teacher> resolveTeacherByIdentifier(String identifier) {
+        if (identifier == null || identifier.trim().isEmpty()) {
+            return Optional.empty();
+        }
+        String clean = identifier.trim();
+        try {
+            UUID uuid = UUID.fromString(clean);
+            Optional<Teacher> tOpt = teacherRepository.findById(uuid);
+            if (tOpt.isPresent()) return tOpt;
+        } catch (IllegalArgumentException ignored) {}
+        return teacherRepository.findByEmail(clean.toLowerCase());
+    }
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getAllAssignmentsForTeacher(String identifier) {
-        List<Assignment> assignments = assignmentRepository.findAll();
-        List<Student> allStudents = studentRepository.findAll();
-        int totalStudentsCount = allStudents.size();
+        Optional<Teacher> teacherOpt = resolveTeacherByIdentifier(identifier);
+        if (teacherOpt.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Teacher teacher = teacherOpt.get();
+        List<TeacherSubject> allocations = teacherSubjectRepository.findByTeacherIdAndIsActiveTrue(teacher.getTeacherId());
+        if (allocations.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Set<UUID> allocationIds = allocations.stream()
+                .map(TeacherSubject::getAllocationId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Set<UUID> subjectIds = allocations.stream()
+                .map(TeacherSubject::getSubjectId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        List<Assignment> assignments = assignmentRepository.findAll().stream()
+                .filter(a -> (a.getTeacherSubjectId() != null && allocationIds.contains(a.getTeacherSubjectId()))
+                        || (a.getSubjectId() != null && subjectIds.contains(a.getSubjectId())))
+                .toList();
 
         List<Map<String, Object>> list = new ArrayList<>();
         for (Assignment a : assignments) {
@@ -66,6 +109,9 @@ public class TeacherService {
             map.put("total_marks", a.getTotalMarks() != null ? a.getTotalMarks() : 50);
             map.put("attachment", a.getAttachment() != null ? a.getAttachment() : "");
             map.put("file_name", a.getFileName() != null ? a.getFileName() : "");
+            map.put("file_path", a.getFilePath() != null ? a.getFilePath() : "");
+            map.put("file_type", a.getFileType() != null ? a.getFileType() : "");
+            map.put("file_size", a.getFileSize() != null ? a.getFileSize() : 0L);
             map.put("created_at", a.getCreatedAt() != null ? a.getCreatedAt().toString() : "");
 
             if (a.getSubjectId() != null) {
@@ -74,6 +120,11 @@ public class TeacherService {
                     map.put("subject_name", sub.getSubjectName());
                 });
             }
+
+            // Calculate cohort student roster size specifically for this assignment's allocation
+            UUID allocId = a.getTeacherSubjectId();
+            List<Student> cohortStudents = getStudentsForAllocation(allocId);
+            int cohortSize = cohortStudents.size();
 
             if (a.getAssignmentId() != null) {
                 List<AssignmentSubmission> subs = submissionRepository.findByAssignmentId(a.getAssignmentId());
@@ -94,7 +145,7 @@ public class TeacherService {
                         timely++;
                     }
                 }
-                int missed = Math.max(0, totalStudentsCount - (timely + late));
+                int missed = Math.max(0, cohortSize - (timely + late));
                 map.put("timely_count", timely);
                 map.put("late_count", late);
                 map.put("missed_count", missed);
@@ -102,138 +153,409 @@ public class TeacherService {
             } else {
                 map.put("timely_count", 0);
                 map.put("late_count", 0);
-                map.put("missed_count", totalStudentsCount);
+                map.put("missed_count", cohortSize);
                 map.put("total_submissions", 0);
             }
 
             list.add(map);
         }
+
+        list.sort((m1, m2) -> ((String) m2.get("created_at")).compareTo((String) m1.get("created_at")));
         return list;
     }
 
     @Transactional
-    public Assignment createAssignment(Map<String, Object> reqData) {
-        Assignment assignment = new Assignment();
-        assignment.setTitle((String) reqData.get("title"));
-        assignment.setDescription((String) reqData.get("description"));
+    public Assignment createAssignment(Map<String, Object> reqData, String identifier) {
+        String cleanIdentifier = identifier;
+        if (cleanIdentifier == null || cleanIdentifier.trim().isEmpty()) {
+            cleanIdentifier = com.educonnect.backend.security.SecurityUtils.getCurrentUserIdentifier();
+        }
 
-        if (reqData.get("due_date") != null) {
+        Teacher teacher = resolveTeacherByIdentifier(cleanIdentifier)
+                .orElseThrow(() -> new AccessDeniedException("Authenticated teacher identity not found."));
+
+        String title = (String) reqData.get("title");
+        if (title == null || title.trim().isEmpty()) {
+            throw new IllegalArgumentException("Assignment title is required.");
+        }
+
+        LocalDate dueDate;
+        if (reqData.get("due_date") != null && !((String) reqData.get("due_date")).trim().isEmpty()) {
             try {
-                assignment.setDueDate(LocalDate.parse((String) reqData.get("due_date")));
+                dueDate = LocalDate.parse(((String) reqData.get("due_date")).trim());
             } catch (Exception e) {
-                assignment.setDueDate(LocalDate.now().plusDays(7));
+                throw new IllegalArgumentException("Invalid due_date format. Expected YYYY-MM-DD.");
             }
         } else {
-            assignment.setDueDate(LocalDate.now().plusDays(7));
+            throw new IllegalArgumentException("Due date is required.");
         }
 
+        Integer totalMarks = 50;
         if (reqData.get("total_marks") != null) {
             Object marksObj = reqData.get("total_marks");
-            if (marksObj instanceof Number) assignment.setTotalMarks(((Number) marksObj).intValue());
+            if (marksObj instanceof Number) totalMarks = ((Number) marksObj).intValue();
             else if (marksObj instanceof String) {
-                try { assignment.setTotalMarks(Integer.parseInt((String) marksObj)); } catch (Exception ignored) {}
+                try { totalMarks = Integer.parseInt((String) marksObj); } catch (Exception ignored) {}
             }
         }
-        if (assignment.getTotalMarks() == null) assignment.setTotalMarks(50);
+        if (totalMarks <= 0) {
+            throw new IllegalArgumentException("Total marks must be a positive integer.");
+        }
+
+        UUID teacherSubjectId = null;
+        UUID subjectId = null;
+
+        if (reqData.get("teacher_subject_id") != null && !((String) reqData.get("teacher_subject_id")).trim().isEmpty()) {
+            try {
+                teacherSubjectId = UUID.fromString(((String) reqData.get("teacher_subject_id")).trim());
+            } catch (Exception ignored) {}
+        }
+
+        if (reqData.get("subject_id") != null && !((String) reqData.get("subject_id")).trim().isEmpty()) {
+            try {
+                subjectId = UUID.fromString(((String) reqData.get("subject_id")).trim());
+            } catch (Exception ignored) {}
+        }
+
+        TeacherSubject allocation = null;
+        if (teacherSubjectId != null) {
+            final UUID tsId = teacherSubjectId;
+            allocation = teacherSubjectRepository.findById(tsId)
+                    .orElseThrow(() -> new NoSuchElementException("Subject allocation not found for ID: " + tsId));
+        } else if (subjectId != null) {
+            List<TeacherSubject> allocs = teacherSubjectRepository.findByTeacherIdAndSubjectIdAndIsActiveTrue(teacher.getTeacherId(), subjectId);
+            if (!allocs.isEmpty()) {
+                allocation = allocs.get(0);
+            }
+        }
+
+        if (allocation == null) {
+            throw new IllegalArgumentException("Valid active teacher subject allocation is required to publish an assignment.");
+        }
+
+        if (!Objects.equals(allocation.getTeacherId(), teacher.getTeacherId())) {
+            throw new AccessDeniedException("Access denied: You are not authorized to publish assignments for this subject allocation.");
+        }
+
+        if (subjectId != null && !Objects.equals(allocation.getSubjectId(), subjectId)) {
+            throw new IllegalArgumentException("Inconsistent subject and allocation combination.");
+        }
+
+        Assignment assignment = new Assignment();
+        assignment.setTeacherSubjectId(allocation.getAllocationId());
+        assignment.setSubjectId(allocation.getSubjectId());
+        assignment.setTitle(title.trim());
+        assignment.setDescription((String) reqData.get("description"));
+        assignment.setDueDate(dueDate);
+        assignment.setTotalMarks(totalMarks);
 
         assignment.setAttachment((String) reqData.get("attachment"));
         String fn = (String) reqData.get("file_name");
         if (fn == null) fn = (String) reqData.get("fileName");
-        if (fn != null) assignment.setFileName(fn);
+        assignment.setFileName(fn);
 
-        if (reqData.get("subject_id") != null && !((String) reqData.get("subject_id")).trim().isEmpty()) {
-            try {
-                assignment.setSubjectId(UUID.fromString((String) reqData.get("subject_id")));
-            } catch (Exception ignored) {}
+        String fp = (String) reqData.get("file_path");
+        if (fp == null) fp = (String) reqData.get("filePath");
+        assignment.setFilePath(fp);
+
+        String ft = (String) reqData.get("file_type");
+        if (ft == null) ft = (String) reqData.get("fileType");
+        assignment.setFileType(ft);
+
+        Object fsObj = reqData.containsKey("file_size") ? reqData.get("file_size") : reqData.get("fileSize");
+        if (fsObj instanceof Number) assignment.setFileSize(((Number) fsObj).longValue());
+
+        return assignmentRepository.save(assignment);
+    }
+
+    @Transactional
+    public Assignment createAssignment(Map<String, Object> reqData) {
+        return createAssignment(reqData, null);
+    }
+
+    @Transactional
+    public Assignment updateAssignment(UUID id, Map<String, Object> reqData, String identifier) {
+        Assignment assignment = assignmentRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Assignment not found for ID: " + id));
+
+        String cleanIdentifier = identifier;
+        if (cleanIdentifier == null || cleanIdentifier.trim().isEmpty()) {
+            cleanIdentifier = com.educonnect.backend.security.SecurityUtils.getCurrentUserIdentifier();
         }
 
-        if (reqData.get("teacher_subject_id") != null && !((String) reqData.get("teacher_subject_id")).trim().isEmpty()) {
+        Teacher teacher = resolveTeacherByIdentifier(cleanIdentifier)
+                .orElseThrow(() -> new AccessDeniedException("Authenticated teacher identity not found."));
+
+        if (assignment.getTeacherSubjectId() != null) {
+            TeacherSubject alloc = teacherSubjectRepository.findById(assignment.getTeacherSubjectId()).orElse(null);
+            if (alloc != null && !Objects.equals(alloc.getTeacherId(), teacher.getTeacherId())) {
+                throw new AccessDeniedException("Access denied: You cannot edit an assignment published by another teacher.");
+            }
+        }
+
+        if (reqData.containsKey("title") && reqData.get("title") != null) {
+            String title = (String) reqData.get("title");
+            if (title.trim().isEmpty()) {
+                throw new IllegalArgumentException("Assignment title cannot be empty.");
+            }
+            assignment.setTitle(title.trim());
+        }
+
+        if (reqData.containsKey("description")) {
+            assignment.setDescription((String) reqData.get("description"));
+        }
+
+        if (reqData.get("due_date") != null && !((String) reqData.get("due_date")).trim().isEmpty()) {
             try {
-                assignment.setTeacherSubjectId(UUID.fromString((String) reqData.get("teacher_subject_id")));
-            } catch (Exception ignored) {}
+                assignment.setDueDate(LocalDate.parse(((String) reqData.get("due_date")).trim()));
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Invalid due_date format. Expected YYYY-MM-DD.");
+            }
         }
-        if (assignment.getTeacherSubjectId() == null) {
-            assignment.setTeacherSubjectId(UUID.randomUUID());
+
+        if (reqData.get("total_marks") != null) {
+            Object marksObj = reqData.get("total_marks");
+            Integer tm = null;
+            if (marksObj instanceof Number) tm = ((Number) marksObj).intValue();
+            else if (marksObj instanceof String) {
+                try { tm = Integer.parseInt((String) marksObj); } catch (Exception ignored) {}
+            }
+            if (tm != null && tm > 0) {
+                assignment.setTotalMarks(tm);
+            }
         }
+
+        String newAttachment = (String) reqData.get("attachment");
+        String newFileName = reqData.containsKey("file_name") ? (String) reqData.get("file_name") : (String) reqData.get("fileName");
+        if (newAttachment != null && !newAttachment.trim().isEmpty()) {
+            assignment.setAttachment(newAttachment);
+        }
+        if (newFileName != null && !newFileName.trim().isEmpty()) {
+            assignment.setFileName(newFileName);
+        }
+
+        String newFilePath = reqData.containsKey("file_path") ? (String) reqData.get("file_path") : (String) reqData.get("filePath");
+        if (newFilePath != null && !newFilePath.trim().isEmpty()) {
+            assignment.setFilePath(newFilePath);
+        }
+
+        String newFileType = reqData.containsKey("file_type") ? (String) reqData.get("file_type") : (String) reqData.get("fileType");
+        if (newFileType != null && !newFileType.trim().isEmpty()) {
+            assignment.setFileType(newFileType);
+        }
+
+        Object uFsObj = reqData.containsKey("file_size") ? reqData.get("file_size") : reqData.get("fileSize");
+        if (uFsObj instanceof Number) assignment.setFileSize(((Number) uFsObj).longValue());
 
         return assignmentRepository.save(assignment);
     }
 
     @Transactional
     public Assignment updateAssignment(UUID id, Map<String, Object> reqData) {
-        Optional<Assignment> opt = assignmentRepository.findById(id);
-        if (opt.isPresent()) {
-            Assignment assignment = opt.get();
-            if (reqData.containsKey("title")) assignment.setTitle((String) reqData.get("title"));
-            if (reqData.containsKey("description")) assignment.setDescription((String) reqData.get("description"));
-            if (reqData.get("due_date") != null) {
-                try {
-                    assignment.setDueDate(LocalDate.parse((String) reqData.get("due_date")));
-                } catch (Exception ignored) {}
-            }
-            if (reqData.get("total_marks") != null) {
-                Object marksObj = reqData.get("total_marks");
-                if (marksObj instanceof Number) assignment.setTotalMarks(((Number) marksObj).intValue());
-                else if (marksObj instanceof String) {
-                    try { assignment.setTotalMarks(Integer.parseInt((String) marksObj)); } catch (Exception ignored) {}
-                }
-            }
-            if (reqData.containsKey("attachment")) assignment.setAttachment((String) reqData.get("attachment"));
-            if (reqData.containsKey("file_name")) assignment.setFileName((String) reqData.get("file_name"));
-            else if (reqData.containsKey("fileName")) assignment.setFileName((String) reqData.get("fileName"));
-            if (reqData.get("subject_id") != null) {
-                try {
-                    assignment.setSubjectId(UUID.fromString((String) reqData.get("subject_id")));
-                } catch (Exception ignored) {}
-            }
-            return assignmentRepository.save(assignment);
+        return updateAssignment(id, reqData, null);
+    }
+
+    @Transactional
+    public void deleteAssignment(UUID id, String identifier) {
+        Assignment assignment = assignmentRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Assignment not found for ID: " + id));
+
+        String cleanIdentifier = identifier;
+        if (cleanIdentifier == null || cleanIdentifier.trim().isEmpty()) {
+            cleanIdentifier = com.educonnect.backend.security.SecurityUtils.getCurrentUserIdentifier();
         }
-        return null;
+
+        Teacher teacher = resolveTeacherByIdentifier(cleanIdentifier)
+                .orElseThrow(() -> new AccessDeniedException("Authenticated teacher identity not found."));
+
+        if (assignment.getTeacherSubjectId() != null) {
+            TeacherSubject alloc = teacherSubjectRepository.findById(assignment.getTeacherSubjectId()).orElse(null);
+            if (alloc != null && !Objects.equals(alloc.getTeacherId(), teacher.getTeacherId())) {
+                throw new AccessDeniedException("Access denied: You cannot delete an assignment published by another teacher.");
+            }
+        }
+
+        List<AssignmentSubmission> subs = submissionRepository.findByAssignmentId(id);
+        if (!subs.isEmpty()) {
+            throw new IllegalStateException("Cannot delete assignment: Academic records exist with " + subs.size() + " active student submission(s). Submissions must be preserved for academic audit.");
+        }
+
+        assignmentRepository.delete(assignment);
     }
 
     @Transactional
     public void deleteAssignment(UUID id) {
-        assignmentRepository.deleteById(id);
+        deleteAssignment(id, null);
     }
 
     @Transactional(readOnly = true)
     public List<Subject> getAssignedSubjectsForTeacher(String identifier) {
         if (identifier == null || identifier.trim().isEmpty()) {
-            return subjectRepository.findAll();
+            return Collections.emptyList();
         }
 
-        Optional<Teacher> teacherOpt = Optional.empty();
-        String clean = identifier.trim();
-        try {
-            UUID uuid = UUID.fromString(clean);
-            teacherOpt = teacherRepository.findById(uuid);
-        } catch (IllegalArgumentException ignored) {}
-
+        Optional<Teacher> teacherOpt = resolveTeacherByIdentifier(identifier);
         if (teacherOpt.isEmpty()) {
-            teacherOpt = teacherRepository.findByEmail(clean.toLowerCase());
+            return Collections.emptyList();
         }
 
-        if (teacherOpt.isPresent()) {
-            UUID teacherId = teacherOpt.get().getTeacherId();
-            List<TeacherSubject> allocations = teacherSubjectRepository.findByTeacherId(teacherId);
-            if (allocations.isEmpty()) {
-                return subjectRepository.findAll();
+        UUID teacherId = teacherOpt.get().getTeacherId();
+        List<TeacherSubject> allocations = teacherSubjectRepository.findByTeacherIdAndIsActiveTrue(teacherId);
+        if (allocations.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<UUID> assignedSubjectIds = allocations.stream()
+                .map(TeacherSubject::getSubjectId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        if (assignedSubjectIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return subjectRepository.findAllById(assignedSubjectIds).stream()
+                .filter(s -> Boolean.TRUE.equals(s.getIsActive()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getStudentsForTeacher(String identifier) {
+        if (identifier == null || identifier.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Optional<Teacher> teacherOpt = resolveTeacherByIdentifier(identifier);
+        if (teacherOpt.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        UUID teacherId = teacherOpt.get().getTeacherId();
+        List<TeacherSubject> allocations = teacherSubjectRepository.findByTeacherIdAndIsActiveTrue(teacherId);
+        if (allocations.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Set<Student> permittedStudents = new LinkedHashSet<>();
+
+        for (TeacherSubject alloc : allocations) {
+            if (alloc.getSubjectId() == null) continue;
+
+            Optional<Subject> subjOpt = subjectRepository.findById(alloc.getSubjectId());
+            if (subjOpt.isEmpty() || Boolean.FALSE.equals(subjOpt.get().getIsActive())) {
+                continue;
             }
 
-            List<UUID> assignedSubjectIds = allocations.stream()
-                    .filter(ts -> Boolean.TRUE.equals(ts.getIsActive()))
-                    .map(TeacherSubject::getSubjectId)
-                    .filter(Objects::nonNull)
+            Subject subject = subjOpt.get();
+            UUID deptId = subject.getDepartmentId();
+            UUID semId = subject.getSemesterId();
+            UUID batchId = alloc.getBatchId();
+
+            if (deptId == null && semId == null && batchId == null) {
+                log.warn("Legacy allocation {} lacks safe cohort mapping.", alloc.getAllocationId());
+                continue;
+            }
+
+            List<Student> cohortStudents = studentRepository.findAll().stream()
+                    .filter(s -> Boolean.TRUE.equals(s.getIsActive()))
+                    .filter(s -> deptId == null || Objects.equals(s.getDepartmentId(), deptId))
+                    .filter(s -> semId == null || Objects.equals(s.getSemesterId(), semId))
+                    .filter(s -> batchId == null || Objects.equals(s.getBatchId(), batchId))
                     .toList();
 
-            if (assignedSubjectIds.isEmpty()) {
-                return subjectRepository.findAll();
-            }
-
-            return subjectRepository.findAllById(assignedSubjectIds);
+            permittedStudents.addAll(cohortStudents);
         }
 
-        return subjectRepository.findAll();
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Student s : permittedStudents) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("student_id", s.getStudentId() != null ? s.getStudentId().toString() : "");
+            map.put("enrollment_no", s.getEnrollmentNo() != null ? s.getEnrollmentNo() : "");
+            map.put("first_name", s.getFirstName() != null ? s.getFirstName() : "");
+            map.put("last_name", s.getLastName() != null ? s.getLastName() : "");
+            map.put("surname", s.getSurname() != null ? s.getSurname() : "");
+            map.put("email", s.getEmail() != null ? s.getEmail() : "");
+            map.put("mobile", s.getMobile() != null ? s.getMobile() : "");
+            map.put("gender", s.getGender() != null ? s.getGender() : "Male");
+            map.put("date_of_birth", s.getDateOfBirth() != null ? s.getDateOfBirth().toString() : "");
+            map.put("address", s.getAddress() != null ? s.getAddress() : "");
+            map.put("profile_photo", s.getProfilePhoto() != null ? s.getProfilePhoto() : "");
+            map.put("department_id", s.getDepartmentId() != null ? s.getDepartmentId().toString() : "");
+            map.put("semester_id", s.getSemesterId() != null ? s.getSemesterId().toString() : "");
+            map.put("batch_id", s.getBatchId() != null ? s.getBatchId().toString() : "");
+            map.put("parent_name", s.getParentName() != null ? s.getParentName() : "");
+            map.put("parent_mobile", s.getParentMobile() != null ? s.getParentMobile() : "");
+            map.put("parent_email", s.getParentEmail() != null ? s.getParentEmail() : "");
+            map.put("blood_group", s.getBloodGroup() != null ? s.getBloodGroup() : "");
+            map.put("is_active", s.getIsActive() != null ? s.getIsActive() : true);
+            result.add(map);
+        }
+
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Student> getStudentsForAllocation(UUID allocationId) {
+        if (allocationId == null) {
+            return Collections.emptyList();
+        }
+        Optional<TeacherSubject> allocOpt = teacherSubjectRepository.findById(allocationId);
+        if (allocOpt.isEmpty()) {
+            return Collections.emptyList();
+        }
+        TeacherSubject alloc = allocOpt.get();
+        if (alloc.getSubjectId() == null) {
+            return Collections.emptyList();
+        }
+        Optional<Subject> subjOpt = subjectRepository.findById(alloc.getSubjectId());
+        if (subjOpt.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Subject subject = subjOpt.get();
+        UUID deptId = subject.getDepartmentId();
+        UUID semId = subject.getSemesterId();
+        UUID batchId = alloc.getBatchId();
+
+        return studentRepository.findAll().stream()
+                .filter(s -> Boolean.TRUE.equals(s.getIsActive()))
+                .filter(s -> deptId == null || Objects.equals(s.getDepartmentId(), deptId))
+                .filter(s -> semId == null || Objects.equals(s.getSemesterId(), semId))
+                .filter(s -> batchId == null || Objects.equals(s.getBatchId(), batchId))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Batch> getAssignedBatchesForTeacher(String identifier) {
+        if (identifier == null || identifier.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Optional<Teacher> teacherOpt = resolveTeacherByIdentifier(identifier);
+        if (teacherOpt.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        UUID teacherId = teacherOpt.get().getTeacherId();
+        List<TeacherSubject> allocations = teacherSubjectRepository.findByTeacherIdAndIsActiveTrue(teacherId);
+        if (allocations.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Set<UUID> batchIds = new HashSet<>();
+        for (TeacherSubject alloc : allocations) {
+            if (alloc.getBatchId() != null) {
+                batchIds.add(alloc.getBatchId());
+            }
+        }
+
+        if (batchIds.isEmpty()) {
+            return batchRepository.findByIsActiveTrue();
+        }
+
+        return batchRepository.findAllById(batchIds).stream()
+                .filter(b -> Boolean.TRUE.equals(b.getIsActive()))
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -253,7 +575,7 @@ public class TeacherService {
 
     @Transactional
     public Teacher createTeacher(Teacher teacher) {
-        teacher.setTeacherId(null); // Ensure Hibernate performs INSERT with generated UUID
+        teacher.setTeacherId(null);
         if (teacher.getIsActive() == null) {
             teacher.setIsActive(true);
         }
@@ -336,63 +658,371 @@ public class TeacherService {
         teacherRepository.deleteById(id);
     }
 
+    @Transactional(readOnly = true)
     public Map<String, Object> getTeacherDashboard(String teacherId) {
         Map<String, Object> data = new HashMap<>();
-        data.put("teacherName", "Faculty Member");
-        data.put("department", "Academic Department");
-        data.put("assignedCoursesCount", 0);
-        data.put("totalStudents", 0);
-        data.put("pendingGradingCount", 0);
-        data.put("attendanceRate", "0%");
-        data.put("todayClasses", Collections.emptyList());
+        String cleanIdentifier = teacherId;
+        if (cleanIdentifier == null || cleanIdentifier.trim().isEmpty()) {
+            cleanIdentifier = com.educonnect.backend.security.SecurityUtils.getCurrentUserIdentifier();
+        }
 
+        Optional<Teacher> tOpt = resolveTeacherByIdentifier(cleanIdentifier);
+        if (tOpt.isEmpty()) {
+            data.put("teacherName", "Faculty Member");
+            data.put("department", "Academic Department");
+            data.put("assignedCoursesCount", 0);
+            data.put("totalStudents", 0);
+            data.put("pendingGradingCount", 0);
+            data.put("assignmentsCount", 0);
+            data.put("attendanceRate", "0%");
+            data.put("todayClasses", Collections.emptyList());
+            return data;
+        }
+
+        Teacher teacher = tOpt.get();
+        UUID tId = teacher.getTeacherId();
+        String fullName = ((teacher.getFirstName() != null ? teacher.getFirstName() : "") + " " + (teacher.getLastName() != null ? teacher.getLastName() : "")).trim();
+        data.put("teacherName", fullName.isEmpty() ? "Faculty Member" : fullName);
+        data.put("department", teacher.getDesignation() != null ? teacher.getDesignation() : "Assistant Professor");
+
+        // 1. Assigned Courses Count
+        List<TeacherSubject> allocations = teacherSubjectRepository.findByTeacherIdAndIsActiveTrue(tId);
+        data.put("assignedCoursesCount", allocations.size());
+
+        // 2. Total Students in Assigned Cohorts
+        Set<UUID> uniqueStudentIds = new HashSet<>();
+        for (TeacherSubject alloc : allocations) {
+            List<Student> cohort = getStudentsForAllocation(alloc.getAllocationId());
+            for (Student s : cohort) {
+                if (s.getStudentId() != null) {
+                    uniqueStudentIds.add(s.getStudentId());
+                }
+            }
+        }
+        data.put("totalStudents", uniqueStudentIds.size());
+
+        // 3. Teacher's Assignments & Pending Grading Count
+        Set<UUID> allocIds = allocations.stream().map(TeacherSubject::getAllocationId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<UUID> subjIds = allocations.stream().map(TeacherSubject::getSubjectId).filter(Objects::nonNull).collect(Collectors.toSet());
+
+        List<Assignment> teacherAssignments = assignmentRepository.findAll().stream()
+                .filter(a -> (a.getTeacherSubjectId() != null && allocIds.contains(a.getTeacherSubjectId()))
+                        || (a.getSubjectId() != null && subjIds.contains(a.getSubjectId())))
+                .toList();
+
+        data.put("assignmentsCount", teacherAssignments.size());
+
+        int pendingGrading = 0;
+        for (Assignment a : teacherAssignments) {
+            if (a.getAssignmentId() != null) {
+                List<AssignmentSubmission> subs = submissionRepository.findByAssignmentId(a.getAssignmentId());
+                for (AssignmentSubmission sub : subs) {
+                    if (sub.getObtainedMarks() == null || "Submitted".equalsIgnoreCase(sub.getSubmissionStatus())) {
+                        pendingGrading++;
+                    }
+                }
+            }
+        }
+        data.put("pendingGradingCount", pendingGrading);
+
+        // 4. Attendance Rate across Recorded Sessions
+        List<AttendanceSession> sessions = sessionRepository.findAll().stream()
+                .filter(s -> s.getTeacherSubjectId() != null && allocIds.contains(s.getTeacherSubjectId()))
+                .toList();
+
+        if (!sessions.isEmpty()) {
+            List<UUID> sessionIds = sessions.stream().map(AttendanceSession::getSessionId).toList();
+            List<AttendanceRecord> records = recordRepository.findBySessionIdIn(sessionIds);
+            int totalRecs = records.size();
+            long presentCount = records.stream().filter(r -> "Present".equalsIgnoreCase(r.getAttendanceStatus())).count();
+            String rateStr = totalRecs > 0 ? String.format(Locale.US, "%.1f%%", (double) presentCount / totalRecs * 100.0) : "0%";
+            data.put("attendanceRate", rateStr);
+        } else {
+            data.put("attendanceRate", "0%");
+        }
+
+        data.put("todayClasses", Collections.emptyList());
         return data;
     }
 
+    @Transactional
     public Map<String, Object> markAttendance(AttendanceMarkRequest request) {
-        UUID teacherSubjectId = request.getTeacherSubjectId() != null
-                ? request.getTeacherSubjectId()
-                : UUID.randomUUID();
+        if (request == null) {
+            throw new IllegalArgumentException("Attendance mark request body cannot be null.");
+        }
 
-        AttendanceSession session = AttendanceSession.builder()
-                .teacherSubjectId(teacherSubjectId)
-                .sessionDate(LocalDate.now())
-                .lectureNo(request.getLectureNo() != null ? request.getLectureNo() : 1)
-                .startTime(LocalTime.of(9, 30))
-                .endTime(LocalTime.of(11, 0))
-                .topic(request.getTopic() != null ? request.getTopic() : "Lecture Session")
-                .build();
+        String cleanIdentifier = com.educonnect.backend.security.SecurityUtils.getCurrentUserIdentifier();
+        Teacher teacher = resolveTeacherByIdentifier(cleanIdentifier)
+                .orElseThrow(() -> new AccessDeniedException("Authenticated teacher identity not found."));
 
+        UUID allocationId = request.getTeacherSubjectId();
+        if (allocationId == null) {
+            throw new IllegalArgumentException("Valid teacher subject allocation ID (teacher_subject_id) is required.");
+        }
+
+        TeacherSubject allocation = teacherSubjectRepository.findById(allocationId)
+                .orElseThrow(() -> new NoSuchElementException("Teacher subject allocation not found for ID: " + allocationId));
+
+        if (!Objects.equals(allocation.getTeacherId(), teacher.getTeacherId())) {
+            throw new AccessDeniedException("Access denied: You are not authorized to mark attendance for this subject allocation.");
+        }
+
+        String dateStr = request.getSessionDate();
+        if (dateStr == null || dateStr.trim().isEmpty()) {
+            throw new IllegalArgumentException("Session date (session_date) is required.");
+        }
+        LocalDate sessionDate;
+        try {
+            sessionDate = LocalDate.parse(dateStr.trim());
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid session_date format. Expected YYYY-MM-DD.");
+        }
+
+        Integer lectureNo = request.getLectureNo();
+        if (lectureNo == null || lectureNo < 1) {
+            lectureNo = 1;
+        }
+
+        LocalTime startTime = LocalTime.of(9, 30);
+        LocalTime endTime = LocalTime.of(11, 0);
+        if (request.getStartTime() != null && !request.getStartTime().trim().isEmpty()) {
+            try {
+                startTime = LocalTime.parse(request.getStartTime().trim());
+            } catch (Exception e) {
+                try { startTime = LocalTime.parse(request.getStartTime().trim() + ":00"); } catch (Exception ignored) {}
+            }
+        }
+        if (request.getEndTime() != null && !request.getEndTime().trim().isEmpty()) {
+            try {
+                endTime = LocalTime.parse(request.getEndTime().trim());
+            } catch (Exception e) {
+                try { endTime = LocalTime.parse(request.getEndTime().trim() + ":00"); } catch (Exception ignored) {}
+            }
+        }
+        if (!startTime.isBefore(endTime)) {
+            throw new IllegalArgumentException("Start time (" + startTime + ") must be strictly before end time (" + endTime + ").");
+        }
+
+        String topic = (request.getTopic() != null && !request.getTopic().trim().isEmpty())
+                ? request.getTopic().trim()
+                : "Lecture Session";
+
+        List<AttendanceMarkRequest.StudentStatus> statuses = request.getStudentStatuses();
+        if (statuses == null || statuses.isEmpty()) {
+            throw new IllegalArgumentException("Student attendance roster records (student_statuses/records) cannot be empty.");
+        }
+
+        List<Student> cohortStudents = getStudentsForAllocation(allocationId);
+        Set<UUID> validStudentIds = cohortStudents.stream()
+                .map(Student::getStudentId)
+                .collect(Collectors.toSet());
+
+        for (AttendanceMarkRequest.StudentStatus statusItem : statuses) {
+            if (statusItem.getStudentId() == null) {
+                throw new IllegalArgumentException("Student ID in attendance roster cannot be null.");
+            }
+            if (!validStudentIds.contains(statusItem.getStudentId())) {
+                throw new IllegalArgumentException("Student " + statusItem.getStudentId() + " does not belong to the permitted cohort for this allocation.");
+            }
+            String st = statusItem.getStatus();
+            if (st == null || st.trim().isEmpty()) {
+                st = "Present";
+            }
+            if (!"Present".equalsIgnoreCase(st) && !"Absent".equalsIgnoreCase(st) && !"Late".equalsIgnoreCase(st)) {
+                throw new IllegalArgumentException("Invalid attendance status '" + st + "'. Expected Present, Absent, or Late.");
+            }
+        }
+
+        Optional<AttendanceSession> existingSessionOpt = sessionRepository
+                .findByTeacherSubjectIdAndSessionDateAndLectureNo(allocationId, sessionDate, lectureNo);
+
+        AttendanceSession session;
+        if (existingSessionOpt.isPresent()) {
+            session = existingSessionOpt.get();
+            session.setStartTime(startTime);
+            session.setEndTime(endTime);
+            session.setTopic(topic);
+            session.setUpdatedAt(LocalDateTime.now());
+        } else {
+            session = AttendanceSession.builder()
+                    .teacherSubjectId(allocationId)
+                    .sessionDate(sessionDate)
+                    .lectureNo(lectureNo)
+                    .startTime(startTime)
+                    .endTime(endTime)
+                    .topic(topic)
+                    .build();
+        }
         AttendanceSession savedSession = sessionRepository.save(session);
 
         int presentCount = 0;
         int absentCount = 0;
+        int lateCount = 0;
 
-        if (request.getStudentStatuses() != null) {
-            for (AttendanceMarkRequest.StudentStatus status : request.getStudentStatuses()) {
-                UUID studentId = status.getStudentId() != null ? status.getStudentId() : UUID.randomUUID();
-                AttendanceRecord record = AttendanceRecord.builder()
+        for (AttendanceMarkRequest.StudentStatus statusItem : statuses) {
+            String normStatus = "Present";
+            if ("Absent".equalsIgnoreCase(statusItem.getStatus())) normStatus = "Absent";
+            else if ("Late".equalsIgnoreCase(statusItem.getStatus())) normStatus = "Late";
+
+            if ("Present".equals(normStatus)) presentCount++;
+            else if ("Absent".equals(normStatus)) absentCount++;
+            else if ("Late".equals(normStatus)) lateCount++;
+
+            Optional<AttendanceRecord> recOpt = recordRepository.findBySessionIdAndStudentId(savedSession.getSessionId(), statusItem.getStudentId());
+            AttendanceRecord record;
+            if (recOpt.isPresent()) {
+                record = recOpt.get();
+                record.setAttendanceStatus(normStatus);
+                record.setRemarks(statusItem.getRemarks() != null ? statusItem.getRemarks() : "");
+                record.setUpdatedAt(LocalDateTime.now());
+            } else {
+                record = AttendanceRecord.builder()
                         .sessionId(savedSession.getSessionId())
-                        .studentId(studentId)
-                        .attendanceStatus(status.getStatus() != null ? status.getStatus() : "Present")
-                        .remarks(status.getRemarks())
+                        .studentId(statusItem.getStudentId())
+                        .attendanceStatus(normStatus)
+                        .remarks(statusItem.getRemarks() != null ? statusItem.getRemarks() : "")
                         .build();
-                recordRepository.save(record);
-
-                if ("Present".equalsIgnoreCase(status.getStatus())) presentCount++;
-                else absentCount++;
             }
+            recordRepository.save(record);
         }
 
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
-        response.put("message", "Attendance session saved successfully");
+        response.put("message", existingSessionOpt.isPresent() ? "Attendance session updated successfully." : "Attendance session saved successfully.");
+        response.put("session_id", savedSession.getSessionId().toString());
         response.put("sessionId", savedSession.getSessionId().toString());
-        response.put("totalRecords", request.getStudentStatuses() != null ? request.getStudentStatuses().size() : 0);
-        response.put("presentCount", presentCount);
-        response.put("absentCount", absentCount);
+        response.put("total_records", statuses.size());
+        response.put("present_count", presentCount);
+        response.put("absent_count", absentCount);
+        response.put("late_count", lateCount);
 
         return response;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getTeacherAttendanceSessions(String subjectIdFilter, String dateFilter) {
+        String cleanIdentifier = com.educonnect.backend.security.SecurityUtils.getCurrentUserIdentifier();
+        Teacher teacher = resolveTeacherByIdentifier(cleanIdentifier)
+                .orElseThrow(() -> new AccessDeniedException("Authenticated teacher identity not found."));
+
+        List<TeacherSubject> allocations = teacherSubjectRepository.findByTeacherId(teacher.getTeacherId());
+        if (allocations.isEmpty()) return Collections.emptyList();
+
+        Map<UUID, TeacherSubject> allocMap = allocations.stream()
+                .collect(Collectors.toMap(TeacherSubject::getAllocationId, a -> a, (a1, a2) -> a1));
+
+        List<AttendanceSession> sessions = sessionRepository.findByTeacherSubjectIdIn(allocMap.keySet());
+        if (sessions.isEmpty()) return Collections.emptyList();
+
+        List<Map<String, Object>> resultList = new ArrayList<>();
+        for (AttendanceSession sess : sessions) {
+            TeacherSubject alloc = allocMap.get(sess.getTeacherSubjectId());
+            if (alloc == null) continue;
+
+            if (subjectIdFilter != null && !subjectIdFilter.trim().isEmpty()) {
+                if (!alloc.getSubjectId().toString().equalsIgnoreCase(subjectIdFilter.trim())) {
+                    continue;
+                }
+            }
+            if (dateFilter != null && !dateFilter.trim().isEmpty()) {
+                if (!sess.getSessionDate().toString().equalsIgnoreCase(dateFilter.trim())) {
+                    continue;
+                }
+            }
+
+            Map<String, Object> map = new HashMap<>();
+            map.put("session_id", sess.getSessionId().toString());
+            map.put("allocation_id", alloc.getAllocationId().toString());
+            map.put("subject_id", alloc.getSubjectId().toString());
+            map.put("session_date", sess.getSessionDate().toString());
+            map.put("lecture_no", sess.getLectureNo());
+            map.put("start_time", sess.getStartTime().toString());
+            map.put("end_time", sess.getEndTime().toString());
+            map.put("topic", sess.getTopic() != null ? sess.getTopic() : "");
+
+            subjectRepository.findById(alloc.getSubjectId()).ifPresent(sub -> {
+                map.put("subject_name", sub.getSubjectName());
+                map.put("subject_code", sub.getSubjectCode());
+            });
+
+            List<AttendanceRecord> records = recordRepository.findBySessionId(sess.getSessionId());
+            long presentCount = records.stream().filter(r -> "Present".equalsIgnoreCase(r.getAttendanceStatus())).count();
+            long absentCount = records.stream().filter(r -> "Absent".equalsIgnoreCase(r.getAttendanceStatus())).count();
+            long lateCount = records.stream().filter(r -> "Late".equalsIgnoreCase(r.getAttendanceStatus())).count();
+
+            map.put("total_students", records.size());
+            map.put("present_count", presentCount);
+            map.put("absent_count", absentCount);
+            map.put("late_count", lateCount);
+
+            resultList.add(map);
+        }
+
+        resultList.sort((m1, m2) -> ((String) m2.get("session_date")).compareTo((String) m1.get("session_date")));
+        return resultList;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getAttendanceSessionDetail(UUID sessionId) {
+        String cleanIdentifier = com.educonnect.backend.security.SecurityUtils.getCurrentUserIdentifier();
+        Teacher teacher = resolveTeacherByIdentifier(cleanIdentifier)
+                .orElseThrow(() -> new AccessDeniedException("Authenticated teacher identity not found."));
+
+        AttendanceSession sess = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new NoSuchElementException("Attendance session not found for ID: " + sessionId));
+
+        TeacherSubject alloc = teacherSubjectRepository.findById(sess.getTeacherSubjectId())
+                .orElseThrow(() -> new NoSuchElementException("Teacher subject allocation not found for session."));
+
+        if (!Objects.equals(alloc.getTeacherId(), teacher.getTeacherId())) {
+            throw new AccessDeniedException("Access denied: You do not own this attendance session.");
+        }
+
+        Map<String, Object> detail = new HashMap<>();
+        detail.put("session_id", sess.getSessionId().toString());
+        detail.put("teacher_subject_id", alloc.getAllocationId().toString());
+        detail.put("allocation_id", alloc.getAllocationId().toString());
+        detail.put("subject_id", alloc.getSubjectId().toString());
+        detail.put("session_date", sess.getSessionDate().toString());
+        detail.put("lecture_no", sess.getLectureNo());
+        detail.put("start_time", sess.getStartTime().toString());
+        detail.put("end_time", sess.getEndTime().toString());
+        detail.put("topic", sess.getTopic() != null ? sess.getTopic() : "");
+
+        subjectRepository.findById(alloc.getSubjectId()).ifPresent(sub -> {
+            detail.put("subject_name", sub.getSubjectName());
+            detail.put("subject_code", sub.getSubjectCode());
+        });
+
+        List<AttendanceRecord> records = recordRepository.findBySessionId(sess.getSessionId());
+        Map<UUID, AttendanceRecord> recordMap = records.stream()
+                .collect(Collectors.toMap(AttendanceRecord::getStudentId, r -> r, (r1, r2) -> r1));
+
+        List<Student> cohortStudents = getStudentsForAllocation(alloc.getAllocationId());
+        List<Map<String, Object>> studentList = new ArrayList<>();
+
+        for (Student stu : cohortStudents) {
+            Map<String, Object> sMap = new HashMap<>();
+            sMap.put("student_id", stu.getStudentId().toString());
+            sMap.put("enrollment_no", stu.getEnrollmentNo());
+            sMap.put("first_name", stu.getFirstName());
+            sMap.put("last_name", stu.getLastName());
+            sMap.put("profile_photo", stu.getProfilePhoto() != null ? stu.getProfilePhoto() : "");
+
+            AttendanceRecord rec = recordMap.get(stu.getStudentId());
+            if (rec != null) {
+                sMap.put("status", rec.getAttendanceStatus());
+                sMap.put("remarks", rec.getRemarks() != null ? rec.getRemarks() : "");
+            } else {
+                sMap.put("status", "Present");
+                sMap.put("remarks", "");
+            }
+            studentList.add(sMap);
+        }
+
+        detail.put("records", studentList);
+        detail.put("student_statuses", studentList);
+        return detail;
     }
 
     public List<Map<String, Object>> getPendingGrades(String teacherId) {
@@ -407,11 +1037,18 @@ public class TeacherService {
 
     @Transactional
     public TeacherSubject assignTeacherSubject(TeacherSubject allocation) {
-        Optional<TeacherSubject> existing = teacherSubjectRepository
-                .findByTeacherIdAndSubjectId(allocation.getTeacherId(), allocation.getSubjectId());
+        Optional<TeacherSubject> existing = Optional.empty();
+        if (allocation.getBatchId() != null) {
+            existing = teacherSubjectRepository.findByTeacherIdAndSubjectIdAndBatchId(allocation.getTeacherId(), allocation.getSubjectId(), allocation.getBatchId());
+        } else {
+            existing = teacherSubjectRepository.findByTeacherIdAndSubjectId(allocation.getTeacherId(), allocation.getSubjectId());
+        }
+
         if (existing.isPresent()) {
             TeacherSubject ts = existing.get();
             ts.setIsActive(allocation.getIsActive() != null ? allocation.getIsActive() : true);
+            if (allocation.getBatchId() != null) ts.setBatchId(allocation.getBatchId());
+            if (allocation.getSemesterId() != null) ts.setSemesterId(allocation.getSemesterId());
             return teacherSubjectRepository.save(ts);
         } else {
             allocation.setAllocationId(null);
@@ -501,66 +1138,7 @@ public class TeacherService {
         return response;
     }
 
-    @Transactional(readOnly = true)
-    public Map<String, Object> getTeacherProfile(String identifier) {
-        if (identifier != null && !identifier.trim().isEmpty()) {
-            String clean = identifier.trim();
 
-            // 1. Try by UUID teacher_id
-            try {
-                UUID uuid = UUID.fromString(clean);
-                Optional<Teacher> tOpt = teacherRepository.findById(uuid);
-                if (tOpt.isPresent()) {
-                    return convertTeacherToMap(tOpt.get());
-                }
-            } catch (IllegalArgumentException ignored) {}
-
-            // 2. Try by email
-            Optional<Teacher> tOptEmail = teacherRepository.findByEmail(clean.toLowerCase());
-            if (tOptEmail.isPresent()) {
-                return convertTeacherToMap(tOptEmail.get());
-            }
-        }
-
-        return Collections.emptyMap();
-    }
-
-    @Transactional
-    public Map<String, Object> updateTeacherProfile(Map<String, Object> updateData) {
-        String teacherIdStr = (String) updateData.get("teacher_id");
-        String email = (String) updateData.get("email");
-
-        Optional<Teacher> teacherOpt = Optional.empty();
-        if (teacherIdStr != null && !teacherIdStr.trim().isEmpty()) {
-            try {
-                teacherOpt = teacherRepository.findById(UUID.fromString(teacherIdStr));
-            } catch (IllegalArgumentException ignored) {}
-        }
-        if (teacherOpt.isEmpty() && email != null && !email.trim().isEmpty()) {
-            teacherOpt = teacherRepository.findByEmail(email.toLowerCase());
-        }
-
-        if (teacherOpt.isPresent()) {
-            Teacher teacher = teacherOpt.get();
-            if (updateData.containsKey("first_name")) teacher.setFirstName((String) updateData.get("first_name"));
-            if (updateData.containsKey("last_name")) teacher.setLastName((String) updateData.get("last_name"));
-            if (updateData.containsKey("mobile")) teacher.setMobile((String) updateData.get("mobile"));
-            if (updateData.containsKey("designation")) teacher.setDesignation((String) updateData.get("designation"));
-            if (updateData.containsKey("qualification")) teacher.setQualification((String) updateData.get("qualification"));
-            if (updateData.containsKey("address")) teacher.setAddress((String) updateData.get("address"));
-            if (updateData.containsKey("profile_photo")) teacher.setProfilePhoto((String) updateData.get("profile_photo"));
-            if (updateData.containsKey("experience")) {
-                Object expObj = updateData.get("experience");
-                if (expObj instanceof Number) teacher.setExperience(((Number) expObj).intValue());
-                else if (expObj instanceof String) {
-                    try { teacher.setExperience(Integer.parseInt((String) expObj)); } catch (Exception ignored) {}
-                }
-            }
-            teacherRepository.save(teacher);
-            return Map.of("success", true, "message", "Profile updated successfully in database");
-        }
-        return Map.of("success", false, "message", "Teacher not found in database");
-    }
 
     private Map<String, Object> convertTeacherToMap(Teacher t) {
         Map<String, Object> map = new HashMap<>();
@@ -584,7 +1162,26 @@ public class TeacherService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getAssignmentSubmissions(UUID assignmentId) {
+    public List<Map<String, Object>> getAssignmentSubmissions(UUID assignmentId, String teacherIdentifier) {
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new NoSuchElementException("Assignment not found for ID: " + assignmentId));
+
+        String cleanIdentifier = teacherIdentifier;
+        if (cleanIdentifier == null || cleanIdentifier.trim().isEmpty()) {
+            cleanIdentifier = com.educonnect.backend.security.SecurityUtils.getCurrentUserIdentifier();
+        }
+
+        Teacher teacher = resolveTeacherByIdentifier(cleanIdentifier)
+                .orElseThrow(() -> new AccessDeniedException("Authenticated teacher identity not found."));
+
+        if (assignment.getTeacherSubjectId() != null) {
+            TeacherSubject alloc = teacherSubjectRepository.findById(assignment.getTeacherSubjectId()).orElse(null);
+            if (alloc != null && !Objects.equals(alloc.getTeacherId(), teacher.getTeacherId())) {
+                throw new AccessDeniedException("Access denied: You are not authorized to view submissions for this assignment.");
+            }
+        }
+
+        List<Student> cohortStudents = getStudentsForAllocation(assignment.getTeacherSubjectId());
         List<AssignmentSubmission> dbSubmissions = submissionRepository.findByAssignmentId(assignmentId);
         Map<UUID, AssignmentSubmission> studentSubMap = new HashMap<>();
         for (AssignmentSubmission sub : dbSubmissions) {
@@ -593,34 +1190,35 @@ public class TeacherService {
             }
         }
 
-        List<Student> allStudents = studentRepository.findAll();
+        LocalDate now = LocalDate.now();
+        LocalDate dueDate = assignment.getDueDate();
+
         List<Map<String, Object>> result = new ArrayList<>();
 
-        for (Student s : allStudents) {
+        for (Student stu : cohortStudents) {
             Map<String, Object> map = new HashMap<>();
             map.put("assignment_id", assignmentId.toString());
-            map.put("student_id", s.getStudentId() != null ? s.getStudentId().toString() : "");
-            map.put("student_name", (s.getFirstName() + " " + s.getLastName()).trim());
-            map.put("enrollment_no", s.getEnrollmentNo() != null ? s.getEnrollmentNo() : "");
+            map.put("student_id", stu.getStudentId().toString());
+            map.put("student_name", ((stu.getFirstName() != null ? stu.getFirstName() : "") + " " + (stu.getLastName() != null ? stu.getLastName() : "")).trim());
+            map.put("enrollment_no", stu.getEnrollmentNo() != null ? stu.getEnrollmentNo() : "");
+            map.put("email", stu.getEmail() != null ? stu.getEmail() : "");
 
-            AssignmentSubmission sub = studentSubMap.get(s.getStudentId());
+            AssignmentSubmission sub = studentSubMap.get(stu.getStudentId());
             if (sub != null) {
                 map.put("submission_id", sub.getSubmissionId() != null ? sub.getSubmissionId().toString() : "");
                 map.put("submission_date", sub.getSubmissionDate() != null ? sub.getSubmissionDate().toString() : "");
                 map.put("attachment", sub.getAttachment() != null ? sub.getAttachment() : "");
                 map.put("file_name", sub.getFileName() != null ? sub.getFileName() : "");
+                map.put("file_path", sub.getFilePath() != null ? sub.getFilePath() : "");
+                map.put("file_type", sub.getFileType() != null ? sub.getFileType() : "");
+                map.put("file_size", sub.getFileSize() != null ? sub.getFileSize() : 0L);
                 map.put("obtained_marks", sub.getObtainedMarks());
                 map.put("feedback", sub.getFeedback() != null ? sub.getFeedback() : "");
+                
                 String subStatus = sub.getSubmissionStatus();
                 if (subStatus == null || "Submitted".equalsIgnoreCase(subStatus) || "Graded".equalsIgnoreCase(subStatus)) {
-                    Optional<Assignment> asgnOpt = assignmentRepository.findById(assignmentId);
-                    if (asgnOpt.isPresent() && asgnOpt.get().getDueDate() != null && sub.getSubmissionDate() != null) {
-                        LocalDate subDate = sub.getSubmissionDate().toLocalDate();
-                        if (subDate.isAfter(asgnOpt.get().getDueDate())) {
-                            subStatus = "Late";
-                        } else {
-                            subStatus = "Timely";
-                        }
+                    if (dueDate != null && sub.getSubmissionDate() != null && sub.getSubmissionDate().toLocalDate().isAfter(dueDate)) {
+                        subStatus = "Late";
                     } else {
                         subStatus = "Timely";
                     }
@@ -628,13 +1226,14 @@ public class TeacherService {
                 map.put("submission_status", subStatus);
                 map.put("submitted", true);
             } else {
-                map.put("submission_id", "sub-missing-" + (s.getStudentId() != null ? s.getStudentId().toString() : UUID.randomUUID().toString()));
+                map.put("submission_id", null);
                 map.put("submission_date", "-");
                 map.put("attachment", null);
                 map.put("file_name", null);
                 map.put("obtained_marks", null);
                 map.put("feedback", null);
-                map.put("submission_status", "Missed");
+                String unsubmittedStatus = (dueDate != null && now.isAfter(dueDate)) ? "Missed" : "Not Submitted";
+                map.put("submission_status", unsubmittedStatus);
                 map.put("submitted", false);
             }
             result.add(map);
@@ -643,26 +1242,52 @@ public class TeacherService {
     }
 
     @Transactional
-    public AssignmentSubmission gradeSubmission(UUID submissionId, Map<String, Object> reqData) {
+    public AssignmentSubmission gradeSubmission(UUID submissionId, Map<String, Object> reqData, String teacherIdentifier) {
         AssignmentSubmission sub = submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new NoSuchElementException("Submission not found with id: " + submissionId));
 
-        if (reqData.get("obtained_marks") != null) {
-            Object marksObj = reqData.get("obtained_marks");
-            if (marksObj instanceof Number) sub.setObtainedMarks(((Number) marksObj).intValue());
-            else if (marksObj instanceof String) {
-                try { sub.setObtainedMarks(Integer.parseInt((String) marksObj)); } catch (Exception ignored) {}
+        Assignment assignment = assignmentRepository.findById(sub.getAssignmentId())
+                .orElseThrow(() -> new NoSuchElementException("Assignment not found with id: " + sub.getAssignmentId()));
+
+        String cleanIdentifier = teacherIdentifier;
+        if (cleanIdentifier == null || cleanIdentifier.trim().isEmpty()) {
+            cleanIdentifier = com.educonnect.backend.security.SecurityUtils.getCurrentUserIdentifier();
+        }
+
+        Teacher teacher = resolveTeacherByIdentifier(cleanIdentifier)
+                .orElseThrow(() -> new AccessDeniedException("Authenticated teacher identity not found."));
+
+        if (assignment.getTeacherSubjectId() != null) {
+            TeacherSubject alloc = teacherSubjectRepository.findById(assignment.getTeacherSubjectId()).orElse(null);
+            if (alloc != null && !Objects.equals(alloc.getTeacherId(), teacher.getTeacherId())) {
+                throw new AccessDeniedException("Access denied: You are not authorized to grade submissions for this assignment.");
             }
         }
-        if (reqData.get("feedback") != null) {
+
+        if (reqData.get("obtained_marks") != null) {
+            Object marksObj = reqData.get("obtained_marks");
+            Integer marks = null;
+            if (marksObj instanceof Number) marks = ((Number) marksObj).intValue();
+            else if (marksObj instanceof String) {
+                try { marks = Integer.parseInt((String) marksObj); } catch (Exception ignored) {}
+            }
+            if (marks == null) {
+                throw new IllegalArgumentException("Invalid obtained_marks value.");
+            }
+            int maxMarks = assignment.getTotalMarks() != null ? assignment.getTotalMarks() : 100;
+            if (marks < 0 || marks > maxMarks) {
+                throw new IllegalArgumentException("Obtained marks must be between 0 and maximum assignment marks (" + maxMarks + ").");
+            }
+            sub.setObtainedMarks(marks);
+        }
+
+        if (reqData.containsKey("feedback")) {
             sub.setFeedback((String) reqData.get("feedback"));
         }
         
-        // Preserve Late or Timely status instead of replacing with "Graded"
         if (sub.getSubmissionStatus() == null || "Submitted".equalsIgnoreCase(sub.getSubmissionStatus()) || "Graded".equalsIgnoreCase(sub.getSubmissionStatus())) {
-            Optional<Assignment> asgnOpt = assignmentRepository.findById(sub.getAssignmentId());
-            if (asgnOpt.isPresent() && asgnOpt.get().getDueDate() != null && sub.getSubmissionDate() != null) {
-                if (sub.getSubmissionDate().toLocalDate().isAfter(asgnOpt.get().getDueDate())) {
+            if (assignment.getDueDate() != null && sub.getSubmissionDate() != null) {
+                if (sub.getSubmissionDate().toLocalDate().isAfter(assignment.getDueDate())) {
                     sub.setSubmissionStatus("Late");
                 } else {
                     sub.setSubmissionStatus("Timely");
@@ -676,9 +1301,27 @@ public class TeacherService {
         return submissionRepository.save(sub);
     }
 
+    @Transactional
+    public AssignmentSubmission gradeSubmission(UUID submissionId, Map<String, Object> reqData) {
+        return gradeSubmission(submissionId, reqData, null);
+    }
+
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getAllWeeklyTests() {
-        List<WeeklyTest> tests = weeklyTestRepository.findAll();
+    public List<Map<String, Object>> getAllWeeklyTests(String identifier) {
+        List<Subject> assignedSubjects = getAssignedSubjectsForTeacher(identifier);
+        if (assignedSubjects.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Set<UUID> assignedSubjectIds = assignedSubjects.stream()
+                .map(Subject::getSubjectId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        List<WeeklyTest> tests = weeklyTestRepository.findAll().stream()
+                .filter(wt -> wt.getSubjectId() != null && assignedSubjectIds.contains(wt.getSubjectId()))
+                .toList();
+
         List<Map<String, Object>> list = new ArrayList<>();
         for (WeeklyTest wt : tests) {
             Map<String, Object> map = new HashMap<>();
@@ -695,6 +1338,7 @@ public class TeacherService {
             map.put("start_time", wt.getStartTime() != null ? wt.getStartTime().toString() : "10:00:00");
             map.put("end_time", wt.getEndTime() != null ? wt.getEndTime().toString() : "11:00:00");
             map.put("total_marks", wt.getTotalMarks() != null ? wt.getTotalMarks() : 25);
+            map.put("is_published", wt.getIsPublished() != null ? wt.getIsPublished() : false);
             map.put("created_at", wt.getCreatedAt() != null ? wt.getCreatedAt().toString() : "");
             if (wt.getSubjectId() != null) {
                 subjectRepository.findById(wt.getSubjectId()).ifPresent(sub -> {
@@ -708,51 +1352,222 @@ public class TeacherService {
     }
 
     @Transactional
-    public WeeklyTest createWeeklyTest(Map<String, Object> reqData) {
+    public WeeklyTest createWeeklyTest(Map<String, Object> reqData, String identifier) {
+        String title = (String) reqData.get("title");
+        if (title == null || title.trim().isEmpty()) {
+            throw new IllegalArgumentException("Test title is required.");
+        }
+
         WeeklyTest test = new WeeklyTest();
-        test.setTitle((String) reqData.get("title"));
-        test.setDescription((String) reqData.get("description"));
+        test.setTitle(title.trim());
+        test.setDescription(reqData.get("description") != null ? ((String) reqData.get("description")).trim() : "");
+        test.setIsPublished(false);
+
+        Object dateObj = reqData.get("test_date") != null ? reqData.get("test_date") : reqData.get("exam_date");
+        if (dateObj == null || ((String) dateObj).trim().isEmpty()) {
+            throw new IllegalArgumentException("Test date is required.");
+        }
+        LocalDate testDate;
+        try {
+            testDate = LocalDate.parse(((String) dateObj).trim());
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid test date format.");
+        }
+        if (testDate.isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("Past dates cannot be selected for weekly tests.");
+        }
+        test.setTestDate(testDate);
+
+        LocalTime startTime = LocalTime.of(10, 0);
+        if (reqData.get("start_time") != null) {
+            try {
+                String st = ((String) reqData.get("start_time")).trim();
+                if (st.length() == 5) st = st + ":00";
+                startTime = LocalTime.parse(st);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Invalid start time format.");
+            }
+        }
+        test.setStartTime(startTime);
+
+        LocalTime endTime = LocalTime.of(11, 0);
+        if (reqData.get("end_time") != null) {
+            try {
+                String et = ((String) reqData.get("end_time")).trim();
+                if (et.length() == 5) et = et + ":00";
+                endTime = LocalTime.parse(et);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Invalid end time format.");
+            }
+        }
+        test.setEndTime(endTime);
+
+        if (!startTime.isBefore(endTime)) {
+            throw new IllegalArgumentException("Start time must be strictly before end time.");
+        }
+
+        int totalMarks = 25;
+        if (reqData.get("total_marks") != null) {
+            Object marksObj = reqData.get("total_marks");
+            if (marksObj instanceof Number) totalMarks = ((Number) marksObj).intValue();
+            else if (marksObj instanceof String) {
+                try { totalMarks = Integer.parseInt(((String) marksObj).trim()); } catch (Exception e) {
+                    throw new IllegalArgumentException("Invalid total marks.");
+                }
+            }
+        }
+        if (totalMarks <= 0) {
+            throw new IllegalArgumentException("Total marks must be greater than zero.");
+        }
+        test.setTotalMarks(totalMarks);
+
+        // Resolve subject & allocation under authenticated teacher scope
+        Teacher teacher = resolveTeacherByIdentifier(identifier)
+                .orElseThrow(() -> new NoSuchElementException("Teacher record not found for: " + identifier));
+        List<TeacherSubject> allocations = teacherSubjectRepository.findByTeacherIdAndIsActiveTrue(teacher.getTeacherId());
+        if (allocations.isEmpty()) {
+            throw new IllegalStateException("Teacher has no active subject allocations.");
+        }
+
+        UUID teacherSubjectId = null;
+        UUID subjectId = null;
+
+        if (reqData.get("teacher_subject_id") != null && !((String) reqData.get("teacher_subject_id")).trim().isEmpty()) {
+            try { teacherSubjectId = UUID.fromString(((String) reqData.get("teacher_subject_id")).trim()); } catch (Exception ignored) {}
+        }
+        if (reqData.get("subject_id") != null && !((String) reqData.get("subject_id")).trim().isEmpty()) {
+            try { subjectId = UUID.fromString(((String) reqData.get("subject_id")).trim()); } catch (Exception ignored) {}
+        }
+
+        TeacherSubject matchedAlloc = null;
+        if (teacherSubjectId != null) {
+            final UUID allocIdSearch = teacherSubjectId;
+            matchedAlloc = allocations.stream()
+                    .filter(a -> Objects.equals(a.getAllocationId(), allocIdSearch))
+                    .findFirst()
+                    .orElseThrow(() -> new SecurityException("Access denied: Unowned allocation specified."));
+        } else if (subjectId != null) {
+            final UUID subjIdSearch = subjectId;
+            matchedAlloc = allocations.stream()
+                    .filter(a -> Objects.equals(a.getSubjectId(), subjIdSearch))
+                    .findFirst()
+                    .orElseThrow(() -> new SecurityException("Access denied: Unowned subject specified."));
+        } else {
+            matchedAlloc = allocations.get(0);
+        }
+
+        test.setTeacherSubjectId(matchedAlloc.getAllocationId());
+        test.setSubjectId(matchedAlloc.getSubjectId());
+
+        return weeklyTestRepository.save(test);
+    }
+
+    @Transactional
+    public WeeklyTest createWeeklyTest(Map<String, Object> reqData) {
+        String identifier = com.educonnect.backend.security.SecurityUtils.getCurrentUserIdentifier();
+        return createWeeklyTest(reqData, identifier);
+    }
+
+    @Transactional
+    public WeeklyTest updateWeeklyTest(UUID id, Map<String, Object> reqData, String identifier) {
+        WeeklyTest test = weeklyTestRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Weekly test not found."));
+
+        // Verify teacher ownership
+        Teacher teacher = resolveTeacherByIdentifier(identifier)
+                .orElseThrow(() -> new NoSuchElementException("Teacher record not found for: " + identifier));
+        List<TeacherSubject> allocations = teacherSubjectRepository.findByTeacherIdAndIsActiveTrue(teacher.getTeacherId());
+        Set<UUID> ownedSubjectIds = allocations.stream().map(TeacherSubject::getSubjectId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<UUID> ownedAllocIds = allocations.stream().map(TeacherSubject::getAllocationId).filter(Objects::nonNull).collect(Collectors.toSet());
+
+        boolean owned = (test.getTeacherSubjectId() != null && ownedAllocIds.contains(test.getTeacherSubjectId())) ||
+                (test.getSubjectId() != null && ownedSubjectIds.contains(test.getSubjectId()));
+        if (!owned) {
+            throw new SecurityException("Access denied: You do not own this weekly test.");
+        }
+
+        if (reqData.containsKey("title")) {
+            String t = (String) reqData.get("title");
+            if (t == null || t.trim().isEmpty()) throw new IllegalArgumentException("Title cannot be empty.");
+            test.setTitle(t.trim());
+        }
+        if (reqData.containsKey("description")) {
+            test.setDescription(reqData.get("description") != null ? ((String) reqData.get("description")).trim() : "");
+        }
 
         Object dateObj = reqData.get("test_date") != null ? reqData.get("test_date") : reqData.get("exam_date");
         if (dateObj != null) {
-            try { test.setTestDate(LocalDate.parse((String) dateObj)); }
-            catch (Exception e) { test.setTestDate(LocalDate.now().plusDays(7)); }
-        } else {
-            test.setTestDate(LocalDate.now().plusDays(7));
-        }
-
-        if (reqData.get("start_time") != null) {
             try {
-                String st = (String) reqData.get("start_time");
-                if (st.length() == 5) st = st + ":00";
-                test.setStartTime(LocalTime.parse(st));
-            } catch (Exception ignored) {}
-        }
-        if (test.getStartTime() == null) test.setStartTime(LocalTime.of(10, 0));
-
-        if (reqData.get("end_time") != null) {
-            try {
-                String et = (String) reqData.get("end_time");
-                if (et.length() == 5) et = et + ":00";
-                test.setEndTime(LocalTime.parse(et));
-            } catch (Exception ignored) {}
-        }
-        if (test.getEndTime() == null) test.setEndTime(LocalTime.of(11, 0));
-
-        if (reqData.get("total_marks") != null) {
-            Object marksObj = reqData.get("total_marks");
-            if (marksObj instanceof Number) test.setTotalMarks(((Number) marksObj).intValue());
-            else if (marksObj instanceof String) {
-                try { test.setTotalMarks(Integer.parseInt((String) marksObj)); } catch (Exception ignored) {}
+                LocalDate d = LocalDate.parse(((String) dateObj).trim());
+                if (d.isBefore(LocalDate.now())) throw new IllegalArgumentException("Past dates cannot be selected for weekly tests.");
+                test.setTestDate(d);
+            } catch (IllegalArgumentException iae) {
+                throw iae;
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Invalid test date format.");
             }
         }
-        if (test.getTotalMarks() == null) test.setTotalMarks(25);
 
-        if (reqData.get("subject_id") != null && !((String) reqData.get("subject_id")).trim().isEmpty()) {
-            try { test.setSubjectId(UUID.fromString((String) reqData.get("subject_id"))); } catch (Exception ignored) {}
+        LocalTime newStart = test.getStartTime();
+        if (reqData.get("start_time") != null) {
+            try {
+                String st = ((String) reqData.get("start_time")).trim();
+                if (st.length() == 5) st = st + ":00";
+                newStart = LocalTime.parse(st);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Invalid start time format.");
+            }
         }
-        if (reqData.get("teacher_subject_id") != null && !((String) reqData.get("teacher_subject_id")).trim().isEmpty()) {
-            try { test.setTeacherSubjectId(UUID.fromString((String) reqData.get("teacher_subject_id"))); } catch (Exception ignored) {}
+
+        LocalTime newEnd = test.getEndTime();
+        if (reqData.get("end_time") != null) {
+            try {
+                String et = ((String) reqData.get("end_time")).trim();
+                if (et.length() == 5) et = et + ":00";
+                newEnd = LocalTime.parse(et);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Invalid end time format.");
+            }
+        }
+
+        if (newStart != null && newEnd != null && !newStart.isBefore(newEnd)) {
+            throw new IllegalArgumentException("Start time must be strictly before end time.");
+        }
+        test.setStartTime(newStart);
+        test.setEndTime(newEnd);
+
+        if (reqData.get("total_marks") != null) {
+            int newMarks;
+            Object marksObj = reqData.get("total_marks");
+            if (marksObj instanceof Number) newMarks = ((Number) marksObj).intValue();
+            else {
+                try { newMarks = Integer.parseInt(((String) marksObj).trim()); } catch (Exception e) {
+                    throw new IllegalArgumentException("Invalid total marks value.");
+                }
+            }
+            if (newMarks <= 0) {
+                throw new IllegalArgumentException("Total marks must be greater than zero.");
+            }
+
+            // Check if lowering total marks below existing recorded scores
+            List<WeeklyTestResult> existingResults = weeklyTestResultRepository.findByWeeklyTestId(id);
+            int maxScore = existingResults.stream()
+                    .map(WeeklyTestResult::getObtainedMarks)
+                    .filter(Objects::nonNull)
+                    .mapToInt(Integer::intValue)
+                    .max()
+                    .orElse(0);
+
+            if (newMarks < maxScore) {
+                throw new IllegalArgumentException("Cannot reduce total marks below existing recorded student score of " + maxScore + ".");
+            }
+            test.setTotalMarks(newMarks);
+        }
+
+        if (reqData.containsKey("is_published")) {
+            Object pubObj = reqData.get("is_published");
+            if (pubObj instanceof Boolean) test.setIsPublished((Boolean) pubObj);
+            else if (pubObj instanceof String) test.setIsPublished(Boolean.parseBoolean((String) pubObj));
         }
 
         return weeklyTestRepository.save(test);
@@ -760,65 +1575,123 @@ public class TeacherService {
 
     @Transactional
     public WeeklyTest updateWeeklyTest(UUID id, Map<String, Object> reqData) {
-        Optional<WeeklyTest> opt = weeklyTestRepository.findById(id);
-        if (opt.isPresent()) {
-            WeeklyTest test = opt.get();
-            if (reqData.containsKey("title")) test.setTitle((String) reqData.get("title"));
-            if (reqData.containsKey("description")) test.setDescription((String) reqData.get("description"));
-            Object dateObj = reqData.get("test_date") != null ? reqData.get("test_date") : reqData.get("exam_date");
-            if (dateObj != null) {
-                try { test.setTestDate(LocalDate.parse((String) dateObj)); } catch (Exception ignored) {}
-            }
-            if (reqData.get("start_time") != null) {
-                try {
-                    String st = (String) reqData.get("start_time");
-                    if (st.length() == 5) st = st + ":00";
-                    test.setStartTime(LocalTime.parse(st));
-                } catch (Exception ignored) {}
-            }
-            if (reqData.get("end_time") != null) {
-                try {
-                    String et = (String) reqData.get("end_time");
-                    if (et.length() == 5) et = et + ":00";
-                    test.setEndTime(LocalTime.parse(et));
-                } catch (Exception ignored) {}
-            }
-            if (reqData.get("total_marks") != null) {
-                Object marksObj = reqData.get("total_marks");
-                if (marksObj instanceof Number) test.setTotalMarks(((Number) marksObj).intValue());
-                else if (marksObj instanceof String) {
-                    try { test.setTotalMarks(Integer.parseInt((String) marksObj)); } catch (Exception ignored) {}
-                }
-            }
-            return weeklyTestRepository.save(test);
+        String identifier = com.educonnect.backend.security.SecurityUtils.getCurrentUserIdentifier();
+        return updateWeeklyTest(id, reqData, identifier);
+    }
+
+    @Transactional
+    public void deleteWeeklyTest(UUID id, String identifier) {
+        WeeklyTest test = weeklyTestRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Weekly test not found."));
+
+        Teacher teacher = resolveTeacherByIdentifier(identifier)
+                .orElseThrow(() -> new NoSuchElementException("Teacher record not found for: " + identifier));
+        List<TeacherSubject> allocations = teacherSubjectRepository.findByTeacherIdAndIsActiveTrue(teacher.getTeacherId());
+        Set<UUID> ownedSubjectIds = allocations.stream().map(TeacherSubject::getSubjectId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<UUID> ownedAllocIds = allocations.stream().map(TeacherSubject::getAllocationId).filter(Objects::nonNull).collect(Collectors.toSet());
+
+        boolean owned = (test.getTeacherSubjectId() != null && ownedAllocIds.contains(test.getTeacherSubjectId())) ||
+                (test.getSubjectId() != null && ownedSubjectIds.contains(test.getSubjectId()));
+        if (!owned) {
+            throw new SecurityException("Access denied: You do not own this weekly test.");
         }
-        return null;
+
+        weeklyTestRepository.deleteById(id);
     }
 
     @Transactional
     public void deleteWeeklyTest(UUID id) {
-        weeklyTestRepository.deleteById(id);
+        String identifier = com.educonnect.backend.security.SecurityUtils.getCurrentUserIdentifier();
+        deleteWeeklyTest(id, identifier);
+    }
+
+    @Transactional
+    public WeeklyTest publishWeeklyTest(UUID id, String identifier) {
+        WeeklyTest test = weeklyTestRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Weekly test not found."));
+
+        Teacher teacher = resolveTeacherByIdentifier(identifier)
+                .orElseThrow(() -> new NoSuchElementException("Teacher record not found for: " + identifier));
+        List<TeacherSubject> allocations = teacherSubjectRepository.findByTeacherIdAndIsActiveTrue(teacher.getTeacherId());
+        Set<UUID> ownedSubjectIds = allocations.stream().map(TeacherSubject::getSubjectId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<UUID> ownedAllocIds = allocations.stream().map(TeacherSubject::getAllocationId).filter(Objects::nonNull).collect(Collectors.toSet());
+
+        boolean owned = (test.getTeacherSubjectId() != null && ownedAllocIds.contains(test.getTeacherSubjectId())) ||
+                (test.getSubjectId() != null && ownedSubjectIds.contains(test.getSubjectId()));
+        if (!owned) {
+            throw new SecurityException("Access denied: You do not own this weekly test.");
+        }
+
+        test.setIsPublished(true);
+        return weeklyTestRepository.save(test);
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getWeeklyTestResults(UUID testId) {
+    public List<Map<String, Object>> getWeeklyTestResults(UUID testId, String teacherIdentifier) {
+        WeeklyTest test = weeklyTestRepository.findById(testId)
+                .orElseThrow(() -> new NoSuchElementException("Weekly test not found."));
+
+        // Verify teacher ownership
+        Teacher teacher = resolveTeacherByIdentifier(teacherIdentifier)
+                .orElseThrow(() -> new NoSuchElementException("Teacher record not found for: " + teacherIdentifier));
+        List<TeacherSubject> allocations = teacherSubjectRepository.findByTeacherIdAndIsActiveTrue(teacher.getTeacherId());
+        Set<UUID> ownedSubjectIds = allocations.stream().map(TeacherSubject::getSubjectId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<UUID> ownedAllocIds = allocations.stream().map(TeacherSubject::getAllocationId).filter(Objects::nonNull).collect(Collectors.toSet());
+
+        boolean owned = (test.getTeacherSubjectId() != null && ownedAllocIds.contains(test.getTeacherSubjectId())) ||
+                (test.getSubjectId() != null && ownedSubjectIds.contains(test.getSubjectId()));
+        if (!owned) {
+            throw new SecurityException("Access denied: You do not own this weekly test.");
+        }
+
+        // Fetch roster students for the test's cohort
+        List<Student> cohortStudents = Collections.emptyList();
+        if (test.getTeacherSubjectId() != null) {
+            cohortStudents = getStudentsForAllocation(test.getTeacherSubjectId());
+        }
+        if (cohortStudents.isEmpty() && test.getSubjectId() != null) {
+            Subject subj = subjectRepository.findById(test.getSubjectId()).orElse(null);
+            if (subj != null) {
+                UUID deptId = subj.getDepartmentId();
+                UUID semId = subj.getSemesterId();
+                cohortStudents = studentRepository.findAll().stream()
+                        .filter(s -> Boolean.TRUE.equals(s.getIsActive()))
+                        .filter(s -> deptId == null || Objects.equals(s.getDepartmentId(), deptId))
+                        .filter(s -> semId == null || Objects.equals(s.getSemesterId(), semId))
+                        .toList();
+            }
+        }
+        if (cohortStudents.isEmpty()) {
+            List<Map<String, Object>> generalList = getStudentsForTeacher(teacherIdentifier);
+            cohortStudents = generalList.stream()
+                    .map(m -> (String) m.get("student_id"))
+                    .filter(Objects::nonNull)
+                    .map(UUID::fromString)
+                    .map(studentRepository::findById)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .toList();
+        }
+
         List<WeeklyTestResult> dbResults = weeklyTestResultRepository.findByWeeklyTestId(testId);
         Map<UUID, WeeklyTestResult> resultMap = new HashMap<>();
         for (WeeklyTestResult r : dbResults) {
             if (r.getStudentId() != null) resultMap.put(r.getStudentId(), r);
         }
 
-        List<Student> students = studentRepository.findAll();
         List<Map<String, Object>> list = new ArrayList<>();
-        for (Student s : students) {
+        for (Student s : cohortStudents) {
+            UUID sId = s.getStudentId();
+            if (sId == null) continue;
+
             Map<String, Object> map = new HashMap<>();
             map.put("weekly_test_id", testId.toString());
             map.put("weekly_exam_id", testId.toString());
-            map.put("student_id", s.getStudentId() != null ? s.getStudentId().toString() : "");
+            map.put("student_id", sId.toString());
             map.put("student_name", (s.getFirstName() + " " + s.getLastName()).trim());
             map.put("enrollment_no", s.getEnrollmentNo() != null ? s.getEnrollmentNo() : "");
 
-            WeeklyTestResult res = resultMap.get(s.getStudentId());
+            WeeklyTestResult res = resultMap.get(sId);
             if (res != null) {
                 String resIdStr = res.getWeeklyTestResultId() != null ? res.getWeeklyTestResultId().toString() : "";
                 map.put("weekly_test_result_id", resIdStr);
@@ -839,35 +1712,62 @@ public class TeacherService {
     }
 
     @Transactional
-    public List<WeeklyTestResult> saveWeeklyTestResults(UUID testId, List<Map<String, Object>> resultsList) {
-        Optional<WeeklyTest> testOpt = weeklyTestRepository.findById(testId);
-        int totalMarks = testOpt.map(WeeklyTest::getTotalMarks).orElse(25);
-        if (totalMarks <= 0) totalMarks = 25;
+    public List<WeeklyTestResult> saveWeeklyTestResults(UUID testId, List<Map<String, Object>> resultsList, String teacherIdentifier) {
+        WeeklyTest test = weeklyTestRepository.findById(testId)
+                .orElseThrow(() -> new NoSuchElementException("Weekly test not found."));
+
+        Teacher teacher = resolveTeacherByIdentifier(teacherIdentifier)
+                .orElseThrow(() -> new NoSuchElementException("Teacher record not found for: " + teacherIdentifier));
+        List<TeacherSubject> allocations = teacherSubjectRepository.findByTeacherIdAndIsActiveTrue(teacher.getTeacherId());
+        Set<UUID> ownedSubjectIds = allocations.stream().map(TeacherSubject::getSubjectId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<UUID> ownedAllocIds = allocations.stream().map(TeacherSubject::getAllocationId).filter(Objects::nonNull).collect(Collectors.toSet());
+
+        boolean owned = (test.getTeacherSubjectId() != null && ownedAllocIds.contains(test.getTeacherSubjectId())) ||
+                (test.getSubjectId() != null && ownedSubjectIds.contains(test.getSubjectId()));
+        if (!owned) {
+            throw new SecurityException("Access denied: You do not own this weekly test.");
+        }
+
+        int totalMarks = test.getTotalMarks() != null ? test.getTotalMarks() : 25;
+
+        // Check for duplicate student IDs in payload
+        Set<UUID> seenStudentIds = new HashSet<>();
+        for (Map<String, Object> item : resultsList) {
+            String studentIdStr = (String) item.get("student_id");
+            if (studentIdStr != null && !studentIdStr.trim().isEmpty()) {
+                UUID sId = UUID.fromString(studentIdStr.trim());
+                if (!seenStudentIds.add(sId)) {
+                    throw new IllegalArgumentException("Duplicate student entry found in payload for student ID: " + sId);
+                }
+            }
+        }
 
         List<WeeklyTestResult> savedList = new ArrayList<>();
         for (Map<String, Object> item : resultsList) {
             String studentIdStr = (String) item.get("student_id");
             if (studentIdStr == null || studentIdStr.trim().isEmpty()) continue;
 
-            UUID studentId;
-            try {
-                studentId = UUID.fromString(studentIdStr.trim());
-            } catch (Exception e) {
-                continue;
-            }
+            UUID studentId = UUID.fromString(studentIdStr.trim());
 
             Integer obtainedMarks = null;
             if (item.get("obtained_marks") != null) {
                 Object omObj = item.get("obtained_marks");
                 if (omObj instanceof Number) obtainedMarks = ((Number) omObj).intValue();
                 else if (omObj instanceof String && !((String) omObj).trim().isEmpty()) {
-                    try { obtainedMarks = Integer.parseInt(((String) omObj).trim()); } catch (Exception ignored) {}
+                    try { obtainedMarks = Integer.parseInt(((String) omObj).trim()); } catch (Exception e) {
+                        throw new IllegalArgumentException("Invalid obtained marks format for student.");
+                    }
+                }
+            }
+
+            if (obtainedMarks != null) {
+                if (obtainedMarks < 0 || obtainedMarks > totalMarks) {
+                    throw new IllegalArgumentException("Obtained marks (" + obtainedMarks + ") must be between 0 and total marks (" + totalMarks + ").");
                 }
             }
 
             String remarks = (String) item.get("remarks");
 
-            // Calculate Grade
             String grade = "-";
             if (obtainedMarks != null) {
                 double pct = ((double) obtainedMarks / totalMarks) * 100.0;
@@ -887,7 +1787,7 @@ public class TeacherService {
                 resRecord.setObtainedMarks(obtainedMarks);
                 resRecord.setGrade(grade);
                 resRecord.setRemarks(remarks);
-                resRecord.setUpdatedAt(java.time.LocalDateTime.now());
+                resRecord.setUpdatedAt(LocalDateTime.now());
                 if (existingList.size() > 1) {
                     weeklyTestResultRepository.deleteAll(existingList.subList(1, existingList.size()));
                 }
@@ -903,5 +1803,100 @@ public class TeacherService {
             savedList.add(weeklyTestResultRepository.save(resRecord));
         }
         return savedList;
+    }
+
+    @Transactional
+    public List<WeeklyTestResult> saveWeeklyTestResults(UUID testId, List<Map<String, Object>> resultsList) {
+        String identifier = com.educonnect.backend.security.SecurityUtils.getCurrentUserIdentifier();
+        return saveWeeklyTestResults(testId, resultsList, identifier);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getTeacherProfile(String identifier) {
+        String cleanId = identifier;
+        if (cleanId == null || cleanId.trim().isEmpty()) {
+            cleanId = com.educonnect.backend.security.SecurityUtils.getCurrentUserIdentifier();
+        }
+
+        Teacher teacher = resolveTeacherByIdentifier(cleanId)
+                .orElseThrow(() -> new NoSuchElementException("Teacher record not found for: " + identifier));
+
+        Map<String, Object> map = new HashMap<>();
+        map.put("teacher_id", teacher.getTeacherId() != null ? teacher.getTeacherId().toString() : "");
+        map.put("employee_id", teacher.getEmployeeId() != null ? teacher.getEmployeeId() : "");
+        map.put("first_name", teacher.getFirstName() != null ? teacher.getFirstName() : "");
+        map.put("last_name", teacher.getLastName() != null ? teacher.getLastName() : "");
+        map.put("surname", teacher.getSurname() != null ? teacher.getSurname() : "");
+        map.put("email", teacher.getEmail() != null ? teacher.getEmail() : "");
+        map.put("mobile", teacher.getMobile() != null ? teacher.getMobile() : "");
+        map.put("gender", teacher.getGender() != null ? teacher.getGender() : "");
+        map.put("designation", teacher.getDesignation() != null ? teacher.getDesignation() : "");
+        map.put("profile_photo", teacher.getProfilePhoto() != null ? teacher.getProfilePhoto() : "");
+        map.put("joining_date", teacher.getJoiningDate() != null ? teacher.getJoiningDate().toString() : "");
+        map.put("address", teacher.getAddress() != null ? teacher.getAddress() : "");
+        map.put("is_active", teacher.getIsActive() != null ? teacher.getIsActive() : true);
+        return map;
+    }
+
+    @Transactional
+    public Map<String, Object> updateTeacherProfile(Map<String, Object> reqData) {
+        String cleanId = com.educonnect.backend.security.SecurityUtils.getCurrentUserIdentifier();
+        Teacher teacher = resolveTeacherByIdentifier(cleanId)
+                .orElseThrow(() -> new NoSuchElementException("Teacher record not found for authenticated user."));
+
+        if (reqData != null) {
+            if (reqData.containsKey("first_name")) teacher.setFirstName((String) reqData.get("first_name"));
+            else if (reqData.containsKey("firstName")) teacher.setFirstName((String) reqData.get("firstName"));
+
+            if (reqData.containsKey("last_name")) teacher.setLastName((String) reqData.get("last_name"));
+            else if (reqData.containsKey("lastName")) teacher.setLastName((String) reqData.get("lastName"));
+
+            if (reqData.containsKey("surname")) teacher.setSurname((String) reqData.get("surname"));
+            if (reqData.containsKey("mobile")) teacher.setMobile((String) reqData.get("mobile"));
+            if (reqData.containsKey("gender")) teacher.setGender((String) reqData.get("gender"));
+            if (reqData.containsKey("designation")) teacher.setDesignation((String) reqData.get("designation"));
+            if (reqData.containsKey("address")) teacher.setAddress((String) reqData.get("address"));
+
+            if (reqData.containsKey("profile_photo")) teacher.setProfilePhoto((String) reqData.get("profile_photo"));
+            else if (reqData.containsKey("profilePhoto")) teacher.setProfilePhoto((String) reqData.get("profilePhoto"));
+
+            teacherRepository.save(teacher);
+        }
+
+        return getTeacherProfile(teacher.getEmail());
+    }
+
+    @Transactional
+    public Map<String, Object> changeTeacherPassword(Map<String, Object> reqData) {
+        String currentPassword = reqData != null && reqData.get("current_password") != null
+                ? (String) reqData.get("current_password")
+                : (reqData != null && reqData.get("currentPassword") != null ? (String) reqData.get("currentPassword") : null);
+
+        String newPassword = reqData != null && reqData.get("new_password") != null
+                ? (String) reqData.get("new_password")
+                : (reqData != null && reqData.get("newPassword") != null ? (String) reqData.get("newPassword") : null);
+
+        if (currentPassword == null || currentPassword.trim().isEmpty()) {
+            throw new IllegalArgumentException("Current password is required.");
+        }
+        if (newPassword == null || newPassword.trim().length() < 4) {
+            throw new IllegalArgumentException("New password must be at least 4 characters long.");
+        }
+
+        String cleanId = com.educonnect.backend.security.SecurityUtils.getCurrentUserIdentifier();
+        Teacher teacher = resolveTeacherByIdentifier(cleanId)
+                .orElseThrow(() -> new NoSuchElementException("Teacher record not found for authenticated user."));
+
+        if (!passwordEncoder.matches(currentPassword.trim(), teacher.getPassword())) {
+            throw new IllegalArgumentException("Current password is incorrect.");
+        }
+
+        teacher.setPassword(passwordEncoder.encode(newPassword.trim()));
+        teacherRepository.save(teacher);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Teacher password updated successfully.");
+        return response;
     }
 }

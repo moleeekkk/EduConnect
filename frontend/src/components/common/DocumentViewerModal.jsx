@@ -8,6 +8,8 @@ import Button from "./Button";
 import { notifySuccess } from "../../utils/toast";
 import { downloadFile, createBlobUrl, getDisplayFileName } from "../../utils/fileViewer";
 
+import { fileApi } from "../../services/api";
+
 export const getFileTypeCategory = (filename = "", url = "") => {
   const str = (filename || url || "").toLowerCase();
   
@@ -34,7 +36,42 @@ const DocumentViewerModal = ({ isOpen, onClose, filePath, fileName, customTitle,
   const [rotation, setRotation] = useState(0);
   const [copied, setCopied] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [activeBlobUrl, setActiveBlobUrl] = useState(null);
+  const [loadingBlob, setLoadingBlob] = useState(false);
+  const [blobError, setBlobError] = useState(null);
   const totalPages = 3;
+
+  useEffect(() => {
+    let createdUrl = null;
+    const fetchBlob = async () => {
+      if (!isOpen || !filePath) return;
+      const pathStr = String(filePath);
+      if (pathStr.startsWith("http") || pathStr.startsWith("/api")) {
+        setLoadingBlob(true);
+        setBlobError(null);
+        try {
+          const blob = await fileApi.getFileBlob(pathStr);
+          createdUrl = URL.createObjectURL(blob);
+          setActiveBlobUrl(createdUrl);
+        } catch (err) {
+          console.error("Failed to load authenticated document blob:", err);
+          setBlobError(err.message || "Unable to load document.");
+        } finally {
+          setLoadingBlob(false);
+        }
+      }
+    };
+
+    fetchBlob();
+
+    return () => {
+      if (createdUrl) {
+        URL.revokeObjectURL(createdUrl);
+      }
+      setActiveBlobUrl(null);
+      setBlobError(null);
+    };
+  }, [isOpen, filePath]);
 
   // Handle ESC key to close full-screen document viewer
   useEffect(() => {
@@ -220,9 +257,9 @@ const DocumentViewerModal = ({ isOpen, onClose, filePath, fileName, customTitle,
                 transformOrigin: "center center",
               }}
             >
-              {fileData || (filePath && (filePath.startsWith("data:") || filePath.startsWith("http") || filePath.startsWith("/uploads/") || filePath.startsWith("/resources/"))) ? (
+              {activeBlobUrl || fileData || (filePath && (filePath.startsWith("data:") || filePath.startsWith("http") || filePath.startsWith("/api/"))) ? (
                 <img
-                  src={fileData || filePath}
+                  src={activeBlobUrl || fileData || filePath}
                   alt={cleanName}
                   className="max-h-[80vh] max-w-full object-contain rounded-xl shadow-2xl"
                   onError={(e) => {
@@ -236,7 +273,7 @@ const DocumentViewerModal = ({ isOpen, onClose, filePath, fileName, customTitle,
 
               <div 
                 id="img-fallback-full" 
-                className={`space-y-4 text-center p-10 bg-slate-900 border border-slate-800 rounded-2xl max-w-lg shadow-2xl ${fileData || (filePath && filePath.startsWith("data:")) ? "hidden" : "block"}`}
+                className={`space-y-4 text-center p-10 bg-slate-900 border border-slate-800 rounded-2xl max-w-lg shadow-2xl ${activeBlobUrl || fileData || (filePath && filePath.startsWith("data:")) ? "hidden" : "block"}`}
               >
                 <div className="w-24 h-24 mx-auto rounded-3xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-2xl shadow-blue-500/30 animate-pulse">
                   <ImageIcon className="w-12 h-12 text-white" />
@@ -294,10 +331,10 @@ const DocumentViewerModal = ({ isOpen, onClose, filePath, fileName, customTitle,
               </div>
             </div>
 
-            {/* Embedded Iframe if real data URL, blob URL, or PDF url available */}
-            {(fileData || filePath) && (String(fileData || filePath).startsWith("data:application/pdf") || String(fileData || filePath).startsWith("blob:") || String(fileData || filePath).endsWith(".pdf")) ? (
+            {/* Embedded Iframe if active blob URL, real data URL, or PDF url available */}
+            {(activeBlobUrl || fileData || filePath) ? (
               <iframe
-                src={createBlobUrl(fileData || filePath)}
+                src={activeBlobUrl || createBlobUrl(fileData || filePath)}
                 title={cleanName}
                 className="w-full flex-1 rounded-2xl border border-slate-800 shadow-2xl bg-white min-h-[75vh]"
               />

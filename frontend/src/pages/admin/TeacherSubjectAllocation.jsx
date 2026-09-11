@@ -24,6 +24,8 @@ const AdminTeacherSubjectAllocation = () => {
   const [teachers, setTeachers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [semesters, setSemesters] = useState([]);
+  const [batches, setBatches] = useState([]);
+  const [selectedBatch, setSelectedBatch] = useState("all");
   const [allocations, setAllocations] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -42,18 +44,20 @@ const AdminTeacherSubjectAllocation = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [subData, teacherData, deptData, semData, allocData] = await Promise.all([
+      const [subData, teacherData, deptData, semData, allocData, batchData] = await Promise.all([
         adminApi.getSubjects(),
         adminApi.getFaculty(),
         adminApi.getDepartments(),
         adminApi.getSemesters(),
         adminApi.getTeacherSubjects(),
+        adminApi.getBatches(),
       ]);
       setSubjects(Array.isArray(subData) ? subData : []);
       setTeachers(Array.isArray(teacherData) ? teacherData : []);
       setDepartments(Array.isArray(deptData) ? deptData : []);
       setSemesters(Array.isArray(semData) ? semData : []);
       setAllocations(Array.isArray(allocData) ? allocData : []);
+      setBatches(Array.isArray(batchData) ? batchData : []);
     } catch (err) {
       console.error("Allocation data load error:", err);
     } finally {
@@ -132,8 +136,10 @@ const AdminTeacherSubjectAllocation = () => {
     setActionLoadingId(actionKey);
 
     const currentlyAssigned = isAllocated(teacherId, subjectId);
+    const bId = selectedBatch !== "all" ? selectedBatch : null;
+    const sId = selectedSemester !== "all" ? selectedSemester : null;
     try {
-      await adminApi.toggleTeacherSubject(teacherId, subjectId);
+      await adminApi.toggleTeacherSubject(teacherId, subjectId, bId, sId);
 
       if (currentlyAssigned) {
         setAllocations((prev) =>
@@ -151,6 +157,8 @@ const AdminTeacherSubjectAllocation = () => {
           allocation_id: "alloc-" + Date.now(),
           teacher_id: teacherId,
           subject_id: subjectId,
+          batch_id: bId,
+          semester_id: sId,
           is_active: true,
           created_at: new Date().toISOString(),
         };
@@ -320,6 +328,26 @@ const AdminTeacherSubjectAllocation = () => {
                     sem.semester_name || `Semester ${sem.semester_number || sem.number}`;
                   return (
                     <option key={sId} value={sId}>
+                      {label}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* Batch Selection Filter */}
+            <div className="w-full sm:w-auto min-w-[150px]">
+              <select
+                value={selectedBatch}
+                onChange={(e) => setSelectedBatch(e.target.value)}
+                className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs font-semibold text-[#1E293B] outline-none focus:border-[#2563EB] cursor-pointer"
+              >
+                <option value="all">All Cohort Batches ({batches.length})</option>
+                {batches.map((b) => {
+                  const bId = b.batch_id || b.batchId || b.id;
+                  const label = b.batch_name || b.name || `Batch ${b.start_year}-${b.end_year}`;
+                  return (
+                    <option key={bId} value={bId}>
                       {label}
                     </option>
                   );

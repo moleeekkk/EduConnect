@@ -12,4 +12,6 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
     Optional<Student> findByEnrollmentNoIgnoreCase(String enrollmentNo);
     boolean existsByEnrollmentNo(String enrollmentNo);
     Optional<Student> findByEmail(String email);
+    java.util.List<Student> findByDepartmentIdAndSemesterId(UUID departmentId, UUID semesterId);
+    java.util.List<Student> findByDepartmentId(UUID departmentId);
 }

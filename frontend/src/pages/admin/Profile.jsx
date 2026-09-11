@@ -6,41 +6,29 @@ import { notifySuccess } from "../../utils/toast";
 
 const AdminProfile = () => {
   const [profile, setProfile] = useState({
-    admin_id: "adm-001",
-    first_name: "System",
-    last_name: "Admin",
-    email: "admin@educonnect.ac.in",
-    mobile: "+91 9876543210",
+    admin_id: "",
+    first_name: "",
+    last_name: "",
+    email: "",
+    mobile: "",
     gender: "Male",
-    date_of_birth: "1985-05-15",
-    address: "Campus Admin Block, University Grounds",
-    profile_photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
+    date_of_birth: "",
+    address: "",
+    profile_photo: "",
   });
   const [isEditing, setIsEditing] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   useEffect(() => {
     const loadProfile = async () => {
-      const stored = localStorage.getItem("educonnect_user");
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          if (parsed.email) {
-            setProfile((prev) => ({
-              ...prev,
-              email: parsed.email,
-              first_name: parsed.name ? parsed.name.split(" ")[0] : prev.first_name,
-              last_name: parsed.name ? parsed.name.split(" ").slice(1).join(" ") : prev.last_name,
-            }));
-          }
-        } catch (e) {}
-      }
       try {
         const data = await adminApi.getProfile();
-        if (data && data.email) {
+        if (data && (data.email || data.admin_id)) {
           setProfile((prev) => ({ ...prev, ...data }));
         }
-      } catch (err) {}
+      } catch (err) {
+        console.error("Admin profile load error:", err);
+      }
     };
     loadProfile();
   }, []);
@@ -49,12 +37,32 @@ const AdminProfile = () => {
     setProfile((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = (e) => {
-    e.preventDefault();
-    setIsEditing(false);
-    setSavedSuccess(true);
-    notifySuccess("Admin profile details saved to database successfully!");
-    setTimeout(() => setSavedSuccess(false), 3000);
+  const handleSave = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    try {
+      const updated = await adminApi.updateProfile(profile);
+      if (updated && (updated.email || updated.admin_id)) {
+        setProfile((prev) => ({ ...prev, ...updated }));
+        const fullName = `${updated.first_name || ""} ${updated.last_name || ""}`.trim();
+        const userObj = {
+          role: "ROLE_ADMIN",
+          name: fullName || "System Admin",
+          email: updated.email,
+          identifier: updated.email,
+        };
+        sessionStorage.setItem("educonnect_user_admin", JSON.stringify(userObj));
+        sessionStorage.setItem("educonnect_user", JSON.stringify(userObj));
+        localStorage.setItem("educonnect_user_admin", JSON.stringify(userObj));
+        localStorage.setItem("educonnect_user", JSON.stringify(userObj));
+      }
+      setIsEditing(false);
+      setSavedSuccess(true);
+      notifySuccess("Admin profile details saved to database successfully!");
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (err) {
+      console.error("Admin profile save error:", err);
+      notifyError(err.message || "Failed to save admin profile.");
+    }
   };
 
   return (

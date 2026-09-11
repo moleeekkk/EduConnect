@@ -19,4 +19,10 @@ public class StudentOtpVerifyRequest {
     @NotBlank(message = "OTP code is required")
     @JsonProperty("otp")
     private String otp;
+
+    public String getEnrollmentNo() { return enrollmentNo; }
+    public void setEnrollmentNo(String enrollmentNo) { this.enrollmentNo = enrollmentNo; }
+
+    public String getOtp() { return otp; }
+    public void setOtp(String otp) { this.otp = otp; }
 }

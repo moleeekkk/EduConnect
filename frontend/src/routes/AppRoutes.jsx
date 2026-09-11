@@ -25,6 +25,7 @@ import StudentWeeklyTests from "../pages/student/WeeklyTests";
 import StudentQuizPractice from "../pages/student/QuizPractice";
 import StudentStudyMaterial from "../pages/student/StudyMaterial";
 import StudentDigitalID from "../pages/student/DigitalID";
+import StudentSyllabus from "../pages/student/Syllabus";
 import StudentLeaveRequest from "../pages/student/LeaveRequest";
 import StudentAskDoubts from "../pages/student/AskDoubts";
 
@@ -40,6 +41,10 @@ import TeacherStudyMaterial from "../pages/teacher/StudyMaterial";
 import TeacherReplyDoubts from "../pages/teacher/ReplyDoubts";
 import TeacherLeaveManagement from "../pages/teacher/LeaveManagement";
 import TeacherParentEmail from "../pages/teacher/ParentEmail";
+import TeacherSchedule from "../pages/teacher/Schedule";
+import TeacherGrades from "../pages/teacher/Grades";
+import TeacherNotices from "../pages/teacher/Notices";
+
 
 // Admin Pages
 import AdminDashboard from "../pages/admin/Dashboard";
@@ -53,6 +58,7 @@ import AdminSemesterManagement from "../pages/admin/SemesterManagement";
 import AdminSubjectManagement from "../pages/admin/SubjectManagement";
 import AdminTeacherSubjectAllocation from "../pages/admin/TeacherSubjectAllocation";
 import AdminReports from "../pages/admin/Reports";
+import AdminTimetableManagement from "../pages/admin/TimetableManagement";
 
 const AppRoutes = () => {
   return (
@@ -78,6 +84,7 @@ const AppRoutes = () => {
         <Route path="weekly-tests" element={<StudentWeeklyTests />} />
         <Route path="quiz-practice" element={<StudentQuizPractice />} />
         <Route path="study-material" element={<StudentStudyMaterial />} />
+        <Route path="syllabus" element={<StudentSyllabus />} />
         <Route path="digital-id" element={<StudentDigitalID />} />
         <Route path="leave-request" element={<StudentLeaveRequest />} />
         <Route path="doubts" element={<StudentAskDoubts />} />
@@ -91,15 +98,17 @@ const AppRoutes = () => {
         <Route path="students" element={<TeacherManageStudents />} />
         <Route path="attendance" element={<TeacherAttendanceMarker />} />
         <Route path="assignments" element={<TeacherUploadAssignment />} />
-        <Route path="grades" element={<TeacherUploadAssignment />} />
+        <Route path="grades" element={<TeacherGrades />} />
+        <Route path="semester-marks" element={<TeacherGrades />} />
         <Route path="weekly-tests" element={<TeacherWeeklyTests />} />
         <Route path="quiz-practice" element={<TeacherQuizPractice />} />
         <Route path="study-material" element={<TeacherStudyMaterial />} />
         <Route path="reply-doubts" element={<TeacherReplyDoubts />} />
         <Route path="leave-management" element={<TeacherLeaveManagement />} />
         <Route path="parent-email" element={<TeacherParentEmail />} />
-        <Route path="notices" element={<TeacherDashboard />} />
-        <Route path="schedule" element={<TeacherDashboard />} />
+        <Route path="notices" element={<TeacherNotices />} />
+        <Route path="schedule" element={<TeacherSchedule />} />
+        <Route path="timetable" element={<TeacherSchedule />} />
       </Route>
 
       {/* Admin Portal Routes */}
@@ -121,6 +130,8 @@ const AppRoutes = () => {
         <Route path="subjects" element={<AdminSubjectManagement />} />
         <Route path="teacher-subjects" element={<AdminTeacherSubjectAllocation />} />
         <Route path="subject-allocation" element={<AdminTeacherSubjectAllocation />} />
+        <Route path="timetable" element={<AdminTimetableManagement />} />
+        <Route path="timetables" element={<AdminTimetableManagement />} />
         <Route path="reports" element={<AdminReports />} />
       </Route>
 

@@ -16,8 +16,13 @@ const TeacherManageStudents = () => {
   const [selectedGender, setSelectedGender] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
+      setError(null);
       try {
         const [studentData, deptData, semData] = await Promise.all([
           teacherApi.getStudents(),
@@ -26,12 +31,9 @@ const TeacherManageStudents = () => {
         ]);
 
         if (Array.isArray(studentData)) {
-          const cleaned = studentData.filter((s) => {
-            const email = (s.email || "").toLowerCase();
-            const fullName = `${s.first_name || s.firstName || ""} ${s.last_name || s.lastName || ""}`.toLowerCase();
-            return email !== "alex.johnson@educonnect.ac.in" && !fullName.includes("alex johnson");
-          });
-          setStudents(cleaned);
+          setStudents(studentData);
+        } else {
+          setStudents([]);
         }
         if (Array.isArray(deptData)) {
           setDepartments(deptData);
@@ -41,6 +43,9 @@ const TeacherManageStudents = () => {
         }
       } catch (err) {
         console.error("Teacher students load error:", err);
+        setError(err.message || "Failed to load cohort students.");
+      } finally {
+        setLoading(false);
       }
     };
     fetchData();

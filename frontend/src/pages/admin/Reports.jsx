@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import Button from "../../components/common/Button";
 import { adminApi, studentApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const AdminReports = () => {
   const [activeTab, setActiveTab] = useState("attendance");
@@ -772,9 +773,30 @@ const AdminReports = () => {
               </h2>
               <p className="text-xs text-[#64748B]">Official SGPA and CGPA metrics published by the examination department</p>
             </div>
-            <span className="px-2.5 py-1 rounded-full bg-[#14B8A6]/10 text-[#14B8A6] font-bold text-xs">
-              {filteredSemesterResults.length} Result Record(s)
-            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const deptId = programs[0]?.department_id || programs[0]?.id || "";
+                    const semId = selectedSemester !== "all" ? selectedSemester : (semesters[0]?.semester_id || semesters[0]?.id || "");
+                    await adminApi.publishSemesterResults({ department_id: deptId, semester_id: semId });
+                    notifySuccess("Semester results published successfully to students!");
+                    fetchReportData();
+                  } catch (err) {
+                    const msg = err.response?.data?.error || err.message || "Failed to publish semester results.";
+                    notifyError(msg);
+                  }
+                }}
+                className="text-xs flex items-center gap-1"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" /> Publish Results to Students
+              </Button>
+              <span className="px-2.5 py-1 rounded-full bg-[#14B8A6]/10 text-[#14B8A6] font-bold text-xs">
+                {filteredSemesterResults.length} Result Record(s)
+              </span>
+            </div>
           </div>
 
           {filteredSemesterResults.length > 0 ? (

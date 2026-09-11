@@ -63,7 +63,8 @@ public class AuthController {
         String email = body.get("email");
         String code = body.get("code") != null ? body.get("code") : body.get("otp");
         String newPassword = body.get("newPassword") != null ? body.get("newPassword") : body.get("new_password");
-        AuthResponse response = authService.resetPasswordWithCode(email, code, newPassword);
+        String role = body.get("role");
+        AuthResponse response = authService.resetPasswordWithCode(email, code, newPassword, role);
         if (!response.isSuccess()) {
             return ResponseEntity.badRequest().body(response);
         }

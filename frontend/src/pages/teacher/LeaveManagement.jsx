@@ -36,18 +36,16 @@ const TeacherLeaveManagement = () => {
   const handleReview = async (status) => {
     if (!selectedReq) return;
     try {
-      const id = selectedReq.leave_request_id;
-      await teacherApi.updateLeaveStatus(id, status);
+      const id = selectedReq.leave_request_id || selectedReq.id;
+      const updated = await teacherApi.updateLeaveStatus(id, status, remarksText);
       setRequests(
         requests.map((r) =>
-          r.leave_request_id === id
-            ? {
+          (r.leave_request_id === id || r.id === id)
+            ? (updated && (updated.leave_request_id || updated.id) ? updated : {
               ...r,
               status,
-              reviewed_by: "teach-001",
-              reviewed_date: new Date().toISOString().split("T")[0],
               remarks: remarksText || (status === "Approved" ? "Approved." : "Rejected."),
-            }
+            })
             : r
         )
       );
@@ -96,18 +94,26 @@ const TeacherLeaveManagement = () => {
             <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
               {requests.map((req) => {
                 const stu = students.find((s) => s.student_id === req.student_id || s.id === req.student_id);
+                const displayName = req.student_name || (stu ? `${stu.first_name || ""} ${stu.last_name || ""}`.trim() : "Student");
+                const displayEnrollment = req.enrollment_no || (stu ? stu.enrollment_no : "");
+                const reqKey = req.leave_request_id || req.id;
                 return (
-                  <tr key={req.leave_request_id} className="hover:bg-[#F8FAFC] transition-colors">
+                  <tr key={reqKey} className="hover:bg-[#F8FAFC] transition-colors">
                     <td className="p-3.5">
                       <div className="font-extrabold text-[#1E293B]">
-                        {stu ? `${stu.first_name} ${stu.last_name}` : "Student"}
+                        {displayName}
                       </div>
-                      <span className="font-mono text-[10px] text-[#2563EB] font-bold">
-                        {stu ? stu.enrollment_no : "25CI2110016"}
-                      </span>
+                      {displayEnrollment && (
+                        <span className="font-mono text-[10px] text-[#2563EB] font-bold">
+                          {displayEnrollment}
+                        </span>
+                      )}
                     </td>
                     <td className="p-3.5 text-[#2563EB] font-bold">{req.leave_type}</td>
-                    <td className="p-3.5 font-mono font-medium">{req.from_date} to {req.to_date}</td>
+                    <td className="p-3.5 font-mono font-medium">
+                      {req.from_date} to {req.to_date}
+                      {req.total_days ? ` (${req.total_days} ${req.total_days === 1 ? "day" : "days"})` : ""}
+                    </td>
                     <td className="p-3.5 max-w-xs truncate font-medium text-[#64748B]">{req.reason}</td>
                     <td className="p-3.5">
                       <span

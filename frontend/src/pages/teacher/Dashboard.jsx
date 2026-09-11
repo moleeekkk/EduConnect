@@ -27,23 +27,32 @@ const TeacherDashboard = () => {
       const identifier = loggedUser?.identifier || loggedUser?.email || loggedUser?.userId;
 
       try {
-        const [dashRes, profileRes] = await Promise.all([
-          teacherApi.getDashboard(identifier),
-          teacherApi.getProfile(identifier),
+        const [dashRes, profileRes, schedRes] = await Promise.all([
+          teacherApi.getDashboard(identifier).catch(() => null),
+          teacherApi.getProfile(identifier).catch(() => null),
+          teacherApi.getSchedule(identifier).catch(() => []),
         ]);
 
-        if (profileRes && (profileRes.first_name || profileRes.email)) {
-          setDashData((prev) => ({
-            ...prev,
-            ...profileRes,
-            sessions: Array.isArray(dashRes?.sessions) ? dashRes.sessions : prev.sessions,
-          }));
-        } else if (dashRes) {
-          setDashData((prev) => ({
-            ...prev,
-            ...dashRes,
-          }));
-        }
+        const todayDay = new Date().toLocaleDateString("en-US", { weekday: "long" });
+        const todayDayObj = Array.isArray(schedRes) ? schedRes.find(d => (d.day || "").toLowerCase() === todayDay.toLowerCase()) : null;
+        const todaySessions = todayDayObj && Array.isArray(todayDayObj.slots)
+          ? todayDayObj.slots.map((s, idx) => ({
+              session_id: s.timetable_id || s.id || idx,
+              lecture_no: idx + 1,
+              start_time: s.start_time || s.time?.split("-")[0]?.trim() || "09:30",
+              end_time: s.end_time || s.time?.split("-")[1]?.trim() || "11:00",
+              topic: `${s.subject || "Academic Class"} (${s.room || "Lab"})`,
+              subject_name: s.subject,
+              room: s.room,
+            }))
+          : (Array.isArray(dashRes?.sessions) ? dashRes.sessions : []);
+
+        setDashData((prev) => ({
+          ...prev,
+          ...(profileRes && (profileRes.first_name || profileRes.email) ? profileRes : {}),
+          ...(dashRes || {}),
+          sessions: todaySessions,
+        }));
       } catch (err) {
         console.error("Teacher dashboard load error:", err);
       }

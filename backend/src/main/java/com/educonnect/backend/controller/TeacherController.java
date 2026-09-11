@@ -2,9 +2,9 @@ package com.educonnect.backend.controller;
 
 import com.educonnect.backend.dto.AttendanceMarkRequest;
 import com.educonnect.backend.entity.Assignment;
+import com.educonnect.backend.entity.Batch;
 import com.educonnect.backend.entity.Department;
 import com.educonnect.backend.entity.Semester;
-import com.educonnect.backend.entity.Student;
 import com.educonnect.backend.entity.Subject;
 import com.educonnect.backend.service.DepartmentService;
 import com.educonnect.backend.service.TeacherService;
@@ -42,19 +42,34 @@ public class TeacherController {
     }
 
     @PostMapping("/assignments")
-    public ResponseEntity<Assignment> createAssignment(@RequestBody Map<String, Object> data) {
-        return ResponseEntity.ok(teacherService.createAssignment(data));
+    public ResponseEntity<Assignment> createAssignment(
+            Authentication authentication,
+            @RequestBody Map<String, Object> data) {
+        String identifier = getAuthenticatedIdentifier(authentication, null, null);
+        return ResponseEntity.ok(teacherService.createAssignment(data, identifier));
     }
 
     @PutMapping("/assignments/{id}")
-    public ResponseEntity<Assignment> updateAssignment(@PathVariable UUID id, @RequestBody Map<String, Object> data) {
-        return ResponseEntity.ok(teacherService.updateAssignment(id, data));
+    public ResponseEntity<Assignment> updateAssignment(
+            Authentication authentication,
+            @PathVariable UUID id,
+            @RequestBody Map<String, Object> data) {
+        String identifier = getAuthenticatedIdentifier(authentication, null, null);
+        return ResponseEntity.ok(teacherService.updateAssignment(id, data, identifier));
     }
 
     @DeleteMapping("/assignments/{id}")
-    public ResponseEntity<Map<String, String>> deleteAssignment(@PathVariable UUID id) {
-        teacherService.deleteAssignment(id);
-        return ResponseEntity.ok(Map.of("message", "Assignment deleted successfully from database"));
+    public ResponseEntity<?> deleteAssignment(
+            Authentication authentication,
+            @PathVariable UUID id) {
+        String identifier = getAuthenticatedIdentifier(authentication, null, null);
+        try {
+            teacherService.deleteAssignment(id, identifier);
+            return ResponseEntity.ok(Map.of("message", "Assignment deleted successfully from database"));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.CONFLICT)
+                    .body(Map.of("message", e.getMessage()));
+        }
     }
 
     @GetMapping("/assigned-subjects")
@@ -67,9 +82,32 @@ public class TeacherController {
         return ResponseEntity.ok(subjects);
     }
 
+    @GetMapping("/subjects")
+    public ResponseEntity<List<Subject>> getSubjects(
+            Authentication authentication,
+            @RequestParam(required = false) String teacherId,
+            @RequestParam(required = false) String email) {
+        String identifier = getAuthenticatedIdentifier(authentication, teacherId, email);
+        List<Subject> subjects = teacherService.getAssignedSubjectsForTeacher(identifier);
+        return ResponseEntity.ok(subjects);
+    }
+
     @GetMapping("/students")
-    public ResponseEntity<List<Student>> getStudents() {
-        return ResponseEntity.ok(teacherService.getAllStudents());
+    public ResponseEntity<List<Map<String, Object>>> getStudents(
+            Authentication authentication,
+            @RequestParam(required = false) String teacherId,
+            @RequestParam(required = false) String email) {
+        String identifier = getAuthenticatedIdentifier(authentication, teacherId, email);
+        return ResponseEntity.ok(teacherService.getStudentsForTeacher(identifier));
+    }
+
+    @GetMapping("/batches")
+    public ResponseEntity<List<Batch>> getBatches(
+            Authentication authentication,
+            @RequestParam(required = false) String teacherId,
+            @RequestParam(required = false) String email) {
+        String identifier = getAuthenticatedIdentifier(authentication, teacherId, email);
+        return ResponseEntity.ok(teacherService.getAssignedBatchesForTeacher(identifier));
     }
 
     @GetMapping("/departments")
@@ -91,8 +129,43 @@ public class TeacherController {
         return ResponseEntity.ok(data);
     }
 
+    @PostMapping("/attendance")
+    public ResponseEntity<Map<String, Object>> postAttendance(@RequestBody AttendanceMarkRequest request) {
+        Map<String, Object> response = teacherService.markAttendance(request);
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/attendance/mark")
     public ResponseEntity<Map<String, Object>> markAttendance(@RequestBody AttendanceMarkRequest request) {
+        Map<String, Object> response = teacherService.markAttendance(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/attendance/sessions")
+    public ResponseEntity<List<Map<String, Object>>> getAttendanceSessions(
+            @RequestParam(required = false) String subjectId,
+            @RequestParam(required = false) String date) {
+        List<Map<String, Object>> sessions = teacherService.getTeacherAttendanceSessions(subjectId, date);
+        return ResponseEntity.ok(sessions);
+    }
+
+    @GetMapping("/attendance/sessions/{sessionId}")
+    public ResponseEntity<Map<String, Object>> getAttendanceSessionDetail(@PathVariable UUID sessionId) {
+        Map<String, Object> detail = teacherService.getAttendanceSessionDetail(sessionId);
+        return ResponseEntity.ok(detail);
+    }
+
+    @PutMapping("/attendance/sessions/{sessionId}")
+    public ResponseEntity<Map<String, Object>> updateAttendanceSession(
+            @PathVariable UUID sessionId,
+            @RequestBody AttendanceMarkRequest request) {
+        if (request.getTeacherSubjectId() == null) {
+            // Ensure session detail's teacherSubjectId is populated
+            Map<String, Object> detail = teacherService.getAttendanceSessionDetail(sessionId);
+            if (detail.get("teacher_subject_id") != null) {
+                request.setTeacherSubjectId(UUID.fromString((String) detail.get("teacher_subject_id")));
+            }
+        }
         Map<String, Object> response = teacherService.markAttendance(request);
         return ResponseEntity.ok(response);
     }
@@ -106,20 +179,6 @@ public class TeacherController {
         return ResponseEntity.ok(grades);
     }
 
-    @PostMapping("/change-password")
-    public ResponseEntity<Map<String, Object>> changePassword(
-            Authentication authentication,
-            @RequestBody Map<String, String> body) {
-        String emailOrId = getAuthenticatedIdentifier(authentication, body.get("teacher_id"), body.get("email"));
-        String currentPassword = body.get("current_password");
-        String newPassword = body.get("new_password");
-        Map<String, Object> result = teacherService.changeTeacherPassword(emailOrId, currentPassword, newPassword);
-        if (Boolean.FALSE.equals(result.get("success"))) {
-            return ResponseEntity.badRequest().body(result);
-        }
-        return ResponseEntity.ok(result);
-    }
-
     @GetMapping("/profile")
     public ResponseEntity<Map<String, Object>> getProfile(
             Authentication authentication,
@@ -131,15 +190,20 @@ public class TeacherController {
     }
 
     @GetMapping("/assignments/{assignmentId}/submissions")
-    public ResponseEntity<List<Map<String, Object>>> getAssignmentSubmissions(@PathVariable UUID assignmentId) {
-        return ResponseEntity.ok(teacherService.getAssignmentSubmissions(assignmentId));
+    public ResponseEntity<List<Map<String, Object>>> getAssignmentSubmissions(
+            Authentication authentication,
+            @PathVariable UUID assignmentId) {
+        String identifier = getAuthenticatedIdentifier(authentication, null, null);
+        return ResponseEntity.ok(teacherService.getAssignmentSubmissions(assignmentId, identifier));
     }
 
     @PostMapping("/submissions/{submissionId}/grade")
     public ResponseEntity<com.educonnect.backend.entity.AssignmentSubmission> gradeSubmission(
+            Authentication authentication,
             @PathVariable UUID submissionId,
             @RequestBody Map<String, Object> reqData) {
-        return ResponseEntity.ok(teacherService.gradeSubmission(submissionId, reqData));
+        String identifier = getAuthenticatedIdentifier(authentication, null, null);
+        return ResponseEntity.ok(teacherService.gradeSubmission(submissionId, reqData, identifier));
     }
 
     @PutMapping("/profile")
@@ -147,6 +211,12 @@ public class TeacherController {
             Authentication authentication,
             @RequestBody Map<String, Object> body) {
         String identifier = getAuthenticatedIdentifier(authentication, null, null);
+        String bodyEmail = body.get("email") != null ? String.valueOf(body.get("email")).trim() : null;
+        if (bodyEmail != null && !bodyEmail.equalsIgnoreCase("null") && !bodyEmail.isEmpty()) {
+            if (identifier != null && !identifier.equalsIgnoreCase(bodyEmail)) {
+                throw new IllegalArgumentException("Updating profile for another teacher identity is forbidden.");
+            }
+        }
         if (identifier != null && !body.containsKey("email")) {
             body.put("email", identifier);
         }
@@ -154,36 +224,70 @@ public class TeacherController {
         return ResponseEntity.ok(result);
     }
 
+    @PostMapping("/change-password")
+    public ResponseEntity<Map<String, Object>> changePassword(
+            Authentication authentication,
+            @RequestBody Map<String, Object> reqData) {
+        return ResponseEntity.ok(teacherService.changeTeacherPassword(reqData));
+    }
+
     @GetMapping("/weekly-tests")
-    public ResponseEntity<List<Map<String, Object>>> getWeeklyTests() {
-        return ResponseEntity.ok(teacherService.getAllWeeklyTests());
+    public ResponseEntity<List<Map<String, Object>>> getWeeklyTests(
+            Authentication authentication,
+            @RequestParam(required = false) String teacherId,
+            @RequestParam(required = false) String email) {
+        String identifier = getAuthenticatedIdentifier(authentication, teacherId, email);
+        return ResponseEntity.ok(teacherService.getAllWeeklyTests(identifier));
     }
 
     @PostMapping("/weekly-tests")
-    public ResponseEntity<com.educonnect.backend.entity.WeeklyTest> createWeeklyTest(@RequestBody Map<String, Object> data) {
-        return ResponseEntity.ok(teacherService.createWeeklyTest(data));
+    public ResponseEntity<com.educonnect.backend.entity.WeeklyTest> createWeeklyTest(
+            Authentication authentication,
+            @RequestBody Map<String, Object> data) {
+        String identifier = getAuthenticatedIdentifier(authentication, null, null);
+        return ResponseEntity.ok(teacherService.createWeeklyTest(data, identifier));
     }
 
     @PutMapping("/weekly-tests/{id}")
-    public ResponseEntity<com.educonnect.backend.entity.WeeklyTest> updateWeeklyTest(@PathVariable UUID id, @RequestBody Map<String, Object> data) {
-        return ResponseEntity.ok(teacherService.updateWeeklyTest(id, data));
+    public ResponseEntity<com.educonnect.backend.entity.WeeklyTest> updateWeeklyTest(
+            Authentication authentication,
+            @PathVariable UUID id,
+            @RequestBody Map<String, Object> data) {
+        String identifier = getAuthenticatedIdentifier(authentication, null, null);
+        return ResponseEntity.ok(teacherService.updateWeeklyTest(id, data, identifier));
     }
 
     @DeleteMapping("/weekly-tests/{id}")
-    public ResponseEntity<Map<String, String>> deleteWeeklyTest(@PathVariable UUID id) {
-        teacherService.deleteWeeklyTest(id);
+    public ResponseEntity<Map<String, String>> deleteWeeklyTest(
+            Authentication authentication,
+            @PathVariable UUID id) {
+        String identifier = getAuthenticatedIdentifier(authentication, null, null);
+        teacherService.deleteWeeklyTest(id, identifier);
         return ResponseEntity.ok(Map.of("message", "Weekly test deleted successfully from database"));
     }
 
+    @PostMapping("/weekly-tests/{id}/publish")
+    public ResponseEntity<com.educonnect.backend.entity.WeeklyTest> publishWeeklyTest(
+            Authentication authentication,
+            @PathVariable UUID id) {
+        String identifier = getAuthenticatedIdentifier(authentication, null, null);
+        return ResponseEntity.ok(teacherService.publishWeeklyTest(id, identifier));
+    }
+
     @GetMapping("/weekly-tests/{testId}/results")
-    public ResponseEntity<List<Map<String, Object>>> getWeeklyTestResults(@PathVariable UUID testId) {
-        return ResponseEntity.ok(teacherService.getWeeklyTestResults(testId));
+    public ResponseEntity<List<Map<String, Object>>> getWeeklyTestResults(
+            Authentication authentication,
+            @PathVariable UUID testId) {
+        String identifier = getAuthenticatedIdentifier(authentication, null, null);
+        return ResponseEntity.ok(teacherService.getWeeklyTestResults(testId, identifier));
     }
 
     @PostMapping("/weekly-tests/{testId}/results")
     public ResponseEntity<List<com.educonnect.backend.entity.WeeklyTestResult>> saveWeeklyTestResults(
+            Authentication authentication,
             @PathVariable UUID testId,
             @RequestBody List<Map<String, Object>> resultsList) {
-        return ResponseEntity.ok(teacherService.saveWeeklyTestResults(testId, resultsList));
+        String identifier = getAuthenticatedIdentifier(authentication, null, null);
+        return ResponseEntity.ok(teacherService.saveWeeklyTestResults(testId, resultsList, identifier));
     }
 }

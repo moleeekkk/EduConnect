@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { CalendarCheck, BookOpen, Award, Clock, ArrowRight, User, FileText, Sparkles, CheckSquare } from "lucide-react";
+import { CalendarCheck, BookOpen, Award, Clock, ArrowRight, User, FileText, Sparkles, CheckSquare, Bell } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Button from "../../components/common/Button";
 import { studentApi } from "../../services/api";
@@ -22,19 +22,41 @@ const StudentDashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await studentApi.getDashboard(dashData.enrollmentNo);
-        if (res) {
-          setDashData((prev) => ({
-            ...prev,
-            ...res,
-            sessions: Array.isArray(res.sessions) ? res.sessions : prev.sessions,
-            announcements: Array.isArray(res.announcements) ? res.announcements : prev.announcements,
-          }));
-        }
+        const [res, ttRes, noticeRes] = await Promise.all([
+          studentApi.getDashboard(dashData.enrollmentNo).catch(() => null),
+          studentApi.getTimetable(dashData.enrollmentNo).catch(() => []),
+          studentApi.getNotices().catch(() => []),
+        ]);
+
+        const todayDay = new Date().toLocaleDateString("en-US", { weekday: "long" });
+        const todayDayObj = Array.isArray(ttRes) ? ttRes.find(d => (d.day || "").toLowerCase() === todayDay.toLowerCase()) : null;
+        const todaySessions = todayDayObj && Array.isArray(todayDayObj.slots)
+          ? todayDayObj.slots.map((s, idx) => ({
+              session_id: s.timetable_id || s.id || idx,
+              lecture_no: idx + 1,
+              start_time: s.start_time || s.time?.split("-")[0]?.trim() || "09:00",
+              end_time: s.end_time || s.time?.split("-")[1]?.trim() || "10:00",
+              topic: `${s.subject || "Academic Session"} (${s.room || "Classroom"})`,
+              subject_name: s.subject,
+              room: s.room,
+            }))
+          : (Array.isArray(res?.sessions) ? res.sessions : []);
+
+        const finalAnnouncements = Array.isArray(noticeRes) && noticeRes.length > 0
+          ? noticeRes
+          : (Array.isArray(res?.announcements) ? res.announcements : []);
+
+        setDashData((prev) => ({
+          ...prev,
+          ...(res || {}),
+          sessions: todaySessions,
+          announcements: finalAnnouncements,
+        }));
       } catch (err) {
         console.error("Student dashboard load error:", err);
       }
     };
+
     fetchData();
   }, [dashData.enrollmentNo]);
 
@@ -158,16 +180,31 @@ const StudentDashboard = () => {
 
         {/* Notices */}
         <div className="bg-white rounded-xl p-5 border border-[#E2E8F0] shadow-xs space-y-4">
-          <h2 className="text-base font-bold text-[#1E293B] border-b border-[#E2E8F0] pb-3">Latest Announcements</h2>
+          <h2 className="text-base font-bold text-[#1E293B] border-b border-[#E2E8F0] pb-3 flex items-center justify-between">
+            <span>Latest Announcements</span>
+            <span className="text-xs font-normal text-[#64748B]">({dashData.announcements.length})</span>
+          </h2>
           <div className="space-y-3">
-            {dashData.announcements.map((notice, idx) => (
-              <div key={notice.id || idx} className="p-3 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
-                <span className="text-[10px] font-bold text-[#2563EB] uppercase">{notice.target_role || "ALL"}</span>
-                <h4 className="text-xs font-bold text-[#1E293B]">{notice.title}</h4>
-                <p className="text-[11px] text-[#64748B] line-clamp-2">{notice.description}</p>
-                <p className="text-[10px] text-[#64748B]">{notice.date}</p>
+            {dashData.announcements.length === 0 ? (
+              <div className="text-center py-6 text-[#64748B] space-y-1">
+                <Bell className="w-8 h-8 mx-auto text-[#94A3B8]" />
+                <p className="text-xs font-medium">No announcements at this time.</p>
               </div>
-            ))}
+            ) : (
+              dashData.announcements.map((notice, idx) => (
+                <div key={notice.id || notice.notice_id || idx} className="p-3 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] font-bold text-[#2563EB] uppercase">{notice.target_role || "ALL"}</span>
+                    <span className="text-[10px] text-[#64748B]">{notice.date || notice.publish_date?.substring(0, 10)}</span>
+                  </div>
+                  <h4 className="text-xs font-bold text-[#1E293B]">{notice.title}</h4>
+                  <p className="text-[11px] text-[#64748B] line-clamp-3 leading-snug">{notice.description}</p>
+                  {notice.author_name && (
+                    <p className="text-[9px] text-[#94A3B8] pt-1">By: {notice.author_name}</p>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

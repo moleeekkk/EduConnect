@@ -153,4 +153,63 @@ public class EmailService {
             return false;
         }
     }
-}
+
+    public String sendGenericEmail(String toEmail, String subject, String bodyText) {
+        log.info("==================================================");
+        log.info("DISPATCHING PARENT/NOTIFICATION EMAIL TO: {}", toEmail);
+        log.info("SUBJECT: {}", subject);
+        log.info("==================================================");
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(toEmail);
+            helper.setSubject(subject);
+
+            String formattedBody = bodyText != null ? bodyText.replace("\n", "<br/>") : "";
+            String htmlContent = """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; }
+                        .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+                        .header { text-align: center; padding-bottom: 20px; border-bottom: 1px solid #e2e8f0; }
+                        .brand { font-size: 24px; font-weight: 800; color: #1e293b; }
+                        .brand-blue { color: #2563eb; }
+                        .brand-teal { color: #14b8a6; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; display: block; margin-top: 2px; }
+                        .content { padding: 24px 0; line-height: 1.6; color: #1e293b; font-size: 14px; }
+                        .footer { text-align: center; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #64748b; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <div class="brand">Edu<span class="brand-blue">Connect</span></div>
+                            <span class="brand-teal">Official Academic Communication</span>
+                        </div>
+                        <div class="content">
+                            %s
+                        </div>
+                        <div class="footer">
+                            <p>This is an official automated notification from EduConnect Academic Management System.</p>
+                            <p>© %d EduConnect Institution.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """.formatted(formattedBody, java.time.Year.now().getValue());
+
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+            log.info("Email successfully dispatched to {}", toEmail);
+            return null; // Null means success
+        } catch (Exception e) {
+            log.warn("SMTP Email delivery failed to {}: {}", toEmail, e.getMessage());
+            return e.getMessage() != null ? e.getMessage() : "SMTP mail delivery failed";
+        }
+    }
+}

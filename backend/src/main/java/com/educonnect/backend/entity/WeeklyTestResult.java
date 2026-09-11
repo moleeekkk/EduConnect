@@ -8,8 +8,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "weekly_test_results")
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -49,6 +48,30 @@ public class WeeklyTestResult {
     @JsonProperty("updated_at")
     private LocalDateTime updatedAt;
 
+    public UUID getWeeklyTestResultId() { return weeklyTestResultId; }
+    public void setWeeklyTestResultId(UUID weeklyTestResultId) { this.weeklyTestResultId = weeklyTestResultId; }
+
+    public UUID getWeeklyTestId() { return weeklyTestId; }
+    public void setWeeklyTestId(UUID weeklyTestId) { this.weeklyTestId = weeklyTestId; }
+
+    public UUID getStudentId() { return studentId; }
+    public void setStudentId(UUID studentId) { this.studentId = studentId; }
+
+    public Integer getObtainedMarks() { return obtainedMarks; }
+    public void setObtainedMarks(Integer obtainedMarks) { this.obtainedMarks = obtainedMarks; }
+
+    public String getGrade() { return grade; }
+    public void setGrade(String grade) { this.grade = grade; }
+
+    public String getRemarks() { return remarks; }
+    public void setRemarks(String remarks) { this.remarks = remarks; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -58,5 +81,33 @@ public class WeeklyTestResult {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+    public static WeeklyTestResultBuilder builder() {
+        return new WeeklyTestResultBuilder();
+    }
+
+    public static class WeeklyTestResultBuilder {
+        private UUID weeklyTestId;
+        private UUID studentId;
+        private Integer obtainedMarks;
+        private String grade;
+        private String remarks;
+
+        public WeeklyTestResultBuilder weeklyTestId(UUID weeklyTestId) { this.weeklyTestId = weeklyTestId; return this; }
+        public WeeklyTestResultBuilder studentId(UUID studentId) { this.studentId = studentId; return this; }
+        public WeeklyTestResultBuilder obtainedMarks(Integer obtainedMarks) { this.obtainedMarks = obtainedMarks; return this; }
+        public WeeklyTestResultBuilder grade(String grade) { this.grade = grade; return this; }
+        public WeeklyTestResultBuilder remarks(String remarks) { this.remarks = remarks; return this; }
+
+        public WeeklyTestResult build() {
+            WeeklyTestResult w = new WeeklyTestResult();
+            w.setWeeklyTestId(weeklyTestId);
+            w.setStudentId(studentId);
+            w.setObtainedMarks(obtainedMarks);
+            w.setGrade(grade);
+            w.setRemarks(remarks);
+            return w;
+        }
     }
 }

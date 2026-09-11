@@ -1,5 +1,8 @@
 package com.educonnect.backend.security;
 
+import com.educonnect.backend.repository.AdminRepository;
+import com.educonnect.backend.repository.StudentRepository;
+import com.educonnect.backend.repository.TeacherRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,6 +27,9 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final StudentRepository studentRepository;
+    private final TeacherRepository teacherRepository;
+    private final AdminRepository adminRepository;
 
     @Override
     protected void doFilterInternal(
@@ -52,6 +58,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String role = jwtService.extractRole(jwt);
 
         if (identifier != null && role != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            boolean isActive = isAccountActive(identifier, role);
+            if (!isActive) {
+                log.warn("Authentication rejected in filter: User {} with role {} is disabled or does not exist.", identifier, role);
+                filterChain.doFilter(request, response);
+                return;
+            }
+
             SimpleGrantedAuthority authority = new SimpleGrantedAuthority(role);
             List<SimpleGrantedAuthority> authorities = Collections.singletonList(authority);
 
@@ -66,5 +79,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isAccountActive(String identifier, String role) {
+        try {
+            if ("ROLE_STUDENT".equalsIgnoreCase(role)) {
+                return studentRepository.findByEnrollmentNoIgnoreCase(identifier)
+                        .map(s -> !Boolean.FALSE.equals(s.getIsActive()))
+                        .orElseGet(() -> studentRepository.findByEmail(identifier)
+                                .map(s -> !Boolean.FALSE.equals(s.getIsActive()))
+                                .orElse(false));
+            } else if ("ROLE_TEACHER".equalsIgnoreCase(role)) {
+                return teacherRepository.findByEmail(identifier)
+                        .map(t -> !Boolean.FALSE.equals(t.getIsActive()))
+                        .orElse(false);
+            } else if ("ROLE_ADMIN".equalsIgnoreCase(role)) {
+                return adminRepository.findByEmail(identifier)
+                        .map(a -> !Boolean.FALSE.equals(a.getIsActive()))
+                        .orElse(false);
+            }
+        } catch (Exception e) {
+            log.error("Error checking account active status for {}: {}", identifier, e.getMessage());
+            return false;
+        }
+        return true;
     }
 }

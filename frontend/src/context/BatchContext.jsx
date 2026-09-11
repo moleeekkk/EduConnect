@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { adminApi, getAuthToken, getAuthUser } from "../services/api";
+import { adminApi, teacherApi, studentApi, getAuthToken, getAuthUser } from "../services/api";
 
 const BatchContext = createContext();
 
@@ -27,18 +27,20 @@ export const BatchProvider = ({ children }) => {
     }
 
     try {
-      const isAuthorized =
-        user?.role === "ROLE_ADMIN" ||
-        user?.role === "Admin" ||
-        user?.role === "ROLE_TEACHER" ||
-        user?.role === "Teacher";
-      if (!isAuthorized) {
+      const rawRole = user?.role ? String(user.role).toUpperCase().replace("ROLE_", "") : "";
+      setLoading(true);
+      let res = [];
+      if (rawRole === "ADMIN") {
+        res = await adminApi.getBatches();
+      } else if (rawRole === "TEACHER") {
+        res = await teacherApi.getBatches();
+      } else if (rawRole === "STUDENT") {
+        res = await studentApi.getBatches();
+      } else {
         setLoading(false);
         return;
       }
 
-      setLoading(true);
-      const res = await adminApi.getBatches();
       if (Array.isArray(res)) {
         setBatches(res);
         if (res.length > 0) {
@@ -52,10 +54,13 @@ export const BatchProvider = ({ children }) => {
               res[0];
             setSelectedBatch(defaultActive);
           }
+        } else {
+          setSelectedBatch(null);
         }
       }
     } catch (err) {
       console.warn("Batch list notice:", err.message);
+      setBatches([]);
     } finally {
       setLoading(false);
     }

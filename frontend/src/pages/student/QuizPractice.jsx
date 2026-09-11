@@ -1,124 +1,47 @@
 import React, { useState, useEffect } from "react";
-import { HelpCircle, CheckCircle, XCircle, Sparkles, RefreshCw, BookOpen } from "lucide-react";
+import { HelpCircle, CheckCircle, XCircle, Sparkles, RefreshCw, BookOpen, Award, CheckCircle2, History } from "lucide-react";
 import Button from "../../components/common/Button";
 import { studentApi } from "../../services/api";
+import { notifyError, notifySuccess } from "../../utils/toast";
 
 const StudentQuizPractice = () => {
   const [selectedLearnerType, setSelectedLearnerType] = useState("Fast");
-  const [selectedSubjectId, setSelectedSubjectId] = useState("subj-101");
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const [selectedQuizId, setSelectedQuizId] = useState("");
+  
   const [userAnswers, setUserAnswers] = useState({});
   const [showExplanations, setShowExplanations] = useState(false);
+  const [activeAttemptId, setActiveAttemptId] = useState(null);
+  const [attemptResult, setAttemptResult] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [quizzes, setQuizzes] = useState([]);
-  const [mcqs, setMcqs] = useState([]);
   const [subjects, setSubjects] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
-      const localQuizzesStr = localStorage.getItem("educonnect_quizzes");
-      const localMcqsStr = localStorage.getItem("educonnect_quiz_mcqs");
-
-      const defaultQuizzes = [
-        {
-          quiz_id: "quiz-001",
-          id: "quiz-001",
-          subject_id: "subj-101",
-          title: "Java OOPs & Multithreading Practice",
-          description: "Foundational practice MCQs on Java classes, inheritance, threads & concurrency.",
-          learner_type: "Fast",
-          total_questions: 2,
-        },
-        {
-          quiz_id: "quiz-002",
-          id: "quiz-002",
-          subject_id: "subj-102",
-          title: "Microservices Architecture Basics",
-          description: "Practice questions covering REST endpoints, API gateway & JWT tokens.",
-          learner_type: "Slow",
-          total_questions: 1,
-        },
-      ];
-
-      const defaultMcqs = [
-        {
-          mcq_id: "mcq-001",
-          id: "mcq-001",
-          quiz_id: "quiz-001",
-          question: "Which Java keyword is used to implement multiple inheritance through interfaces?",
-          option_a: "extends",
-          option_b: "implements",
-          option_c: "inherits",
-          option_d: "using",
-          correct_answer: "B",
-          explanation: "In Java, a class uses the 'implements' keyword to inherit behavior from interfaces.",
-        },
-        {
-          mcq_id: "mcq-002",
-          id: "mcq-002",
-          quiz_id: "quiz-001",
-          question: "What is the entry point method executed when a Java Thread is started via thread.start()?",
-          option_a: "init()",
-          option_b: "start()",
-          option_c: "run()",
-          option_d: "execute()",
-          correct_answer: "C",
-          explanation: "Calling start() creates a new call stack and triggers the thread's run() method.",
-        },
-        {
-          mcq_id: "mcq-003",
-          id: "mcq-003",
-          quiz_id: "quiz-002",
-          question: "What type of authentication header is typically used to transmit JWT tokens in Microservices?",
-          option_a: "Basic Auth",
-          option_b: "Bearer Token (Authorization)",
-          option_c: "Session ID",
-          option_d: "Cookie Token",
-          correct_answer: "B",
-          explanation: "JWT tokens are sent in the 'Authorization: Bearer <token>' header.",
-        },
-      ];
-
-      const localQuizzes = localQuizzesStr ? JSON.parse(localQuizzesStr) : defaultQuizzes;
-      const localMcqs = localMcqsStr ? JSON.parse(localMcqsStr) : defaultMcqs;
-
       try {
+        setLoading(true);
         const [quizData, syllabusData] = await Promise.all([
           studentApi.getQuizzes(),
           studentApi.getSyllabus(),
         ]);
 
-        let finalQuizzes = localQuizzes;
-        if (Array.isArray(quizData) && quizData.length > 0) {
-          const map = new Map();
-          localQuizzes.forEach((q) => map.set(q.quiz_id || q.id, q));
-          quizData.forEach((q) => map.set(q.quiz_id || q.id, q));
-          finalQuizzes = Array.from(map.values());
+        if (Array.isArray(syllabusData)) {
+          setSubjects(syllabusData);
+          if (syllabusData.length > 0) {
+            setSelectedSubjectId(syllabusData[0].subject_id || syllabusData[0].id);
+          }
         }
 
-        const defaultSubjects = [
-          { subject_id: "subj-101", id: "subj-101", subject_code: "MCA101", code: "MCA101", subject_name: "Enterprise Java Architecture", name: "Enterprise Java Architecture" },
-          { subject_id: "subj-102", id: "subj-102", subject_code: "MCA102", code: "MCA102", subject_name: "Cloud Microservices & JWT Security", name: "Cloud Microservices & JWT Security" },
-          { subject_id: "subj-103", id: "subj-103", subject_code: "MCA103", code: "MCA103", subject_name: "Relational Database Systems (PostgreSQL)", name: "Relational Database Systems (PostgreSQL)" },
-        ];
-
-        const rawSubs = Array.isArray(syllabusData) && syllabusData.length > 0 ? syllabusData : defaultSubjects;
-        setSubjects(rawSubs);
-        setQuizzes(finalQuizzes);
-        setMcqs(localMcqs);
-
-        if (rawSubs.length > 0) {
-          setSelectedSubjectId(rawSubs[0].subject_id || rawSubs[0].id || "subj-101");
+        if (Array.isArray(quizData)) {
+          setQuizzes(quizData);
         }
       } catch (err) {
-        console.error("Quiz load error:", err);
-        setQuizzes(localQuizzes);
-        setMcqs(localMcqs);
-        setSubjects([
-          { subject_id: "subj-101", id: "subj-101", subject_code: "MCA101", code: "MCA101", subject_name: "Enterprise Java Architecture", name: "Enterprise Java Architecture" },
-          { subject_id: "subj-102", id: "subj-102", subject_code: "MCA102", code: "MCA102", subject_name: "Cloud Microservices & JWT Security", name: "Cloud Microservices & JWT Security" },
-          { subject_id: "subj-103", id: "subj-103", subject_code: "MCA103", code: "MCA103", subject_name: "Relational Database Systems (PostgreSQL)", name: "Relational Database Systems (PostgreSQL)" },
-        ]);
+        console.error("Student quiz practice load error:", err);
+      } finally {
+        setLoading(false);
       }
     };
     fetchData();
@@ -129,7 +52,6 @@ const StudentQuizPractice = () => {
     const catMatch = !selectedLearnerType || (q.learner_type || "").toLowerCase() === selectedLearnerType.toLowerCase();
     const qSubId = q.subject_id || q.subjectId || "";
     
-    // Find subject code for selectedSubjectId
     const currentSubObj = subjects.find(s => String(s.subject_id || s.id) === String(selectedSubjectId));
     const subCode = currentSubObj?.subject_code || currentSubObj?.code || "";
 
@@ -143,19 +65,95 @@ const StudentQuizPractice = () => {
   });
 
   const availableQuizzes = matchingQuizzes.length > 0 ? matchingQuizzes : quizzes.filter(q => (q.learner_type || "").toLowerCase() === selectedLearnerType.toLowerCase());
-
   const activeQuiz = availableQuizzes.find(q => String(q.quiz_id || q.id) === String(selectedQuizId)) || availableQuizzes[0] || quizzes[0];
-  const quizMcqs = mcqs.filter((m) => String(m.quiz_id || m.quizId) === String(activeQuiz?.quiz_id || activeQuiz?.id)) || activeQuiz?.mcqs || [];
+  const activeQuizId = activeQuiz?.quiz_id || activeQuiz?.id;
 
-  const handleSelectOption = (mcqId, option) => {
+  // Auto-start or resume attempt when active quiz changes
+  useEffect(() => {
+    if (!activeQuizId) return;
+
+    const initializeAttempt = async () => {
+      try {
+        const attemptResp = await studentApi.startQuizAttempt(activeQuizId);
+        if (attemptResp && attemptResp.attempt_id) {
+          setActiveAttemptId(attemptResp.attempt_id);
+          if (attemptResp.user_answers) {
+            setUserAnswers(attemptResp.user_answers);
+          } else {
+            setUserAnswers({});
+          }
+          if (attemptResp.status === "COMPLETED") {
+            const detail = await studentApi.getStudentAttemptDetail(attemptResp.attempt_id);
+            setAttemptResult(detail);
+            setShowExplanations(true);
+          } else {
+            setAttemptResult(null);
+            setShowExplanations(false);
+          }
+        }
+      } catch (err) {
+        console.error("Initialize attempt error:", err);
+      }
+    };
+
+    initializeAttempt();
+  }, [activeQuizId]);
+
+  const handleSelectOption = async (mcqId, option) => {
     if (showExplanations) return;
-    setUserAnswers({ ...userAnswers, [mcqId]: option });
+    const nextAnswers = { ...userAnswers, [mcqId]: option };
+    setUserAnswers(nextAnswers);
+
+    if (activeQuizId && activeAttemptId) {
+      try {
+        await studentApi.saveQuizAttempt(activeQuizId, activeAttemptId, { answers: nextAnswers });
+      } catch (err) {
+        console.error("Save answer draft error:", err);
+      }
+    }
   };
 
-  const resetQuiz = () => {
+  const handleSubmitQuiz = async () => {
+    if (!activeQuizId || !activeAttemptId) return;
+
+    try {
+      setSubmitting(true);
+      const result = await studentApi.submitQuizAttempt(activeQuizId, activeAttemptId, { answers: userAnswers });
+      setAttemptResult(result);
+      setShowExplanations(true);
+      notifySuccess(`Quiz submitted! Your score: ${result.score} pts (${result.percentage}%)`);
+    } catch (err) {
+      console.error("Submit quiz error:", err);
+      const msg = err.response?.data?.message || err.message || "Failed to submit quiz.";
+      notifyError(`Submission error: ${msg}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleResetOrTryAgain = async () => {
     setUserAnswers({});
     setShowExplanations(false);
+    setAttemptResult(null);
+
+    if (activeQuizId) {
+      try {
+        const attemptResp = await studentApi.startQuizAttempt(activeQuizId);
+        if (attemptResp && attemptResp.attempt_id) {
+          setActiveAttemptId(attemptResp.attempt_id);
+        }
+      } catch (err) {
+        console.error("Start new attempt error:", err);
+      }
+    }
   };
+
+  // Determine questions list (either from attemptResult evaluation or base quiz mcqs)
+  const evaluatedMcqsMap = new Map();
+  if (attemptResult && Array.isArray(attemptResult.mcqs)) {
+    attemptResult.mcqs.forEach((m) => evaluatedMcqsMap.set(String(m.mcq_id), m));
+  }
+  const baseMcqs = activeQuiz?.mcqs || [];
 
   return (
     <div className="space-y-6">
@@ -163,6 +161,7 @@ const StudentQuizPractice = () => {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
           <h1 className="text-xl font-bold text-[#1E293B]">Interactive Quiz Practice</h1>
+          <p className="text-xs text-[#64748B] mt-0.5">Practice faculty-authored MCQs tailored to Fast and Slow learner tracks.</p>
         </div>
 
         {/* Selection Controls */}
@@ -174,20 +173,22 @@ const StudentQuizPractice = () => {
               <button
                 onClick={() => {
                   setSelectedLearnerType("Fast");
-                  resetQuiz();
+                  handleResetOrTryAgain();
                 }}
-                className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${selectedLearnerType === "Fast" ? "bg-[#2563EB] text-white" : "text-[#64748B]"
-                  }`}
+                className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                  selectedLearnerType === "Fast" ? "bg-[#2563EB] text-white" : "text-[#64748B]"
+                }`}
               >
                 Fast Learner
               </button>
               <button
                 onClick={() => {
                   setSelectedLearnerType("Slow");
-                  resetQuiz();
+                  handleResetOrTryAgain();
                 }}
-                className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${selectedLearnerType === "Slow" ? "bg-[#14B8A6] text-white" : "text-[#64748B]"
-                  }`}
+                className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                  selectedLearnerType === "Slow" ? "bg-[#14B8A6] text-white" : "text-[#64748B]"
+                }`}
               >
                 Slow Learner
               </button>
@@ -201,7 +202,7 @@ const StudentQuizPractice = () => {
               value={selectedSubjectId}
               onChange={(e) => {
                 setSelectedSubjectId(e.target.value);
-                resetQuiz();
+                handleResetOrTryAgain();
               }}
               className="p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] text-xs font-bold text-[#1E293B] cursor-pointer outline-none focus:border-[#2563EB]"
             >
@@ -218,16 +219,16 @@ const StudentQuizPractice = () => {
             <div className="flex items-center gap-1.5">
               <label className="text-xs font-bold text-[#64748B]">Module:</label>
               <select
-                value={activeQuiz?.quiz_id || activeQuiz?.id || ""}
+                value={activeQuizId || ""}
                 onChange={(e) => {
                   setSelectedQuizId(e.target.value);
-                  resetQuiz();
+                  handleResetOrTryAgain();
                 }}
                 className="p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] text-xs font-bold text-[#1E293B] cursor-pointer outline-none focus:border-[#2563EB]"
               >
                 {availableQuizzes.map((q) => (
                   <option key={q.quiz_id || q.id} value={q.quiz_id || q.id}>
-                    {q.title} ({(mcqs.filter(m => (m.quiz_id || m.quizId) === (q.quiz_id || q.id)).length) || q.total_questions || 0} Qs)
+                    {q.title} ({(q.mcqs ? q.mcqs.length : q.total_questions) || 0} Qs)
                   </option>
                 ))}
               </select>
@@ -237,61 +238,95 @@ const StudentQuizPractice = () => {
       </div>
 
       {/* Selected Quiz Card */}
-      {activeQuiz ? (
+      {loading ? (
+        <div className="bg-white rounded-xl border border-[#E2E8F0] p-8 text-center text-xs text-[#64748B]">
+          Loading published practice quizzes...
+        </div>
+      ) : activeQuiz ? (
         <div className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#E2E8F0] pb-3 gap-2">
             <div>
               <div className="flex items-center gap-2">
                 <span
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${activeQuiz.learner_type === "Fast"
-                    ? "bg-[#2563EB]/10 text-[#2563EB]"
-                    : "bg-[#14B8A6]/10 text-[#14B8A6]"
-                    }`}
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                    activeQuiz.learner_type === "Fast"
+                      ? "bg-[#2563EB]/10 text-[#2563EB]"
+                      : "bg-[#14B8A6]/10 text-[#14B8A6]"
+                  }`}
                 >
                   {activeQuiz.learner_type} Learner Category
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full bg-[#F59E0B]/10 text-[#F59E0B] text-[10px] font-bold">
-                  {subjects.find((s) => s.subject_id === selectedSubjectId || s.id === selectedSubjectId)?.subject_code || "MCQ"}
+                  {subjects.find((s) => (s.subject_id || s.id) === selectedSubjectId)?.subject_code || "MCQ"}
                 </span>
               </div>
               <h2 className="text-base font-bold text-[#1E293B] mt-1">{activeQuiz.title}</h2>
               <p className="text-xs text-[#64748B]">{activeQuiz.description}</p>
             </div>
 
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={resetQuiz} icon={RefreshCw} className="text-xs">
-                Reset
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleResetOrTryAgain} icon={RefreshCw} className="text-xs">
+                {showExplanations ? "Try Again" : "Reset"}
               </Button>
               <Button
                 variant="accent"
                 size="sm"
-                onClick={() => setShowExplanations(true)}
-                disabled={showExplanations}
+                onClick={handleSubmitQuiz}
+                disabled={showExplanations || submitting}
                 className="text-xs"
               >
-                Check Answers & Explanations
+                {submitting ? "Evaluating..." : "Check Answers & Explanations"}
               </Button>
             </div>
           </div>
 
+          {/* Attempt Result Banner */}
+          {attemptResult && (
+            <div className="p-4 bg-[#2563EB]/10 border border-[#2563EB]/20 rounded-xl flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-[#2563EB] text-white rounded-lg">
+                  <Award className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-[#1E293B]">
+                    Attempt #{attemptResult.attempt_number} Result: {attemptResult.score} Points ({attemptResult.percentage}%)
+                  </h4>
+                  <p className="text-xs text-[#64748B]">
+                    You correctly answered {attemptResult.correct_count} out of {attemptResult.total_questions} questions.
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 bg-emerald-100 text-emerald-800 font-bold rounded-lg text-xs">
+                Saved to Database
+              </span>
+            </div>
+          )}
+
           {/* MCQs List */}
           <div className="space-y-4">
-            {quizMcqs.length > 0 ? (
-              quizMcqs.map((mcq, index) => {
-                const selected = userAnswers[mcq.mcq_id];
-                const isCorrect = selected === mcq.correct_answer;
+            {baseMcqs.length > 0 ? (
+              baseMcqs.map((mcq, index) => {
+                const mcqId = String(mcq.mcq_id || mcq.id);
+                const evalData = evaluatedMcqsMap.get(mcqId);
+                const selected = userAnswers[mcqId] || (evalData ? evalData.selected_option : null);
+                
+                const correctAnswerChoice = evalData ? evalData.correct_answer : null;
+                const isCorrect = evalData ? evalData.is_correct : (selected && correctAnswerChoice ? selected === correctAnswerChoice : false);
+                const explanationText = evalData ? evalData.explanation : null;
+
                 return (
-                  <div key={mcq.mcq_id} className="p-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] space-y-3 text-xs">
+                  <div key={mcqId} className="p-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] space-y-3 text-xs">
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="font-bold text-[#1E293B]">
                         {index + 1}. {mcq.question}
                       </h3>
                       {showExplanations && (
                         <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${isCorrect ? "bg-[#22C55E]/10 text-[#22C55E]" : "bg-[#EF4444]/10 text-[#EF4444]"
-                            }`}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            isCorrect ? "bg-[#22C55E]/10 text-[#22C55E]" : "bg-[#EF4444]/10 text-[#EF4444]"
+                          }`}
                         >
-                          {isCorrect ? "Correct" : `Correct Option: ${mcq.correct_answer}`}
+                          {isCorrect ? "Correct" : `Correct Option: ${correctAnswerChoice || "N/A"}`}
                         </span>
                       )}
                     </div>
@@ -307,14 +342,14 @@ const StudentQuizPractice = () => {
                         if (selected === opt.key) {
                           btnStyle = "bg-[#2563EB]/10 border-[#2563EB] font-bold text-[#2563EB]";
                         }
-                        if (showExplanations && opt.key === mcq.correct_answer) {
+                        if (showExplanations && correctAnswerChoice && opt.key === correctAnswerChoice) {
                           btnStyle = "bg-[#22C55E]/10 border-[#22C55E] font-bold text-[#22C55E]";
                         }
 
                         return (
                           <button
                             key={opt.key}
-                            onClick={() => handleSelectOption(mcq.mcq_id, opt.key)}
+                            onClick={() => handleSelectOption(mcqId, opt.key)}
                             className={`p-2.5 rounded-lg border text-left flex items-center gap-2 transition-all ${btnStyle}`}
                           >
                             <span className="w-5 h-5 rounded-full bg-white border border-[#E2E8F0] flex items-center justify-center font-mono text-[10px] font-bold shrink-0">
@@ -328,8 +363,8 @@ const StudentQuizPractice = () => {
 
                     {showExplanations && (
                       <div className="p-3 bg-white rounded-lg border border-[#E2E8F0] text-[11px] space-y-1">
-                        <span className="font-bold text-[#2563EB]">Explanation:</span>
-                        <p className="text-[#64748B]">{mcq.explanation}</p>
+                        <span className="font-bold text-[#2563EB]">Server Rationale:</span>
+                        <p className="text-[#64748B]">{explanationText || "No explanation provided."}</p>
                       </div>
                     )}
                   </div>
@@ -337,14 +372,14 @@ const StudentQuizPractice = () => {
               })
             ) : (
               <div className="p-4 bg-[#F8FAFC] rounded-lg text-center text-xs text-[#64748B]">
-                No quiz questions added for this subject yet.
+                No practice questions added for this quiz module yet.
               </div>
             )}
           </div>
         </div>
       ) : (
         <div className="p-6 bg-white rounded-xl border border-[#E2E8F0] text-center text-xs text-[#64748B]">
-          Please select a subject to load practice quizzes.
+          No published practice quizzes available for the selected subject and learner track.
         </div>
       )}
     </div>

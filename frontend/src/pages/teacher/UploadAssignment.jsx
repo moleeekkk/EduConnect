@@ -8,60 +8,9 @@ import { teacherApi } from "../../services/api";
 import { notifySuccess, notifyError } from "../../utils/toast";
 import { readFileAsDataURL, getDisplayFileName, downloadFile, openFileInNewTab } from "../../utils/fileViewer";
 
-const defaultSubmissions = [
-  {
-    submission_id: "sub-001",
-    assignment_id: "asgn-001",
-    student_id: "stu-001",
-    student_name: "Manish Pr",
-    enrollment_no: "25CI2110046",
-    submission_date: "2026-08-10 14:30",
-    attachment: "manish_asgn1_final.zip",
-    obtained_marks: 46,
-    feedback: "Excellent architecture and well-documented component layout.",
-    submission_status: "Timely",
-  },
-  {
-    submission_id: "sub-002",
-    assignment_id: "asgn-001",
-    student_id: "stu-002",
-    student_name: "Priya Shah",
-    enrollment_no: "25CI2110047",
-    submission_date: "2026-08-11 09:15",
-    attachment: "priya_microservices_v2.pdf",
-    obtained_marks: 42,
-    feedback: "Good work, try to submit before the deadline next time.",
-    submission_status: "Late",
-  },
-  {
-    submission_id: "sub-004",
-    assignment_id: "asgn-002",
-    student_id: "stu-001",
-    student_name: "Manish Pr",
-    enrollment_no: "25CI2110046",
-    submission_date: "2026-08-14 11:00",
-    attachment: "manish_devops_docker.zip",
-    obtained_marks: 48,
-    feedback: "Outstanding Docker pipeline setup.",
-    submission_status: "Timely",
-  },
-  {
-    submission_id: "sub-005",
-    assignment_id: "asgn-002",
-    student_id: "stu-002",
-    student_name: "Priya Shah",
-    enrollment_no: "25CI2110047",
-    submission_date: "2026-08-16 18:45",
-    attachment: "priya_devops_doc.pdf",
-    obtained_marks: 38,
-    feedback: "Submitted past due date.",
-    submission_status: "Late",
-  },
-];
-
 const TeacherUploadAssignment = () => {
   const [assignments, setAssignments] = useState([]);
-  const [submissions, setSubmissions] = useState(defaultSubmissions);
+  const [submissions, setSubmissions] = useState([]);
   const [assignedSubjects, setAssignedSubjects] = useState([]);
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
 
@@ -168,11 +117,20 @@ const TeacherUploadAssignment = () => {
     }
   };
 
+  const getFutureDateString = (daysAhead = 7) => {
+    const d = new Date();
+    d.setDate(d.getDate() + daysAhead);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
   const handleOpenAddModal = () => {
     setEditingAssignmentId(null);
     setNewTitle("");
     setNewDesc("");
-    setNewDueDate("2026-08-25");
+    setNewDueDate(getFutureDateString(7));
     setNewMarks(50);
     setRefFileName("");
     setRefFileData(null);
@@ -205,41 +163,66 @@ const TeacherUploadAssignment = () => {
         notifySuccess("Assignment deleted successfully from database!");
       } catch (err) {
         console.error("Error deleting assignment:", err);
-        notifyError("Failed to delete assignment from database.");
+        const errorMsg = err.response?.data?.message || err.message || "Failed to delete assignment from database.";
+        notifyError(errorMsg);
       }
     }
   };
 
   const handleSaveAssignment = async (e) => {
     e.preventDefault();
-    const cleanFileName = getDisplayFileName(refFileName, refFileData, newTitle);
+
+    if (!selectedSubjectId) {
+      notifyError("Please select an assigned subject.");
+      return;
+    }
+    if (!newTitle || !newTitle.trim()) {
+      notifyError("Assignment title is required.");
+      return;
+    }
+    if (!newDueDate) {
+      notifyError("Due date is required.");
+      return;
+    }
+    if (!newMarks || Number(newMarks) <= 0) {
+      notifyError("Total marks must be greater than 0.");
+      return;
+    }
+
+    const selectedSubObj = assignedSubjects.find((s) => String(s.subject_id) === String(selectedSubjectId));
+    const teacherSubjectId = selectedSubObj?.allocation_id || selectedSubObj?.teacher_subject_id || null;
+
+    const cleanFileName = refFileName ? getDisplayFileName(refFileName, refFileData, newTitle) : null;
     const attachmentVal = refFileData || (refFileName
       ? (refFileName.startsWith("data:") || refFileName.startsWith("/"))
         ? refFileName
-        : `/uploads/assignments/${refFileName}`
+        : refFileName
       : null);
-
-    const selectedSubObj = assignedSubjects.find((s) => String(s.subject_id) === String(selectedSubjectId));
-    const subName = selectedSubObj ? `${selectedSubObj.subject_code} - ${selectedSubObj.subject_name}` : "Assigned Subject";
 
     const payload = {
       subject_id: selectedSubjectId,
-      title: newTitle,
+      teacher_subject_id: teacherSubjectId,
+      title: newTitle.trim(),
       description: newDesc,
       due_date: newDueDate,
       total_marks: Number(newMarks),
-      attachment: attachmentVal,
-      file_name: cleanFileName,
-      fileName: cleanFileName,
     };
+
+    if (attachmentVal) {
+      payload.attachment = attachmentVal;
+    }
+    if (cleanFileName) {
+      payload.file_name = cleanFileName;
+      payload.fileName = cleanFileName;
+    }
 
     try {
       if (editingAssignmentId) {
         await teacherApi.updateAssignment(editingAssignmentId, payload);
-        notifySuccess(`Assignment '${newTitle}' updated in database successfully!`);
+        notifySuccess(`Assignment '${newTitle}' updated successfully!`);
       } else {
         await teacherApi.createAssignment(payload);
-        notifySuccess(`Assignment '${newTitle}' published and saved to database successfully!`);
+        notifySuccess(`Assignment '${newTitle}' published successfully!`);
       }
 
       // Refresh assignment list from database
@@ -250,69 +233,79 @@ const TeacherUploadAssignment = () => {
       if (Array.isArray(dbAsgns)) {
         setAssignments(dbAsgns);
       }
+      setShowAddModal(false);
+      setEditingAssignmentId(null);
     } catch (err) {
       console.error("Error saving assignment to database:", err);
-      notifyError("Failed to save assignment to database.");
+      const errMsg = err.response?.data?.message || err.message || "Failed to save assignment to database.";
+      notifyError(errMsg);
     }
-
-    setShowAddModal(false);
-    setEditingAssignmentId(null);
   };
 
   const handleGradeSubmission = async () => {
-    if (!selectedSub) return;
+    if (!selectedSub || !selectedSub.submission_id) {
+      notifyError("Selected student has not submitted an assignment to grade.");
+      return;
+    }
+    const marksNum = Number(gradeMarks);
+    if (isNaN(marksNum) || marksNum < 0) {
+      notifyError("Awarded marks must be 0 or greater.");
+      return;
+    }
+    const maxMarks = viewSubmissionsAssignment?.total_marks || 100;
+    if (marksNum > maxMarks) {
+      notifyError(`Awarded marks (${marksNum}) cannot exceed total assignment marks (${maxMarks}).`);
+      return;
+    }
+
     try {
-      if (selectedSub.submission_id && !selectedSub.submission_id.startsWith("sub-missing-")) {
-        await teacherApi.gradeSubmission(selectedSub.submission_id, {
-          obtained_marks: Number(gradeMarks),
-          feedback: gradeFeedback,
-        });
+      await teacherApi.gradeSubmission(selectedSub.submission_id, {
+        obtained_marks: marksNum,
+        feedback: gradeFeedback,
+      });
+
+      notifySuccess(`Grade (${marksNum} marks) saved for ${selectedSub.student_name}!`);
+      setSelectedSub(null);
+
+      // Re-fetch authoritative submissions from backend
+      if (viewSubmissionsAssignment?.assignment_id) {
+        const dbSubs = await teacherApi.getAssignmentSubmissions(viewSubmissionsAssignment.assignment_id);
+        if (Array.isArray(dbSubs)) {
+          setSubmissions(dbSubs);
+        }
+      }
+
+      // Refresh teacher assignments list to update counts
+      const userStr = localStorage.getItem("educonnect_user");
+      const loggedUser = userStr ? JSON.parse(userStr) : null;
+      const identifier = loggedUser?.identifier || loggedUser?.email || loggedUser?.userId;
+      const dbAsgns = await teacherApi.getAssignments(identifier);
+      if (Array.isArray(dbAsgns)) {
+        setAssignments(dbAsgns);
       }
     } catch (err) {
       console.error("Error saving grade to database:", err);
+      const errMsg = err.response?.data?.message || err.message || "Failed to save grade to database.";
+      notifyError(errMsg);
     }
-
-    // Sync to local student submissions storage for seamless offline/immediate UI sync
-    try {
-      const savedSubsStr = localStorage.getItem("educonnect_student_submissions");
-      if (savedSubsStr) {
-        let savedSubs = JSON.parse(savedSubsStr);
-        savedSubs = savedSubs.map((s) => {
-          if (
-            String(s.submission_id) === String(selectedSub.submission_id) ||
-            String(s.assignment_id) === String(selectedSub.assignment_id) ||
-            (s.title && s.title === selectedSub.assignment_title)
-          ) {
-            return {
-              ...s,
-              obtained_marks: Number(gradeMarks),
-              feedback: gradeFeedback,
-              remarks: gradeFeedback,
-            };
-          }
-          return s;
-        });
-        localStorage.setItem("educonnect_student_submissions", JSON.stringify(savedSubs));
-      }
-    } catch (e) {
-      console.error("Error syncing student local submissions:", e);
-    }
-
-    setSubmissions(
-      submissions.map((s) =>
-        s.submission_id === selectedSub.submission_id
-          ? { ...s, obtained_marks: Number(gradeMarks), feedback: gradeFeedback, submission_status: "Graded" }
-          : s
-      )
-    );
-    notifySuccess(`Grade (${gradeMarks} marks) saved for ${selectedSub.student_name}!`);
-    setSelectedSub(null);
   };
 
-  const sendReminder = (subId) => {
-    setReminderSentId(subId);
-    notifySuccess("Email reminder sent to student!");
-    setTimeout(() => setReminderSentId(null), 3000);
+  const sendReminder = async (targetId) => {
+    const asgnId = viewSubmissionsAssignment?.assignment_id || targetId;
+    if (!asgnId) return;
+    try {
+      setReminderSentId(targetId);
+      const res = await teacherApi.sendAssignmentReminder(asgnId);
+      const sent = res?.sent_count !== undefined ? res.sent_count : 0;
+      const total = res?.non_submitters_count !== undefined ? res.non_submitters_count : 0;
+      notifySuccess(`Assignment reminders dispatched to ${sent} / ${total} non-submitting students!`);
+    } catch (err) {
+      console.error("Assignment reminder error:", err);
+      const errMsg = err?.response?.data?.message || err?.message || "Failed to send assignment reminders.";
+      notifyError(errMsg);
+    } finally {
+      setTimeout(() => setReminderSentId(null), 4000);
+    }
   };
 
   // Helper to determine exact submission status (Timely, Late, or Missed)

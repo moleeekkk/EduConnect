@@ -56,6 +56,33 @@ public class Department {
     @JsonProperty("updated_at")
     private LocalDateTime updatedAt;
 
+    public UUID getDepartmentId() { return departmentId; }
+    public void setDepartmentId(UUID departmentId) { this.departmentId = departmentId; }
+
+    public String getDepartmentCode() { return departmentCode; }
+    public void setDepartmentCode(String departmentCode) { this.departmentCode = departmentCode; }
+
+    public String getDepartmentName() { return departmentName; }
+    public void setDepartmentName(String departmentName) { this.departmentName = departmentName; }
+
+    public UUID getInstituteId() { return instituteId; }
+    public void setInstituteId(UUID instituteId) { this.instituteId = instituteId; }
+
+    public Integer getDurationYears() { return durationYears; }
+    public void setDurationYears(Integer durationYears) { this.durationYears = durationYears; }
+
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+
+    public Boolean getIsActive() { return isActive; }
+    public void setIsActive(Boolean isActive) { this.isActive = isActive; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {
@@ -73,5 +100,36 @@ public class Department {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+    public static DepartmentBuilder builder() {
+        return new DepartmentBuilder();
+    }
+
+    public static class DepartmentBuilder {
+        private String departmentCode;
+        private String departmentName;
+        private UUID instituteId;
+        private Integer durationYears = 2;
+        private String description;
+        private Boolean isActive = true;
+
+        public DepartmentBuilder departmentCode(String departmentCode) { this.departmentCode = departmentCode; return this; }
+        public DepartmentBuilder departmentName(String departmentName) { this.departmentName = departmentName; return this; }
+        public DepartmentBuilder instituteId(UUID instituteId) { this.instituteId = instituteId; return this; }
+        public DepartmentBuilder durationYears(Integer durationYears) { this.durationYears = durationYears; return this; }
+        public DepartmentBuilder description(String description) { this.description = description; return this; }
+        public DepartmentBuilder isActive(Boolean isActive) { this.isActive = isActive; return this; }
+
+        public Department build() {
+            Department d = new Department();
+            d.setDepartmentCode(departmentCode);
+            d.setDepartmentName(departmentName);
+            d.setInstituteId(instituteId);
+            d.setDurationYears(durationYears);
+            d.setDescription(description);
+            d.setIsActive(isActive);
+            return d;
+        }
     }
 }

@@ -15,15 +15,11 @@ import java.util.*;
 @RequiredArgsConstructor
 public class AdminService {
 
-    private final StudentRepository studentRepository;
-    private final TeacherRepository teacherRepository;
-    private final AdminRepository adminRepository;
-    private final CourseRepository courseRepository;
-    private final ProgramRepository programRepository;
-    private final DepartmentRepository departmentRepository;
-    private final SystemSettingRepository systemSettingRepository;
-    private final WeeklyTestRepository weeklyTestRepository;
-    private final WeeklyTestResultRepository weeklyTestResultRepository;
+    private final InstituteRepository instituteRepository;
+    private final BatchRepository batchRepository;
+    private final SemesterRepository semesterRepository;
+    private final SemesterResultRepository semesterResultRepository;
+    private final AttendanceRecordRepository attendanceRecordRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Transactional(readOnly = true)
@@ -31,15 +27,16 @@ public class AdminService {
         Map<String, Object> data = new HashMap<>();
         long totalStudents = studentRepository.count();
         long totalFaculty = teacherRepository.count();
-        long activeCourses = courseRepository.count();
-        long activePrograms = programRepository.count();
-        long totalDepartments = departmentRepository.count();
+        long activeInstitutes = instituteRepository.count();
+        long activePrograms = departmentRepository.count();
+        long activeBatches = batchRepository.count();
 
         data.put("totalStudents", totalStudents);
         data.put("totalFaculty", totalFaculty);
-        data.put("activeCourses", activeCourses);
+        data.put("activeInstitutes", activeInstitutes);
         data.put("activePrograms", activePrograms);
-        data.put("totalDepartments", totalDepartments);
+        data.put("activeBatches", activeBatches);
+        data.put("totalDepartments", activePrograms);
         data.put("recentLogs", Collections.emptyList());
 
         return data;

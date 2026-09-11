@@ -18,15 +18,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
-import java.time.LocalDate;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class AuthService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AuthService.class);
 
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
@@ -35,19 +35,108 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
-    @Getter
-    @Setter
-    @AllArgsConstructor
-    @NoArgsConstructor
     private static class OtpData {
         private String code;
         private long createdAt;
         private long lastSentAt;
         private int attempts;
+
+        public OtpData() {}
+
+        public OtpData(String code, long createdAt, long lastSentAt, int attempts) {
+            this.code = code;
+            this.createdAt = createdAt;
+            this.lastSentAt = lastSentAt;
+            this.attempts = attempts;
+        }
+
+        public String getCode() {
+            return code;
+        }
+
+        public void setCode(String code) {
+            this.code = code;
+        }
+
+        public long getCreatedAt() {
+            return createdAt;
+        }
+
+        public void setCreatedAt(long createdAt) {
+            this.createdAt = createdAt;
+        }
+
+        public long getLastSentAt() {
+            return lastSentAt;
+        }
+
+        public void setLastSentAt(long lastSentAt) {
+            this.lastSentAt = lastSentAt;
+        }
+
+        public int getAttempts() {
+            return attempts;
+        }
+
+        public void setAttempts(int attempts) {
+            this.attempts = attempts;
+        }
+    }
+
+    private static class ResetCodeData {
+        private String code;
+        private String role;
+        private long createdAt;
+        private int attempts;
+
+        public ResetCodeData() {}
+
+        public ResetCodeData(String code, String role, long createdAt, int attempts) {
+            this.code = code;
+            this.role = role;
+            this.createdAt = createdAt;
+            this.attempts = attempts;
+        }
+
+        public String getCode() {
+            return code;
+        }
+
+        public void setCode(String code) {
+            this.code = code;
+        }
+
+        public String getRole() {
+            return role;
+        }
+
+        public void setRole(String role) {
+            this.role = role;
+        }
+
+        public long getCreatedAt() {
+            return createdAt;
+        }
+
+        public void setCreatedAt(long createdAt) {
+            this.createdAt = createdAt;
+        }
+
+        public int getAttempts() {
+            return attempts;
+        }
+
+        public void setAttempts(int attempts) {
+            this.attempts = attempts;
+        }
     }
 
     // In-memory OTP storage: enrollmentNo -> OtpData
     private final Map<String, OtpData> otpStore = new ConcurrentHashMap<>();
+
+    // In-memory Password Reset Code storage: roleKey:email -> ResetCodeData
+    private final Map<String, ResetCodeData> resetCodeStore = new ConcurrentHashMap<>();
+
     private final SecureRandom random = new SecureRandom();
 
     public AuthResponse sendStudentOtp(StudentOtpRequest request) {
@@ -76,6 +165,14 @@ public class AuthService {
         }
 
         Student student = studentOpt.get();
+        if (Boolean.FALSE.equals(student.getIsActive())) {
+            log.warn("OTP request rejected: Student account {} is disabled.", enrollmentNo);
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Student account is disabled. Please contact administrator.")
+                    .build();
+        }
+
         String email = student.getEmail();
         if (email == null || email.trim().isEmpty()) {
             return AuthResponse.builder()
@@ -96,8 +193,7 @@ public class AuthService {
                     .build();
         }
 
-        String mobile = student.getMobile();
-        String maskedPhone = maskPhoneNumber(mobile);
+        String maskedPhone = maskPhoneNumber(student.getMobile());
         String maskedEmail = maskEmailAddress(email);
         String name = ((student.getFirstName() != null ? student.getFirstName().trim() : "") + " " +
                 (student.getLastName() != null ? student.getLastName().trim() : "")).trim();
@@ -105,19 +201,24 @@ public class AuthService {
 
         // Generate random 6-digit OTP
         String generatedOtp = String.format("%06d", random.nextInt(1000000));
-        otpStore.put(enrollmentNo, new OtpData(generatedOtp, now, now, 0));
-
-        log.info("Student OTP generated for enrollmentNo {}", enrollmentNo);
 
         // Send email with OTP code via SMTP
         boolean emailSent = emailService.sendOtpEmail(email, name, generatedOtp);
         if (!emailSent) {
-            log.warn("SMTP Email delivery failed for {}; OTP code [{}] retains active state for verification.", enrollmentNo, generatedOtp);
+            log.error("SMTP Email delivery failed for student {}; OTP dispatch aborted.", enrollmentNo);
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Failed to send OTP email via SMTP server. Please check email settings or try again.")
+                    .build();
         }
+
+        // Only store OTP if email delivery succeeded
+        otpStore.put(enrollmentNo, new OtpData(generatedOtp, now, now, 0));
+        log.info("Student OTP generated and delivered via email for enrollmentNo {}", enrollmentNo);
 
         return AuthResponse.builder()
                 .success(true)
-                .message("OTP sent successfully to " + maskedPhone + " and " + maskedEmail)
+                .message("OTP sent successfully to registered email address (" + maskedEmail + ").")
                 .identifier(enrollmentNo)
                 .name(name)
                 .role("ROLE_STUDENT")
@@ -176,7 +277,7 @@ public class AuthService {
                     .build();
         }
 
-        // Clear OTP after successful verification
+        // Clear OTP after successful verification (single-use)
         otpStore.remove(enrollmentNo);
 
         Optional<Student> studentOpt = studentRepository.findByEnrollmentNoIgnoreCase(enrollmentNo);
@@ -194,6 +295,13 @@ public class AuthService {
         }
 
         Student student = studentOpt.get();
+        if (Boolean.FALSE.equals(student.getIsActive())) {
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Student account is disabled. Access denied.")
+                    .build();
+        }
+
         String studentId = student.getStudentId() != null ? student.getStudentId().toString() : "";
         String studentName = ((student.getFirstName() != null ? student.getFirstName().trim() : "") + " " +
                 (student.getLastName() != null ? student.getLastName().trim() : "")).trim();
@@ -224,29 +332,19 @@ public class AuthService {
         String email = request.getEmail().trim().toLowerCase();
         String rawPassword = request.getPassword().trim();
 
-        Teacher targetTeacher = teacherRepository.findByEmail(email).orElseGet(() -> {
-            if ("teacher@educonnect.ac.in".equals(email)) {
-                Teacher t = Teacher.builder()
-                        .firstName("Sarah")
-                        .lastName("Jenkins")
-                        .email("teacher@educonnect.ac.in")
-                        .password(passwordEncoder.encode("teacher123"))
-                        .mobile("+91 9876543211")
-                        .gender("Female")
-                        .designation("Associate Professor")
-                        .dateOfBirth(LocalDate.of(1990, 5, 20))
-                        .address("Faculty Campus Residence")
-                        .isActive(true)
-                        .build();
-                return teacherRepository.save(t);
-            }
-            return null;
-        });
+        Teacher targetTeacher = teacherRepository.findByEmail(email).orElse(null);
 
         if (targetTeacher != null) {
+            if (Boolean.FALSE.equals(targetTeacher.getIsActive())) {
+                return AuthResponse.builder()
+                        .success(false)
+                        .message("Teacher account is disabled. Please contact administrator.")
+                        .build();
+            }
+
             String storedHash = targetTeacher.getPassword();
 
-            boolean matches = isPasswordMatching(rawPassword, storedHash, "teacher123", () -> {
+            boolean matches = isPasswordMatchingStrict(rawPassword, storedHash, () -> {
                 targetTeacher.setPassword(passwordEncoder.encode(rawPassword));
                 teacherRepository.save(targetTeacher);
             });
@@ -287,28 +385,19 @@ public class AuthService {
         String email = request.getEmail().trim().toLowerCase();
         String rawPassword = request.getPassword().trim();
 
-        Admin targetAdmin = adminRepository.findByEmail(email).orElseGet(() -> {
-            if ("admin@educonnect.ac.in".equals(email)) {
-                Admin a = Admin.builder()
-                        .firstName("Super")
-                        .lastName("Administrator")
-                        .email("admin@educonnect.ac.in")
-                        .password(passwordEncoder.encode("admin123"))
-                        .mobile("+91 9876543210")
-                        .gender("Male")
-                        .dateOfBirth(LocalDate.of(1985, 1, 1))
-                        .address("EduConnect Campus Admin Block")
-                        .isActive(true)
-                        .build();
-                return adminRepository.save(a);
-            }
-            return null;
-        });
+        Admin targetAdmin = adminRepository.findByEmail(email).orElse(null);
 
         if (targetAdmin != null) {
+            if (Boolean.FALSE.equals(targetAdmin.getIsActive())) {
+                return AuthResponse.builder()
+                        .success(false)
+                        .message("Admin account is disabled. Access denied.")
+                        .build();
+            }
+
             String storedHash = targetAdmin.getPassword();
 
-            boolean matches = isPasswordMatching(rawPassword, storedHash, "admin123", () -> {
+            boolean matches = isPasswordMatchingStrict(rawPassword, storedHash, () -> {
                 targetAdmin.setPassword(passwordEncoder.encode(rawPassword));
                 adminRepository.save(targetAdmin);
             });
@@ -354,9 +443,6 @@ public class AuthService {
         return name.substring(0, 3) + "***" + name.substring(name.length() - 2) + "@" + domain;
     }
 
-    // In-memory Password Reset Code storage: email -> code
-    private final Map<String, String> resetCodeStore = new ConcurrentHashMap<>();
-
     public AuthResponse sendPasswordResetCode(String email, String role) {
         if (email == null || email.trim().isEmpty() || !email.contains("@")) {
             return AuthResponse.builder()
@@ -366,29 +452,40 @@ public class AuthService {
         }
 
         String cleanEmail = email.trim().toLowerCase();
+        String normalizedRole = normalizeRole(role);
 
         String recipientName = "EduConnect User";
         boolean userFound = false;
 
-        Optional<Teacher> teacherOpt = teacherRepository.findByEmail(cleanEmail);
-        if (teacherOpt.isPresent()) {
-            userFound = true;
-            Teacher t = teacherOpt.get();
-            recipientName = (t.getFirstName() + " " + (t.getLastName() != null ? t.getLastName() : "")).trim();
-        } else {
+        if ("ROLE_TEACHER".equals(normalizedRole)) {
+            Optional<Teacher> teacherOpt = teacherRepository.findByEmail(cleanEmail);
+            if (teacherOpt.isPresent()) {
+                userFound = true;
+                Teacher t = teacherOpt.get();
+                recipientName = (t.getFirstName() + " " + (t.getLastName() != null ? t.getLastName() : "")).trim();
+            }
+        } else if ("ROLE_ADMIN".equals(normalizedRole)) {
             Optional<Admin> adminOpt = adminRepository.findByEmail(cleanEmail);
             if (adminOpt.isPresent()) {
                 userFound = true;
                 Admin a = adminOpt.get();
                 recipientName = (a.getFirstName() + " " + (a.getLastName() != null ? a.getLastName() : "")).trim();
+            }
+        } else {
+            // Unspecified role: search in order Teacher, Admin
+            Optional<Teacher> teacherOpt = teacherRepository.findByEmail(cleanEmail);
+            if (teacherOpt.isPresent()) {
+                userFound = true;
+                normalizedRole = "ROLE_TEACHER";
+                Teacher t = teacherOpt.get();
+                recipientName = (t.getFirstName() + " " + (t.getLastName() != null ? t.getLastName() : "")).trim();
             } else {
-                Optional<Student> studentOpt = studentRepository.findAll().stream()
-                        .filter(s -> s.getEmail() != null && s.getEmail().equalsIgnoreCase(cleanEmail))
-                        .findFirst();
-                if (studentOpt.isPresent()) {
+                Optional<Admin> adminOpt = adminRepository.findByEmail(cleanEmail);
+                if (adminOpt.isPresent()) {
                     userFound = true;
-                    Student s = studentOpt.get();
-                    recipientName = (s.getFirstName() + " " + (s.getLastName() != null ? s.getLastName() : "")).trim();
+                    normalizedRole = "ROLE_ADMIN";
+                    Admin a = adminOpt.get();
+                    recipientName = (a.getFirstName() + " " + (a.getLastName() != null ? a.getLastName() : "")).trim();
                 }
             }
         }
@@ -402,29 +499,33 @@ public class AuthService {
 
         // Generate 6-digit reset code
         String resetCode = String.format("%06d", random.nextInt(1000000));
-        resetCodeStore.put(cleanEmail, resetCode);
+        String storeKey = normalizedRole + ":" + cleanEmail;
+        long now = System.currentTimeMillis();
 
-        log.info("Password Reset Code generated for {}", cleanEmail);
-
-        // Send email with reset code
+        // Send email with reset code via SMTP
         boolean sent = emailService.sendResetEmail(cleanEmail, recipientName, resetCode);
         if (!sent) {
-            resetCodeStore.remove(cleanEmail);
+            resetCodeStore.remove(storeKey);
             return AuthResponse.builder()
                     .success(false)
                     .message("Failed to dispatch password reset email via SMTP server.")
                     .build();
         }
 
+        // Store reset code with role key, creation timestamp, and attempt counter
+        resetCodeStore.put(storeKey, new ResetCodeData(resetCode, normalizedRole, now, 0));
+        log.info("Password Reset Code generated for {}", storeKey);
+
         return AuthResponse.builder()
                 .success(true)
                 .message("Password reset code sent to your registered email address!")
                 .identifier(cleanEmail)
+                .role(normalizedRole)
                 .name(recipientName)
                 .build();
     }
 
-    public AuthResponse resetPasswordWithCode(String email, String code, String newPassword) {
+    public AuthResponse resetPasswordWithCode(String email, String code, String newPassword, String role) {
         if (email == null || code == null || newPassword == null) {
             return AuthResponse.builder()
                     .success(false)
@@ -434,48 +535,100 @@ public class AuthService {
 
         String cleanEmail = email.trim().toLowerCase();
         String inputCode = code.trim();
+        String targetRole = normalizeRole(role);
 
-        String cachedCode = resetCodeStore.get(cleanEmail);
-        boolean isValid = cachedCode != null && cachedCode.equals(inputCode);
+        String storeKey = targetRole + ":" + cleanEmail;
+        ResetCodeData resetData = resetCodeStore.get(storeKey);
 
-        if (!isValid) {
+        // Fallback check if storeKey without role exists
+        if (resetData == null) {
+            storeKey = "ROLE_TEACHER:" + cleanEmail;
+            resetData = resetCodeStore.get(storeKey);
+            if (resetData == null) {
+                storeKey = "ROLE_ADMIN:" + cleanEmail;
+                resetData = resetCodeStore.get(storeKey);
+            }
+        }
+
+        if (resetData == null) {
             return AuthResponse.builder()
                     .success(false)
-                    .message("Invalid verification code. Please check your email and try again.")
+                    .message("No active password reset request found. Please request a new code.")
                     .build();
         }
 
-        // Clean up reset code
-        resetCodeStore.remove(cleanEmail);
+        long now = System.currentTimeMillis();
 
-        // Update password in DB with BCrypt encoding
-        String encodedPassword = passwordEncoder.encode(newPassword.trim());
-
-        Optional<Teacher> teacherOpt = teacherRepository.findByEmail(cleanEmail);
-        if (teacherOpt.isPresent()) {
-            Teacher t = teacherOpt.get();
-            t.setPassword(encodedPassword);
-            teacherRepository.save(t);
+        // Expiry check (10 minutes = 600,000 ms)
+        if ((now - resetData.getCreatedAt()) > 600000) {
+            resetCodeStore.remove(storeKey);
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Password reset code has expired. Please request a new code.")
+                    .build();
         }
 
-        Optional<Admin> adminOpt = adminRepository.findByEmail(cleanEmail);
-        if (adminOpt.isPresent()) {
-            Admin a = adminOpt.get();
-            a.setPassword(encodedPassword);
-            adminRepository.save(a);
+        // Attempt limit check (5 attempts)
+        if (resetData.getAttempts() >= 5) {
+            resetCodeStore.remove(storeKey);
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Maximum reset verification attempts exceeded. Please request a new code.")
+                    .build();
+        }
+
+        if (!resetData.getCode().equals(inputCode)) {
+            resetData.setAttempts(resetData.getAttempts() + 1);
+            int remaining = 5 - resetData.getAttempts();
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Invalid verification code. Remaining attempts: " + remaining)
+                    .build();
+        }
+
+        // Single-use: clean up reset code immediately after verification
+        resetCodeStore.remove(storeKey);
+
+        // Update password in DB for ONLY the matching role
+        String encodedPassword = passwordEncoder.encode(newPassword.trim());
+        String effectiveRole = resetData.getRole();
+
+        if ("ROLE_TEACHER".equals(effectiveRole)) {
+            Optional<Teacher> teacherOpt = teacherRepository.findByEmail(cleanEmail);
+            if (teacherOpt.isPresent()) {
+                Teacher t = teacherOpt.get();
+                t.setPassword(encodedPassword);
+                teacherRepository.save(t);
+            }
+        } else if ("ROLE_ADMIN".equals(effectiveRole)) {
+            Optional<Admin> adminOpt = adminRepository.findByEmail(cleanEmail);
+            if (adminOpt.isPresent()) {
+                Admin a = adminOpt.get();
+                a.setPassword(encodedPassword);
+                adminRepository.save(a);
+            }
         }
 
         return AuthResponse.builder()
                 .success(true)
                 .message("Password reset successfully! You can now log in with your new password.")
                 .identifier(cleanEmail)
+                .role(effectiveRole)
                 .build();
     }
 
-    private boolean isPasswordMatching(String rawPassword, String storedHash, String defaultFallback, Runnable autoUpgradeCallback) {
+    private String normalizeRole(String role) {
+        if (role == null || role.trim().isEmpty()) return "ROLE_TEACHER";
+        String r = role.trim().toUpperCase();
+        if (!r.startsWith("ROLE_")) {
+            return "ROLE_" + r;
+        }
+        return r;
+    }
+
+    private boolean isPasswordMatchingStrict(String rawPassword, String storedHash, Runnable autoUpgradeCallback) {
         if (storedHash == null || storedHash.trim().isEmpty()) {
-            if (defaultFallback == null) return false;
-            storedHash = defaultFallback;
+            return false;
         }
 
         // Check if stored string is BCrypt hash (starts with $2a$, $2b$, $2y$)
@@ -483,7 +636,7 @@ public class AuthService {
             return passwordEncoder.matches(rawPassword, storedHash);
         }
 
-        // Legacy plain text matching
+        // Legacy plain text matching (for existing unhashed legacy records in DB)
         if (rawPassword.equals(storedHash)) {
             if (autoUpgradeCallback != null) {
                 try {

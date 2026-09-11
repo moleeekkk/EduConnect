@@ -4,6 +4,7 @@ import com.educonnect.backend.entity.*;
 import com.educonnect.backend.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,9 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 @Slf4j
 public class DataInitializer implements CommandLineRunner {
+
+    @Value("${app.seed.enabled:false}")
+    private boolean seedEnabled;
 
     private final AdminRepository adminRepository;
     private final TeacherRepository teacherRepository;
@@ -30,6 +34,11 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
+        if (!seedEnabled) {
+            log.info("Database seeding is disabled (app.seed.enabled=false). Skipping DataInitializer.");
+            return;
+        }
+
         log.info("Checking EduConnect Database Initial Master Data...");
 
         try {
@@ -146,16 +155,6 @@ public class DataInitializer implements CommandLineRunner {
             }
 
             // 8. Seed Students
-            studentRepository.findAll().forEach(s -> {
-                String e = s.getEmail() != null ? s.getEmail().toLowerCase() : "";
-                String fn = s.getFirstName() != null ? s.getFirstName().toLowerCase() : "";
-                String ln = s.getLastName() != null ? s.getLastName().toLowerCase() : "";
-                if (e.contains("alex.johnson") || (fn.contains("alex") && ln.contains("johnson"))) {
-                    studentRepository.delete(s);
-                    log.info("Deleted legacy Alex Johnson student record from DB");
-                }
-            });
-
             if (studentRepository.count() == 0) {
                 Student s1 = Student.builder()
                         .enrollmentNo("25CI2110046")

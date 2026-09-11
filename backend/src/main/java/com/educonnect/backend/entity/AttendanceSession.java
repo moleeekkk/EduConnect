@@ -45,6 +45,33 @@ public class AttendanceSession {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    public UUID getSessionId() { return sessionId; }
+    public void setSessionId(UUID sessionId) { this.sessionId = sessionId; }
+
+    public UUID getTeacherSubjectId() { return teacherSubjectId; }
+    public void setTeacherSubjectId(UUID teacherSubjectId) { this.teacherSubjectId = teacherSubjectId; }
+
+    public LocalDate getSessionDate() { return sessionDate; }
+    public void setSessionDate(LocalDate sessionDate) { this.sessionDate = sessionDate; }
+
+    public Integer getLectureNo() { return lectureNo; }
+    public void setLectureNo(Integer lectureNo) { this.lectureNo = lectureNo; }
+
+    public LocalTime getStartTime() { return startTime; }
+    public void setStartTime(LocalTime startTime) { this.startTime = startTime; }
+
+    public LocalTime getEndTime() { return endTime; }
+    public void setEndTime(LocalTime endTime) { this.endTime = endTime; }
+
+    public String getTopic() { return topic; }
+    public void setTopic(String topic) { this.topic = topic; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -54,5 +81,36 @@ public class AttendanceSession {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+    public static AttendanceSessionBuilder builder() {
+        return new AttendanceSessionBuilder();
+    }
+
+    public static class AttendanceSessionBuilder {
+        private UUID teacherSubjectId;
+        private LocalDate sessionDate;
+        private Integer lectureNo;
+        private LocalTime startTime;
+        private LocalTime endTime;
+        private String topic;
+
+        public AttendanceSessionBuilder teacherSubjectId(UUID teacherSubjectId) { this.teacherSubjectId = teacherSubjectId; return this; }
+        public AttendanceSessionBuilder sessionDate(LocalDate sessionDate) { this.sessionDate = sessionDate; return this; }
+        public AttendanceSessionBuilder lectureNo(Integer lectureNo) { this.lectureNo = lectureNo; return this; }
+        public AttendanceSessionBuilder startTime(LocalTime startTime) { this.startTime = startTime; return this; }
+        public AttendanceSessionBuilder endTime(LocalTime endTime) { this.endTime = endTime; return this; }
+        public AttendanceSessionBuilder topic(String topic) { this.topic = topic; return this; }
+
+        public AttendanceSession build() {
+            AttendanceSession a = new AttendanceSession();
+            a.setTeacherSubjectId(teacherSubjectId);
+            a.setSessionDate(sessionDate);
+            a.setLectureNo(lectureNo);
+            a.setStartTime(startTime);
+            a.setEndTime(endTime);
+            a.setTopic(topic);
+            return a;
+        }
     }
 }

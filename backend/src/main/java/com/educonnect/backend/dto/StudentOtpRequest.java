@@ -15,4 +15,7 @@ public class StudentOtpRequest {
     @JsonProperty("enrollment_no")
     @JsonAlias({"enrollmentNo", "enrollment_no"})
     private String enrollmentNo;
+
+    public String getEnrollmentNo() { return enrollmentNo; }
+    public void setEnrollmentNo(String enrollmentNo) { this.enrollmentNo = enrollmentNo; }
 }

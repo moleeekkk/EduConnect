@@ -19,47 +19,15 @@ const StudentAssignments = () => {
 
 
   useEffect(() => {
-    // 1. Restore local submissions from localStorage
-    const savedSubsStr = localStorage.getItem("educonnect_student_submissions");
-    let savedSubs = [];
-    if (savedSubsStr) {
-      try {
-        savedSubs = JSON.parse(savedSubsStr);
-      } catch (e) {
-        console.error("Error parsing saved submissions:", e);
-      }
-    }
-
     const userStr = localStorage.getItem("educonnect_user");
     const loggedUser = userStr ? JSON.parse(userStr) : null;
     const enrollmentNo = loggedUser?.enrollment_no || loggedUser?.enrollmentNo || loggedUser?.identifier || "";
-
-    const userSavedSubs = savedSubs.filter((s) => !s.enrollment_no || s.enrollment_no === enrollmentNo);
-    setSubmissions(userSavedSubs);
 
     const fetchData = async () => {
       try {
         const data = await studentApi.getAssignments(enrollmentNo);
         if (Array.isArray(data)) {
-          const merged = data.map((item) => {
-            const matchSub = userSavedSubs.find(
-              (s) => String(s.assignment_id) === String(item.assignment_id) || (s.title && s.title === item.title)
-            );
-            if (matchSub || item.submitted || item.student_attachment) {
-              return {
-                ...item,
-                submitted: true,
-                student_attachment: item.student_attachment || matchSub?.attachment,
-                student_file_name: item.student_file_name || matchSub?.file_name,
-                submission_status: item.submission_status || matchSub?.submission_status || "Submitted",
-                submission_date: item.submission_date || matchSub?.submission_date,
-                obtained_marks: item.obtained_marks !== undefined ? item.obtained_marks : matchSub?.obtained_marks,
-                feedback: item.feedback || matchSub?.feedback,
-              };
-            }
-            return item;
-          });
-          setAssignments(merged);
+          setAssignments(data);
         }
       } catch (err) {
         console.error("Assignments load error:", err);
@@ -88,88 +56,30 @@ const StudentAssignments = () => {
         console.error("Error reading student uploaded document Data URL:", err);
       }
 
-      // Calculate submission status based on due date
-      let calculatedStatus = "Timely";
-      if (selectedAssignment.due_date) {
-        try {
-          const due = new Date(selectedAssignment.due_date);
-          const now = new Date();
-          now.setHours(0, 0, 0, 0);
-          due.setHours(23, 59, 59, 999);
-          if (now > due) {
-            calculatedStatus = "Late";
-          }
-        } catch (e) {}
-      }
-
-      const newSubmission = {
-        submission_id: `sub-${Date.now()}`,
-        assignment_id: selectedAssignment.assignment_id,
-        title: selectedAssignment.title,
+      await studentApi.submitAssignment(selectedAssignment.assignment_id, {
+        enrollmentNo: enrollmentNo,
         enrollment_no: enrollmentNo,
+        fileName: uploadFile.name,
         file_name: uploadFile.name,
         attachment: fileAttachmentVal,
-        submission_date: new Date().toISOString().replace("T", " ").substring(0, 16),
-        submission_status: calculatedStatus,
-        submitted: true,
-      };
-
-      try {
-        await studentApi.submitAssignment(selectedAssignment.assignment_id, {
-          enrollmentNo: enrollmentNo,
-          enrollment_no: enrollmentNo,
-          fileName: uploadFile.name,
-          file_name: uploadFile.name,
-          attachment: fileAttachmentVal,
-          fileType: uploadFile.type || "application/pdf",
-        });
-      } catch (apiErr) {
-        console.warn("Backend submit API error, using local persistent fallback:", apiErr);
-      }
-
-      // Save submission to local state and localStorage for persistence
-      const updatedSubmissions = [
-        newSubmission,
-        ...submissions.filter((s) => String(s.assignment_id) !== String(selectedAssignment.assignment_id)),
-      ];
-      setSubmissions(updatedSubmissions);
-
-      try {
-        localStorage.setItem("educonnect_student_submissions", JSON.stringify(updatedSubmissions));
-      } catch (storageErr) {
-        console.warn("Storage quota reached, saving metadata fallback:", storageErr);
-        const metadataOnlySubs = updatedSubmissions.map((s) => ({
-          ...s,
-          attachment: s.file_name,
-        }));
-        try {
-          localStorage.setItem("educonnect_student_submissions", JSON.stringify(metadataOnlySubs));
-        } catch (e) {}
-      }
-
-      setAssignments((prev) =>
-        prev.map((a) =>
-          String(a.assignment_id) === String(selectedAssignment.assignment_id) || a.title === selectedAssignment.title
-            ? {
-                ...a,
-                submitted: true,
-                student_attachment: fileAttachmentVal,
-                student_file_name: uploadFile.name,
-                submission_status: calculatedStatus,
-                submission_date: newSubmission.submission_date,
-              }
-            : a
-        )
-      );
+        fileType: uploadFile.type || "application/pdf",
+      });
 
       notifySuccess(`Assignment '${selectedAssignment.title}' submitted successfully!`);
       setSelectedAssignment(null);
       setUploadFile(null);
       setUploadSuccess(true);
       setTimeout(() => setUploadSuccess(false), 3000);
+
+      // Re-fetch authoritative assignment list from server
+      const dbData = await studentApi.getAssignments(enrollmentNo);
+      if (Array.isArray(dbData)) {
+        setAssignments(dbData);
+      }
     } catch (err) {
       console.error("Failed to submit assignment:", err);
-      notifyError(err.response?.data?.message || "Failed to submit assignment. Please try again.");
+      const errMsg = err.response?.data?.message || err.message || "Failed to submit assignment. Please try again.";
+      notifyError(errMsg);
     }
   };
 
