@@ -32,6 +32,7 @@ import {
   X,
   CalendarRange,
   Layers,
+  Settings,
 } from "lucide-react";
 import logoImg from "../../assets/logo/logo.png";
 
@@ -88,6 +89,7 @@ const Sidebar = ({
       { label: "Subject Allocation", path: "/admin/teacher-subjects", icon: UserCheck },
       { label: "Timetable Management", path: "/admin/timetable", icon: Clock },
       { label: "Reports", path: "/admin/reports", icon: BarChart3 },
+      { label: "System Settings", path: "/admin/settings", icon: Settings },
       { label: "My Profile", path: "/admin/profile", icon: User },
     ],
   };

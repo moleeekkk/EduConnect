@@ -70,10 +70,10 @@ const TeacherDashboard = () => {
   };
 
   const teacherStats = [
-    { title: "Assigned Courses", value: "2 Subjects", sub: "MCA301 & MCA302", icon: BookOpen, color: "bg-[#14B8A6]/10 text-[#14B8A6]" },
-    { title: "Teaching Experience", value: `${teacher.experience} Years`, sub: "Senior Assistant Professor", icon: School, color: "bg-[#2563EB]/10 text-[#2563EB]" },
-    { title: "Active Assignments", value: `${dashData.assignmentsCount || 4} Uploaded`, sub: "Lab & Theory tasks", icon: FileSpreadsheet, color: "bg-[#F59E0B]/10 text-[#F59E0B]" },
-    { title: "Average Class Attendance", value: "96.2%", sub: "Term August 2026", icon: CalendarCheck, color: "bg-[#22C55E]/10 text-[#22C55E]" },
+    { title: "Assigned Courses", value: `${dashData.assignedCoursesCount ?? 0} Subjects`, sub: `${dashData.totalStudents ?? 0} Total Students`, icon: BookOpen, color: "bg-[#14B8A6]/10 text-[#14B8A6]" },
+    { title: "Teaching Experience", value: `${teacher.experience ?? 0} Years`, sub: teacher.designation || "Assistant Professor", icon: School, color: "bg-[#2563EB]/10 text-[#2563EB]" },
+    { title: "Active Assignments", value: `${dashData.assignmentsCount ?? 0} Uploaded`, sub: `${dashData.pendingGradingCount ?? 0} Pending Grading`, icon: FileSpreadsheet, color: "bg-[#F59E0B]/10 text-[#F59E0B]" },
+    { title: "Average Class Attendance", value: dashData.attendanceRate || "0%", sub: "Recorded Sessions Average", icon: CalendarCheck, color: "bg-[#22C55E]/10 text-[#22C55E]" },
   ];
 
   return (

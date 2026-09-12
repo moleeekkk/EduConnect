@@ -23,6 +23,7 @@ public class AdminController {
     private final BatchService batchService;
     private final TeacherService teacherService;
     private final StudentService studentService;
+    private final BackupService backupService;
 
     @GetMapping("/dashboard")
     public ResponseEntity<Map<String, Object>> getAdminDashboard() {
@@ -328,5 +329,26 @@ public class AdminController {
     @PutMapping("/settings")
     public ResponseEntity<Map<String, Object>> updateSettings(@RequestBody Map<String, Object> reqData) {
         return ResponseEntity.ok(adminService.updateSettings(reqData));
+    }
+
+    // --- Backup Endpoints ---
+    @PostMapping("/backup/trigger")
+    public ResponseEntity<List<BackupLog>> triggerBackup(@RequestBody(required = false) Map<String, String> body) {
+        String type = body != null ? body.get("type") : "ALL";
+        return ResponseEntity.ok(backupService.triggerBackup(type));
+    }
+
+    @GetMapping("/backup/list")
+    public ResponseEntity<List<BackupLog>> getBackups() {
+        return ResponseEntity.ok(backupService.getBackups());
+    }
+
+    @GetMapping("/backup/download/{filename}")
+    public ResponseEntity<org.springframework.core.io.Resource> downloadBackup(@PathVariable String filename) {
+        org.springframework.core.io.Resource resource = backupService.downloadBackup(filename);
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM)
+                .body(resource);
     }
 }

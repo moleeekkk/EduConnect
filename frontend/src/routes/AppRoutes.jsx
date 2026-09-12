@@ -59,6 +59,7 @@ import AdminSubjectManagement from "../pages/admin/SubjectManagement";
 import AdminTeacherSubjectAllocation from "../pages/admin/TeacherSubjectAllocation";
 import AdminReports from "../pages/admin/Reports";
 import AdminTimetableManagement from "../pages/admin/TimetableManagement";
+import AdminSystemSettings from "../pages/admin/SystemSettings";
 
 const AppRoutes = () => {
   return (
@@ -133,6 +134,7 @@ const AppRoutes = () => {
         <Route path="timetable" element={<AdminTimetableManagement />} />
         <Route path="timetables" element={<AdminTimetableManagement />} />
         <Route path="reports" element={<AdminReports />} />
+        <Route path="settings" element={<AdminSystemSettings />} />
       </Route>
 
       {/* Fallback route */}

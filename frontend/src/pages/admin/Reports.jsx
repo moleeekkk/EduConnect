@@ -18,6 +18,7 @@ const AdminReports = () => {
   const [selectedStudentForProfile, setSelectedStudentForProfile] = useState(null);
 
   const [students, setStudents] = useState([]);
+  const [attendanceSummary, setAttendanceSummary] = useState([]);
   const [semesterResults, setSemesterResults] = useState([]);
   const [semesterResultDetails, setSemesterResultDetails] = useState([]);
   const [weeklyExams, setWeeklyExams] = useState([]);
@@ -101,39 +102,6 @@ const AdminReports = () => {
           return email !== "alex.johnson@educonnect.ac.in" && !fullName.includes("alex johnson");
         });
 
-        if (stuList.length === 0) {
-          stuList = [
-            {
-              student_id: "stu-001",
-              id: "stu-001",
-              first_name: "Manish",
-              last_name: "Pr",
-              name: "Manish Pr",
-              enrollment_no: "25CI2110046",
-              enrollmentNo: "25CI2110046",
-              email: "manishlakum4871@gmail.com",
-              mobile: "+91 9876543046",
-              gender: "Male",
-              date_of_birth: "2002-03-10",
-              address: "CHARUSAT Campus Hostel Block A"
-            },
-            {
-              student_id: "stu-002",
-              id: "stu-002",
-              first_name: "Priya",
-              last_name: "Shah",
-              name: "Priya Shah",
-              enrollment_no: "25CI2110047",
-              enrollmentNo: "25CI2110047",
-              email: "student47@educonnect.ac.in",
-              mobile: "+91 9876543047",
-              gender: "Female",
-              date_of_birth: "2002-06-25",
-              address: "Student Campus Girls Hostel"
-            }
-          ];
-        }
-
         setStudents(stuList);
 
         const dbDepartments = Array.isArray(deptsRes) ? deptsRes : [];
@@ -197,6 +165,7 @@ const AdminReports = () => {
         setSemesters(finalSems);
         setSubjects(Array.isArray(subsRes) ? subsRes : []);
         if (reportsRes) {
+          setAttendanceSummary(reportsRes.attendanceSummary || []);
           setSemesterResults(reportsRes.semesterResults || []);
           setSemesterResultDetails(reportsRes.semesterResultDetails || []);
           setWeeklyExams(reportsRes.weeklyExams || []);
@@ -209,22 +178,112 @@ const AdminReports = () => {
     fetchReportData();
   }, []);
 
-  const handleExport = (format) => {
-    setExportMsg(`Overall ${activeTab.replace("_", " ").toUpperCase()} Report exported as ${format} successfully!`);
-    setTimeout(() => setExportMsg(false), 3500);
+  const escapeCSVField = (val) => {
+    if (val === null || val === undefined) return '""';
+    let str = String(val);
+    // Formula prefix escaping: if starts with =, +, -, @, prepend single quote '
+    if (/^[=+\-@]/.test(str)) {
+      str = "'" + str;
+    }
+    if (str.includes('"') || str.includes(',') || str.includes('\n')) {
+      str = '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  };
+
+  const handleExport = (format = "CSV") => {
+    try {
+      let csvContent = "";
+      let filename = "";
+
+      if (activeTab === "attendance") {
+        filename = `attendance_report_${new Date().toISOString().slice(0, 10)}.csv`;
+        const headers = ["Enrollment No", "Student Name", "Department", "Semester", "Total Sessions", "Attended Sessions", "Absent Sessions", "Attendance %", "Status"];
+        const rows = filteredAttendance.map(row => [
+          row.enrollment_no || row.enrollmentNo || "",
+          row.student_name || row.name || "",
+          row.department_name || "",
+          row.semester_name || getStudentSemesterName(row),
+          row.totalSessions ?? 0,
+          row.attendedSessions ?? 0,
+          row.absentSessions ?? 0,
+          `${row.percentage ?? 0}%`,
+          row.status || "No Data"
+        ]);
+        csvContent = [headers.join(","), ...rows.map(r => r.map(escapeCSVField).join(","))].join("\n");
+      } else if (activeTab === "semester_results" || activeTab === "results") {
+        filename = `semester_results_report_${new Date().toISOString().slice(0, 10)}.csv`;
+        const headers = ["Enrollment No", "Student Name", "Department", "Semester", "Total Credits", "Earned Credits", "Total Marks", "Obtained Marks", "SGPA", "CGPA", "Result Status", "Published"];
+        const rows = filteredSemesterResults.map(row => [
+          row.enrollment_no || "",
+          row.student_name || "",
+          row.department_name || "",
+          row.semester_name || `Semester ${row.semester_number || 1}`,
+          row.total_credits ?? 0,
+          row.earned_credits ?? 0,
+          row.total_marks ?? 0,
+          row.obtained_marks ?? 0,
+          row.sgpa ?? 0,
+          row.cgpa ?? 0,
+          row.result_status || "PASS",
+          row.is_published ? "Yes" : "No"
+        ]);
+        csvContent = [headers.join(","), ...rows.map(r => r.map(escapeCSVField).join(","))].join("\n");
+      } else {
+        filename = `weekly_tests_report_${new Date().toISOString().slice(0, 10)}.csv`;
+        const headers = ["Test Title", "Exam Date", "Student Name", "Enrollment No", "Obtained Marks", "Grade", "Remarks"];
+        const rows = filteredWeeklyResults.map(row => {
+          const test = weeklyExams.find(t => String(t.weekly_exam_id || t.id) === String(row.weekly_exam_id || row.weekly_test_id));
+          return [
+            test?.title || "Weekly Test",
+            test?.exam_date || test?.test_date || "",
+            row.student_name || "",
+            row.enrollment_no || "",
+            row.obtained_marks ?? 0,
+            row.grade || "-",
+            row.remarks || ""
+          ];
+        });
+        csvContent = [headers.join(","), ...rows.map(r => r.map(escapeCSVField).join(","))].join("\n");
+      }
+
+      if (!csvContent || csvContent.split("\n").length <= 1) {
+        notifyError("No data available in selected scope to export.");
+        return;
+      }
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      notifySuccess(`Exported ${filename} (${blob.size} bytes) successfully!`);
+      setExportMsg(`Exported ${filename} (${blob.size} bytes) successfully!`);
+      setTimeout(() => setExportMsg(false), 3500);
+    } catch (err) {
+      console.error("Export error:", err);
+      notifyError("Failed to export report CSV.");
+    }
   };
 
   // Attendance calculation for all students
-  const attendanceData = students.map((stu, index) => {
-    const totalSessions = 40;
-    const attendedSessions = index === 0 ? 37 : index === 1 ? 34 : index === 2 ? 28 : 36;
-    const percentage = Number(((attendedSessions / totalSessions) * 100).toFixed(1));
-    const status = percentage >= 85 ? "Good" : percentage >= 75 ? "Average" : "At-Risk";
+  const rawAttendanceList = attendanceSummary.length > 0 ? attendanceSummary : students;
+  const attendanceData = rawAttendanceList.map((stu) => {
+    const totalSessions = stu.totalSessions ?? 0;
+    const attendedSessions = stu.attendedSessions ?? 0;
+    const absentSessions = stu.absentSessions ?? (totalSessions > 0 ? totalSessions - attendedSessions : 0);
+    const percentage = stu.percentage ?? (totalSessions > 0 ? Number(((attendedSessions / totalSessions) * 100).toFixed(1)) : 0);
+    const status = stu.status || (totalSessions === 0 ? "No Data" : (percentage >= 85 ? "Good" : percentage >= 75 ? "Average" : "At-Risk"));
     return {
       ...stu,
       totalSessions,
       attendedSessions,
-      absentSessions: totalSessions - attendedSessions,
+      absentSessions,
       percentage,
       status,
     };
@@ -260,16 +319,18 @@ const AdminReports = () => {
   };
 
   // Calculate overall institutional attendance summary
-  const totalStudentsCount = attendanceData.length || 1;
-  const overallAvgAttendance = (attendanceData.reduce((acc, curr) => acc + curr.percentage, 0) / totalStudentsCount).toFixed(1);
+  const totalStudentsCount = attendanceData.length;
+  const overallAvgAttendance = totalStudentsCount > 0
+    ? (attendanceData.reduce((acc, curr) => acc + (curr.percentage || 0), 0) / totalStudentsCount).toFixed(1)
+    : "0.0";
   const atRiskStudentsCount = attendanceData.filter(s => s.status === "At-Risk").length;
 
   // Calculate overall exam results summary
-  const totalExamResults = semesterResults.length || 1;
+  const totalExamResults = semesterResults.length;
   const passedExamCount = semesterResults.filter(r => (r.result_status || "").toLowerCase() === "pass").length;
-  const passPercentage = ((passedExamCount / totalExamResults) * 100).toFixed(1);
-  const avgSGPA = (semesterResults.reduce((acc, curr) => acc + (curr.sgpa || 0), 0) / totalExamResults).toFixed(2);
-  const avgCGPA = (semesterResults.reduce((acc, curr) => acc + (curr.cgpa || 0), 0) / totalExamResults).toFixed(2);
+  const passPercentage = totalExamResults > 0 ? ((passedExamCount / totalExamResults) * 100).toFixed(1) : "0.0";
+  const avgSGPA = totalExamResults > 0 ? (semesterResults.reduce((acc, curr) => acc + (curr.sgpa || 0), 0) / totalExamResults).toFixed(2) : "0.00";
+  const avgCGPA = totalExamResults > 0 ? (semesterResults.reduce((acc, curr) => acc + (curr.cgpa || 0), 0) / totalExamResults).toFixed(2) : "0.00";
 
   // Filter students based on search and selected program/semester
   const filteredAttendance = attendanceData.filter((stu) => {

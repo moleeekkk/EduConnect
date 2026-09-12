@@ -10,11 +10,21 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class AdminService {
 
+    private final StudentRepository studentRepository;
+    private final TeacherRepository teacherRepository;
+    private final AdminRepository adminRepository;
+    private final CourseRepository courseRepository;
+    private final ProgramRepository programRepository;
+    private final DepartmentRepository departmentRepository;
+    private final SystemSettingRepository systemSettingRepository;
+    private final WeeklyTestRepository weeklyTestRepository;
+    private final WeeklyTestResultRepository weeklyTestResultRepository;
     private final InstituteRepository instituteRepository;
     private final BatchRepository batchRepository;
     private final SemesterRepository semesterRepository;
@@ -300,48 +310,126 @@ public class AdminService {
     public Map<String, Object> getReports() {
         Map<String, Object> reports = new HashMap<>();
 
-        List<Student> students = studentRepository.findAll();
+        Map<UUID, Student> studentMap = studentRepository.findAll().stream()
+                .collect(Collectors.toMap(Student::getStudentId, s -> s, (s1, s2) -> s1));
+
+        Map<UUID, Department> deptMap = departmentRepository.findAll().stream()
+                .collect(Collectors.toMap(Department::getDepartmentId, d -> d, (d1, d2) -> d1));
+
+        Map<UUID, Semester> semMap = semesterRepository.findAll().stream()
+                .collect(Collectors.toMap(Semester::getSemesterId, s -> s, (s1, s2) -> s1));
+
+        // 1. Real Semester Results from DB
+        List<SemesterResult> dbResults = semesterResultRepository.findAll();
         List<Map<String, Object>> semesterResults = new ArrayList<>();
-        for (Student s : students) {
+        for (SemesterResult r : dbResults) {
+            Student s = studentMap.get(r.getStudentId());
+            if (s == null) continue;
+            Department d = deptMap.get(r.getDepartmentId());
+            Semester sem = semMap.get(r.getSemesterId());
+
             Map<String, Object> res = new HashMap<>();
-            res.put("semester_result_id", "res-" + (s.getStudentId() != null ? s.getStudentId().toString() : UUID.randomUUID().toString()));
+            res.put("semester_result_id", r.getResultId() != null ? r.getResultId().toString() : "");
+            res.put("id", r.getResultId() != null ? r.getResultId().toString() : "");
             res.put("student_id", s.getStudentId() != null ? s.getStudentId().toString() : "");
-            res.put("student_name", (s.getFirstName() + " " + s.getLastName()).trim());
+            res.put("student_name", ((s.getFirstName() != null ? s.getFirstName() : "") + " " + (s.getLastName() != null ? s.getLastName() : "")).trim());
             res.put("enrollment_no", s.getEnrollmentNo());
-            res.put("semester_id", s.getSemesterId() != null ? s.getSemesterId().toString() : "sem-001");
-            res.put("semester_number", 1);
-            res.put("semester_name", "Semester 1");
-            res.put("sgpa", 8.4);
-            res.put("cgpa", 8.2);
-            res.put("total_credits", 24);
-            res.put("result_status", "Pass");
+            res.put("department_id", d != null && d.getDepartmentId() != null ? d.getDepartmentId().toString() : "");
+            res.put("department_name", d != null ? d.getDepartmentName() : "Department");
+            res.put("semester_id", sem != null && sem.getSemesterId() != null ? sem.getSemesterId().toString() : "");
+            res.put("semester_number", sem != null ? sem.getSemesterNumber() : 1);
+            res.put("semester_name", sem != null ? sem.getSemesterName() : "Semester 1");
+            res.put("sgpa", r.getSgpa() != null ? r.getSgpa().doubleValue() : 0.0);
+            res.put("cgpa", r.getCgpa() != null ? r.getCgpa().doubleValue() : 0.0);
+            res.put("total_credits", r.getTotalCredits() != null ? r.getTotalCredits() : 0);
+            res.put("earned_credits", r.getEarnedCredits() != null ? r.getEarnedCredits() : 0);
+            res.put("total_marks", r.getTotalMarks() != null ? r.getTotalMarks().doubleValue() : 0.0);
+            res.put("obtained_marks", r.getObtainedMarks() != null ? r.getObtainedMarks().doubleValue() : 0.0);
+            res.put("percentage", r.getPercentage() != null ? r.getPercentage().doubleValue() : 0.0);
+            res.put("result_status", r.getResultStatus() != null ? r.getResultStatus() : "PASS");
+            res.put("is_published", Boolean.TRUE.equals(r.getIsPublished()));
             semesterResults.add(res);
         }
 
+        // 2. Real Weekly Exams
         List<WeeklyTest> tests = weeklyTestRepository.findAll();
         List<Map<String, Object>> weeklyExams = new ArrayList<>();
         for (WeeklyTest wt : tests) {
             Map<String, Object> map = new HashMap<>();
             map.put("weekly_exam_id", wt.getWeeklyTestId() != null ? wt.getWeeklyTestId().toString() : "");
+            map.put("id", wt.getWeeklyTestId() != null ? wt.getWeeklyTestId().toString() : "");
             map.put("title", wt.getTitle() != null ? wt.getTitle() : "");
             map.put("exam_date", wt.getTestDate() != null ? wt.getTestDate().toString() : "");
+            map.put("test_date", wt.getTestDate() != null ? wt.getTestDate().toString() : "");
             map.put("total_marks", wt.getTotalMarks() != null ? wt.getTotalMarks() : 25);
+            map.put("is_published", Boolean.TRUE.equals(wt.getIsPublished()));
             weeklyExams.add(map);
         }
 
+        // 3. Real Weekly Exam Results
         List<WeeklyTestResult> testResults = weeklyTestResultRepository.findAll();
         List<Map<String, Object>> weeklyExamResults = new ArrayList<>();
         for (WeeklyTestResult r : testResults) {
+            Student s = studentMap.get(r.getStudentId());
             Map<String, Object> map = new HashMap<>();
             map.put("weekly_exam_result_id", r.getWeeklyTestResultId() != null ? r.getWeeklyTestResultId().toString() : "");
+            map.put("id", r.getWeeklyTestResultId() != null ? r.getWeeklyTestResultId().toString() : "");
             map.put("weekly_exam_id", r.getWeeklyTestId() != null ? r.getWeeklyTestId().toString() : "");
+            map.put("weekly_test_id", r.getWeeklyTestId() != null ? r.getWeeklyTestId().toString() : "");
             map.put("student_id", r.getStudentId() != null ? r.getStudentId().toString() : "");
+            if (s != null) {
+                map.put("student_name", ((s.getFirstName() != null ? s.getFirstName() : "") + " " + (s.getLastName() != null ? s.getLastName() : "")).trim());
+                map.put("enrollment_no", s.getEnrollmentNo());
+            }
             map.put("obtained_marks", r.getObtainedMarks());
             map.put("grade", r.getGrade());
             map.put("remarks", r.getRemarks());
             weeklyExamResults.add(map);
         }
 
+        // 4. Attendance Summary per Student (single batch aggregate query)
+        List<Student> students = studentRepository.findAll();
+        List<AttendanceRecord> allRecords = attendanceRecordRepository.findAll();
+        Map<UUID, List<AttendanceRecord>> recordsByStudent = allRecords.stream()
+                .filter(r -> r.getStudentId() != null)
+                .collect(Collectors.groupingBy(AttendanceRecord::getStudentId));
+
+        List<Map<String, Object>> attendanceSummary = new ArrayList<>();
+        for (Student s : students) {
+            List<AttendanceRecord> recs = recordsByStudent.getOrDefault(s.getStudentId(), Collections.emptyList());
+            int totalSessions = recs.size();
+            int attendedSessions = (int) recs.stream().filter(r -> "Present".equalsIgnoreCase(r.getAttendanceStatus())).count();
+            int absentSessions = totalSessions - attendedSessions;
+            double percentage = totalSessions > 0 ? Math.round((double) attendedSessions / totalSessions * 1000.0) / 10.0 : 0.0;
+            String status = totalSessions == 0 ? "No Data" : (percentage >= 85.0 ? "Good" : (percentage >= 75.0 ? "Average" : "At-Risk"));
+
+            Department d = s.getDepartmentId() != null ? deptMap.get(s.getDepartmentId()) : null;
+            Semester sem = s.getSemesterId() != null ? semMap.get(s.getSemesterId()) : null;
+
+            Map<String, Object> attMap = new HashMap<>();
+            attMap.put("student_id", s.getStudentId() != null ? s.getStudentId().toString() : "");
+            attMap.put("id", s.getStudentId() != null ? s.getStudentId().toString() : "");
+            String fullName = ((s.getFirstName() != null ? s.getFirstName() : "") + " " + (s.getLastName() != null ? s.getLastName() : "")).trim();
+            attMap.put("student_name", fullName.isEmpty() ? "Student" : fullName);
+            attMap.put("name", fullName.isEmpty() ? "Student" : fullName);
+            attMap.put("enrollment_no", s.getEnrollmentNo());
+            attMap.put("enrollmentNo", s.getEnrollmentNo());
+            attMap.put("department_id", s.getDepartmentId() != null ? s.getDepartmentId().toString() : "");
+            attMap.put("department_name", d != null ? d.getDepartmentName() : "");
+            attMap.put("semester_id", s.getSemesterId() != null ? s.getSemesterId().toString() : "");
+            attMap.put("semester_number", sem != null ? sem.getSemesterNumber() : 1);
+            attMap.put("semester_name", sem != null ? sem.getSemesterName() : "");
+            attMap.put("batch_id", s.getBatchId() != null ? s.getBatchId().toString() : "");
+            attMap.put("totalSessions", totalSessions);
+            attMap.put("attendedSessions", attendedSessions);
+            attMap.put("absentSessions", absentSessions);
+            attMap.put("percentage", percentage);
+            attMap.put("status", status);
+
+            attendanceSummary.add(attMap);
+        }
+
+        reports.put("attendanceSummary", attendanceSummary);
         reports.put("semesterResults", semesterResults);
         reports.put("semesterResultDetails", Collections.emptyList());
         reports.put("weeklyExams", weeklyExams);
@@ -350,16 +438,37 @@ public class AdminService {
         return reports;
     }
 
+    private static final Set<String> ALLOWED_SETTINGS_KEYS = Set.of(
+            "system_name",
+            "otp_auth",
+            "auto_sync",
+            "pass_mark_threshold",
+            "max_file_upload_mb",
+            "academic_term_year"
+    );
+
     @Transactional(readOnly = true)
     public Map<String, Object> getSettings() {
         List<SystemSetting> list = systemSettingRepository.findAll();
         Map<String, Object> settings = new HashMap<>();
         for (SystemSetting s : list) {
-            settings.put(s.getSettingKey(), s.getSettingValue());
+            String key = s.getSettingKey();
+            if (key == null) continue;
+            String lowerKey = key.toLowerCase();
+            // Security: Keep SMTP/DB/JWT secrets out of generic settings read responses
+            if (lowerKey.contains("password") || lowerKey.contains("secret") || lowerKey.contains("token") || lowerKey.contains("smtp")) {
+                continue;
+            }
+            settings.put(key, s.getSettingValue());
         }
+
+        if (!settings.containsKey("system_name")) settings.put("system_name", "EduConnect Educational Management System");
         if (!settings.containsKey("otp_auth")) settings.put("otp_auth", "Active");
         if (!settings.containsKey("auto_sync")) settings.put("auto_sync", "Enabled");
-        if (!settings.containsKey("system_name")) settings.put("system_name", "EduConnect Educational Management System");
+        if (!settings.containsKey("pass_mark_threshold")) settings.put("pass_mark_threshold", "40");
+        if (!settings.containsKey("max_file_upload_mb")) settings.put("max_file_upload_mb", "10");
+        if (!settings.containsKey("academic_term_year")) settings.put("academic_term_year", "2026-2027");
+
         return settings;
     }
 
@@ -367,11 +476,13 @@ public class AdminService {
     public Map<String, Object> updateSettings(Map<String, Object> reqData) {
         if (reqData != null) {
             reqData.forEach((k, v) -> {
-                if (v != null) {
+                if (k != null && v != null && ALLOWED_SETTINGS_KEYS.contains(k.trim().toLowerCase())) {
+                    String cleanKey = k.trim().toLowerCase();
+                    String cleanVal = v.toString().trim();
                     SystemSetting s = SystemSetting.builder()
-                            .settingKey(k)
-                            .settingValue(v.toString())
-                            .description("System configuration setting")
+                            .settingKey(cleanKey)
+                            .settingValue(cleanVal)
+                            .description("System configuration setting: " + cleanKey)
                             .build();
                     systemSettingRepository.save(s);
                 }

@@ -1,0 +1,314 @@
+{
+	"info": {
+		"_postman_id": "e2c0411a-1d89-4c8d-b90e-850f28e21023",
+		"name": "EduConnect API Collection",
+		"description": "Complete Postman collection for EduConnect REST API endpoints across Auth, Admin, Teacher, and Student roles.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Admin Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"admin\",\n  \"password\": \"Admin@123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/admin-login",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "admin-login"]
+						}
+					}
+				},
+				{
+					"name": "Teacher Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"teacher.a@educonnect.com\",\n  \"password\": \"Teacher@123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/teacher-login",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "teacher-login"]
+						}
+					}
+				},
+				{
+					"name": "Student Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"enrollmentNumber\": \"STU2026001\",\n  \"password\": \"Student@123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/student-login",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "student-login"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Admin Portal",
+			"item": [
+				{
+					"name": "Get Admin Dashboard",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{adminToken}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/admin/dashboard",
+							"host": ["{{baseUrl}}"],
+							"path": ["admin", "dashboard"]
+						}
+					}
+				},
+				{
+					"name": "Get System Settings",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{adminToken}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/admin/settings",
+							"host": ["{{baseUrl}}"],
+							"path": ["admin", "settings"]
+						}
+					}
+				},
+				{
+					"name": "Update System Settings",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{adminToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"system_name\": \"EduConnect University Portal\",\n  \"pass_mark_threshold\": \"40\",\n  \"max_file_upload_mb\": \"10\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/admin/settings",
+							"host": ["{{baseUrl}}"],
+							"path": ["admin", "settings"]
+						}
+					}
+				},
+				{
+					"name": "Trigger Backup",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{adminToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"type\": \"DB_DUMP\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/admin/backup/trigger",
+							"host": ["{{baseUrl}}"],
+							"path": ["admin", "backup", "trigger"]
+						}
+					}
+				},
+				{
+					"name": "List Backups",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{adminToken}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/admin/backup/list",
+							"host": ["{{baseUrl}}"],
+							"path": ["admin", "backup", "list"]
+						}
+					}
+				},
+				{
+					"name": "Get Admin Reports",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{adminToken}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/admin/reports",
+							"host": ["{{baseUrl}}"],
+							"path": ["admin", "reports"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Teacher Portal",
+			"item": [
+				{
+					"name": "Get Teacher Dashboard",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{teacherAToken}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/teacher/dashboard",
+							"host": ["{{baseUrl}}"],
+							"path": ["teacher", "dashboard"]
+						}
+					}
+				},
+				{
+					"name": "Get Teaching Schedule",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{teacherAToken}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/teacher/timetable",
+							"host": ["{{baseUrl}}"],
+							"path": ["teacher", "timetable"]
+						}
+					}
+				},
+				{
+					"name": "Record Attendance",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{teacherAToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"allocationId\": 1,\n  \"sessionDate\": \"2026-09-12\",\n  \"records\": [\n    {\n      \"studentId\": 1,\n      \"status\": \"PRESENT\"\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/teacher/attendance",
+							"host": ["{{baseUrl}}"],
+							"path": ["teacher", "attendance"]
+						}
+					}
+				},
+				{
+					"name": "Post Notice",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{teacherAToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Assignment 2 Reminder\",\n  \"description\": \"Please submit Assignment 2 before midnight.\",\n  \"targetRole\": \"STUDENT\",\n  \"batchId\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/teacher/notices",
+							"host": ["{{baseUrl}}"],
+							"path": ["teacher", "notices"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Student Portal",
+			"item": [
+				{
+					"name": "Get Student Dashboard",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{studentA1Token}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/student/dashboard",
+							"host": ["{{baseUrl}}"],
+							"path": ["student", "dashboard"]
+						}
+					}
+				},
+				{
+					"name": "Get Student Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{studentA1Token}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/student/profile",
+							"host": ["{{baseUrl}}"],
+							"path": ["student", "profile"]
+						}
+					}
+				},
+				{
+					"name": "Get Student Marksheet",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{studentA1Token}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/student/marksheet",
+							"host": ["{{baseUrl}}"],
+							"path": ["student", "marksheet"]
+						}
+					}
+				},
+				{
+					"name": "Get Student Timetable",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{studentA1Token}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/student/timetable",
+							"host": ["{{baseUrl}}"],
+							"path": ["student", "timetable"]
+						}
+					}
+				},
+				{
+					"name": "Get Digital ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{studentA1Token}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/student/digital-id",
+							"host": ["{{baseUrl}}"],
+							"path": ["student", "digital-id"]
+						}
+					}
+				}
+			]
+		}
+	]
+}

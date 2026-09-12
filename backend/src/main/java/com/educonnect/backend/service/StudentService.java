@@ -24,6 +24,7 @@ import com.educonnect.backend.entity.WeeklyTestResult;
 import com.educonnect.backend.repository.WeeklyTestRepository;
 import com.educonnect.backend.repository.WeeklyTestResultRepository;
 import com.educonnect.backend.repository.NoticeRepository;
+import com.educonnect.backend.repository.SemesterResultRepository;
 
 
 import com.educonnect.backend.entity.AttendanceRecord;
@@ -49,7 +50,118 @@ public class StudentService {
     private final AssignmentSubmissionRepository submissionRepository;
     private final WeeklyTestRepository weeklyTestRepository;
     private final WeeklyTestResultRepository weeklyTestResultRepository;
+    private final NoticeRepository noticeRepository;
     private final SemesterResultRepository semesterResultRepository;
+
+    @Transactional(readOnly = true)
+    public List<Student> getAllStudents() {
+        return studentRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Student> getStudentById(UUID id) {
+        return studentRepository.findById(id);
+    }
+
+    @Transactional
+    public Student createStudent(Student student) {
+        student.setStudentId(null); // Ensure Hibernate performs INSERT with generated UUID
+        if (student.getIsActive() == null) {
+            student.setIsActive(true);
+        }
+        if (student.getFirstName() == null || student.getFirstName().trim().isEmpty()) {
+            student.setFirstName("Student");
+        }
+        if (student.getLastName() == null) {
+            student.setLastName("");
+        }
+        if (student.getEnrollmentNo() == null || student.getEnrollmentNo().trim().isEmpty()) {
+            student.setEnrollmentNo("25CI" + (System.currentTimeMillis() % 100000));
+        } else if (studentRepository.existsByEnrollmentNo(student.getEnrollmentNo())) {
+            student.setEnrollmentNo(student.getEnrollmentNo() + "-" + (System.currentTimeMillis() % 1000));
+        }
+        if (student.getEmail() == null || student.getEmail().trim().isEmpty()) {
+            student.setEmail("student" + (System.currentTimeMillis() % 10000) + "@educonnect.ac.in");
+        } else if (studentRepository.findByEmail(student.getEmail()).isPresent()) {
+            String email = student.getEmail();
+            int atIdx = email.indexOf("@");
+            if (atIdx > 0) {
+                student.setEmail(email.substring(0, atIdx) + "+" + (System.currentTimeMillis() % 10000) + email.substring(atIdx));
+            } else {
+                student.setEmail("student" + (System.currentTimeMillis() % 10000) + "@educonnect.ac.in");
+            }
+        }
+        if (student.getMobile() == null) student.setMobile("N/A");
+        if (student.getGender() == null) student.setGender("Male");
+        if (student.getAddress() == null) student.setAddress("");
+
+        // Validate Foreign Keys to prevent FK Constraint Exceptions
+        if (student.getInstituteId() != null && !instituteRepository.existsById(student.getInstituteId())) {
+            student.setInstituteId(null);
+        }
+        if (student.getDepartmentId() != null && !departmentRepository.existsById(student.getDepartmentId())) {
+            student.setDepartmentId(null);
+        }
+        if (student.getSemesterId() != null && !semesterRepository.existsById(student.getSemesterId())) {
+            student.setSemesterId(null);
+        }
+        if (student.getBatchId() != null && !batchRepository.existsById(student.getBatchId())) {
+            student.setBatchId(null);
+        }
+
+        if (student.getCreatedAt() == null) student.setCreatedAt(java.time.LocalDateTime.now());
+        student.setUpdatedAt(java.time.LocalDateTime.now());
+
+        return studentRepository.save(student);
+    }
+
+    @Transactional
+    public Student updateStudent(UUID id, Student updated) {
+        return studentRepository.findById(id).map(existing -> {
+            if (updated.getEnrollmentNo() != null) existing.setEnrollmentNo(updated.getEnrollmentNo());
+            if (updated.getFirstName() != null) existing.setFirstName(updated.getFirstName());
+            if (updated.getLastName() != null) existing.setLastName(updated.getLastName());
+            if (updated.getSurname() != null) existing.setSurname(updated.getSurname());
+            if (updated.getEmail() != null) existing.setEmail(updated.getEmail());
+            if (updated.getMobile() != null) existing.setMobile(updated.getMobile());
+            if (updated.getGender() != null) existing.setGender(updated.getGender());
+            if (updated.getDateOfBirth() != null) existing.setDateOfBirth(updated.getDateOfBirth());
+            if (updated.getAddress() != null) existing.setAddress(updated.getAddress());
+            if (updated.getProfilePhoto() != null) existing.setProfilePhoto(updated.getProfilePhoto());
+
+            if (updated.getInstituteId() != null) {
+                existing.setInstituteId(instituteRepository.existsById(updated.getInstituteId()) ? updated.getInstituteId() : null);
+            }
+            if (updated.getDepartmentId() != null) {
+                existing.setDepartmentId(departmentRepository.existsById(updated.getDepartmentId()) ? updated.getDepartmentId() : null);
+            }
+            if (updated.getSemesterId() != null) {
+                existing.setSemesterId(semesterRepository.existsById(updated.getSemesterId()) ? updated.getSemesterId() : null);
+            }
+            if (updated.getBatchId() != null) {
+                existing.setBatchId(batchRepository.existsById(updated.getBatchId()) ? updated.getBatchId() : null);
+            }
+
+            if (updated.getParentName() != null) existing.setParentName(updated.getParentName());
+            if (updated.getParentMobile() != null) existing.setParentMobile(updated.getParentMobile());
+            if (updated.getParentEmail() != null) existing.setParentEmail(updated.getParentEmail());
+            if (updated.getBloodGroup() != null) existing.setBloodGroup(updated.getBloodGroup());
+            if (updated.getAdmissionDate() != null) existing.setAdmissionDate(updated.getAdmissionDate());
+            if (updated.getIsActive() != null) existing.setIsActive(updated.getIsActive());
+            existing.setUpdatedAt(java.time.LocalDateTime.now());
+            return studentRepository.save(existing);
+        }).orElseGet(() -> {
+            updated.setStudentId(id);
+            if (updated.getCreatedAt() == null) updated.setCreatedAt(java.time.LocalDateTime.now());
+            if (updated.getUpdatedAt() == null) updated.setUpdatedAt(java.time.LocalDateTime.now());
+            return studentRepository.save(updated);
+        });
+    }
+
+    @Transactional
+    public void deleteStudent(UUID id) {
+        studentRepository.deleteById(id);
+    }
 
     public Map<String, Object> getStudentDashboard(String studentIdOrEnrollment) {
         Map<String, Object> data = new HashMap<>();

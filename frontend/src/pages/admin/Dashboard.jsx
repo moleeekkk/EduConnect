@@ -33,14 +33,20 @@ const AdminDashboard = () => {
         ]);
         setStatsData({
           totalStudents:
-            dashRes?.totalStudents ||
+            dashRes?.totalStudents ??
             (Array.isArray(dashRes?.students) ? dashRes.students.length : 0),
           totalFaculty:
-            dashRes?.totalFaculty ||
+            dashRes?.totalFaculty ??
             (Array.isArray(dashRes?.faculty) ? dashRes.faculty.length : 0),
-          activeInstitutes: Array.isArray(instRes) ? instRes.length : 0,
-          activePrograms: Array.isArray(progRes) ? progRes.length : 0,
-          activeBatches: Array.isArray(batchRes) ? batchRes.length : 0,
+          activeInstitutes:
+            dashRes?.activeInstitutes ??
+            (Array.isArray(instRes) ? instRes.length : 0),
+          activePrograms:
+            dashRes?.activePrograms ??
+            (Array.isArray(progRes) ? progRes.length : 0),
+          activeBatches:
+            dashRes?.activeBatches ??
+            (Array.isArray(batchRes) ? batchRes.length : 0),
         });
       } catch (err) {
         console.log("Dashboard fetch error:", err);

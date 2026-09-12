@@ -500,6 +500,10 @@ export const adminApi = {
     handleRequest(() => api.get("/admin/settings"), {}),
   updateSystemSettings: (data) =>
     handleMutationRequest(() => api.put("/admin/settings", data)),
+  triggerBackup: (type = "ALL") =>
+    handleMutationRequest(() => api.post("/admin/backup/trigger", { type })),
+  getBackups: () =>
+    handleRequest(() => api.get("/admin/backup/list"), []),
   getBatches: () =>
     handleRequest(() => api.get("/admin/batches"), []),
   createBatch: (data) =>
