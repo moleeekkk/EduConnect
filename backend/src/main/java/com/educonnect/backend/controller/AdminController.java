@@ -280,4 +280,19 @@ public class AdminController {
         teacherService.deleteTeacherSubject(id);
         return ResponseEntity.ok(Map.of("message", "Teacher subject allocation removed successfully"));
     }
+
+    @GetMapping("/reports")
+    public ResponseEntity<Map<String, Object>> getReports() {
+        return ResponseEntity.ok(adminService.getReports());
+    }
+
+    @GetMapping("/settings")
+    public ResponseEntity<Map<String, Object>> getSystemSettings() {
+        return ResponseEntity.ok(adminService.getSystemSettings());
+    }
+
+    @PutMapping("/settings")
+    public ResponseEntity<Map<String, Object>> updateSystemSettings(@RequestBody Map<String, Object> reqData) {
+        return ResponseEntity.ok(adminService.updateSystemSettings(reqData));
+    }
 }

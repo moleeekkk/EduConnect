@@ -101,15 +101,48 @@ const TeacherParentEmail = () => {
     }
   }, [sendMode, selectedStudent, emailType, students.length]);
 
-  const handleSendEmail = (e) => {
+  const [sending, setSending] = useState(false);
+
+  const handleSendEmail = async (e) => {
     e.preventDefault();
-    if (sendMode === "all") {
-      setBatchCount(students.length);
-    } else {
-      setBatchCount(1);
+    setSending(true);
+
+    try {
+      if (sendMode === "all") {
+        setBatchCount(students.length);
+        const emailPromises = students.map((stu) => {
+          const recipientEmail = stu.parent_email || stu.email || "parent@gmail.com";
+          const studentName = `${stu.first_name || ""} ${stu.last_name || ""}`;
+          return teacherApi.sendParentEmail({
+            recipient_email: recipientEmail,
+            student_name: studentName,
+            subject: customSubject,
+            message: messageBody,
+          });
+        });
+        await Promise.all(emailPromises);
+        notifySuccess(`One-Click Batch Email Sent to ALL ${students.length} Students & Parents!`);
+      } else {
+        setBatchCount(1);
+        const recipientEmail = selectedStudent?.parent_email || selectedStudent?.email || "parent@gmail.com";
+        const studentName = `${selectedStudent?.first_name || ""} ${selectedStudent?.last_name || ""}`;
+        await teacherApi.sendParentEmail({
+          recipient_email: recipientEmail,
+          student_name: studentName,
+          subject: customSubject,
+          message: messageBody,
+        });
+        notifySuccess(`Email Dispatched to ${selectedStudent?.parent_name || "Parent"} (${recipientEmail})!`);
+      }
+      setSentSuccess(true);
+      setTimeout(() => setSentSuccess(false), 5000);
+    } catch (err) {
+      console.error("Error sending parent email:", err);
+      const msg = err.response?.data?.error || err.message || "Failed to dispatch email.";
+      notifyError(`Failed to send parent email: ${msg}`);
+    } finally {
+      setSending(false);
     }
-    setSentSuccess(true);
-    setTimeout(() => setSentSuccess(false), 5000);
   };
 
   return (
@@ -338,6 +371,7 @@ const TeacherParentEmail = () => {
                 variant="accent"
                 size="sm"
                 type="submit"
+                loading={sending}
                 icon={sendMode === "all" ? Users : Send}
                 className="text-xs"
               >

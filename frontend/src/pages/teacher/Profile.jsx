@@ -11,7 +11,7 @@ const TeacherProfile = () => {
 
   const [profile, setProfile] = useState({
     teacher_id: loggedUser?.userId || "teach-001",
-    employee_id: loggedUser?.identifier || "",
+    faculty_id: loggedUser?.identifier || "",
     first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : "Faculty",
     last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : "Member",
     email: loggedUser?.identifier || "teacher@educonnect.ac.in",
@@ -105,7 +105,7 @@ const TeacherProfile = () => {
               first_name: data.first_name || prev.first_name,
               last_name: data.last_name || prev.last_name,
               email: data.email || prev.email,
-              employee_id: data.employee_id || prev.employee_id,
+              faculty_id: data.faculty_id || data.facultyId || prev.faculty_id,
               teacher_id: data.teacher_id || prev.teacher_id,
             }));
           }
@@ -167,7 +167,7 @@ const TeacherProfile = () => {
               {profile.first_name} {profile.last_name}
             </h1>
             <p className="text-xs text-[#64748B] mt-0.5">
-              Employee ID: <strong className="text-[#14B8A6]">{profile.employee_id}</strong> • {profile.designation}
+              Faculty ID: <strong className="text-[#14B8A6]">{profile.faculty_id}</strong> • {profile.designation}
             </p>
           </div>
         </div>
@@ -221,8 +221,8 @@ const TeacherProfile = () => {
           )}
 
           <div>
-            <label className="block font-medium text-[#64748B] mb-1">Employee ID (employee_id)</label>
-            <input type="text" value={profile.employee_id} disabled className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-semibold text-[#1E293B]" />
+            <label className="block font-medium text-[#64748B] mb-1">Faculty ID (faculty_id)</label>
+            <input type="text" value={profile.faculty_id} disabled className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-semibold text-[#1E293B]" />
           </div>
 
           <div>

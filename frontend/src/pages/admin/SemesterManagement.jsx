@@ -34,8 +34,8 @@ const SemesterManagement = () => {
   const [editSem, setEditSem] = useState(null);
   const [semForm, setSemForm] = useState({
     department_id: "",
-    semester_number: 1,
-    semester_name: "Semester 1",
+    semester_number: 0,
+    semester_name: "",
     is_active: true,
   });
 
@@ -67,8 +67,8 @@ const SemesterManagement = () => {
 
     setSemForm({
       department_id: defaultDept,
-      semester_number: 1,
-      semester_name: "Semester 1",
+      semester_number: 0,
+      semester_name: "",
       is_active: true,
     });
     setShowModal(true);
@@ -79,7 +79,7 @@ const SemesterManagement = () => {
     const semDeptId = sem.department_id || sem.departmentId || "";
     setSemForm({
       department_id: semDeptId,
-      semester_number: sem.semester_number || sem.semesterNumber || 1,
+      semester_number: sem.semester_number || sem.semesterNumber,
       semester_name: sem.semester_name || sem.semesterName || "",
       is_active: sem.is_active !== undefined ? sem.is_active : (sem.isActive !== undefined ? sem.isActive : true),
     });
@@ -324,20 +324,17 @@ const SemesterManagement = () => {
           <table className="w-full text-left text-xs">
             <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#64748B] font-semibold">
               <tr>
-                <th className="p-3.5">S. N.</th>
                 <th className="p-3.5">Semester Name</th>
                 <th className="p-3.5">Semester Number</th>
                 <th className="p-3.5">Department</th>
                 <th className="p-3.5">Status</th>
-                <th className="p-3.5">Created At</th>
-                <th className="p-3.5">Updated At</th>
                 <th className="p-3.5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-[#64748B]">
+                  <td colSpan={5} className="p-8 text-center text-[#64748B]">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin text-[#2563EB]" />
                       <span>Loading semesters from database...</span>
@@ -346,7 +343,7 @@ const SemesterManagement = () => {
                 </tr>
               ) : filteredSemesters.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-[#64748B]">
+                  <td colSpan={5} className="p-8 text-center text-[#64748B]">
                     No semesters found in database. Click "Add New Semester" to create one.
                   </td>
                 </tr>
@@ -366,21 +363,14 @@ const SemesterManagement = () => {
 
                   return (
                     <tr key={semId} className="hover:bg-[#F8FAFC] transition-colors">
-                      <td className="p-3.5 font-bold text-[#64748B]">
-                        {idx + 1}
-                      </td>
-
                       <td className="p-3.5 font-extrabold text-[#1E293B]">{semName}</td>
 
                       <td className="p-3.5 font-mono font-bold text-[#2563EB]">
-                        <span className="bg-[#2563EB]/10 border border-[#2563EB]/20 px-2.5 py-0.5 rounded text-[11px]">
-                          Sem {semNum}
-                        </span>
+                        Sem {semNum}
                       </td>
 
                       <td className="p-3.5">
                         <div className="flex items-center gap-1.5">
-                          <Building2 className="w-3.5 h-3.5 text-[#2563EB]" />
                           <span className="font-semibold text-[#1E293B]">{deptName}</span>
                           <span className="text-[10px] font-mono text-[#64748B] bg-gray-100 px-1.5 py-0.5 rounded">
                             ({deptCode})
@@ -397,14 +387,6 @@ const SemesterManagement = () => {
                         >
                           {isActive ? "Active" : "Inactive"}
                         </span>
-                      </td>
-
-                      <td className="p-3.5 text-[#64748B] font-mono text-[11px]">
-                        {sem.created_at || sem.createdAt ? new Date(sem.created_at || sem.createdAt).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A"}
-                      </td>
-
-                      <td className="p-3.5 text-[#64748B] font-mono text-[11px]">
-                        {sem.updated_at || sem.updatedAt ? new Date(sem.updated_at || sem.updatedAt).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A"}
                       </td>
 
                       <td className="p-3.5 text-right whitespace-nowrap space-x-1">
@@ -441,91 +423,101 @@ const SemesterManagement = () => {
 
       {/* Add / Edit Semester Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xl w-full max-w-md p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <h2 className="text-lg font-bold text-[#1E293B]">
-              {editSem ? "Edit Semester" : "Add New Semester"}
-            </h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-auto max-h-[90vh] flex flex-col animate-fade-in text-xs">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3 shrink-0">
+              <h2 className="text-lg font-bold text-[#1E293B]">
+                {editSem ? "Edit Semester" : "Add New Semester"}
+              </h2>
+              <button
+                onClick={() => setShowModal(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-            <form onSubmit={handleSaveSemester} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">
-                  Department
-                </label>
-                <select
-                  required
-                  value={semForm.department_id}
-                  onChange={(e) => setSemForm({ ...semForm, department_id: e.target.value })}
-                  className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-semibold text-[#1E293B]"
-                >
-                  {departments.length === 0 ? (
-                    <option value="">No Departments Available</option>
-                  ) : (
-                    departments.map((d) => {
-                      const dId = d.department_id || d.departmentId;
-                      const dCode = d.department_code || d.departmentCode;
-                      const dName = d.department_name || d.departmentName;
-                      return (
-                        <option key={dId} value={dId}>
-                          {dName} ({dCode})
-                        </option>
-                      );
-                    })
-                  )}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleSaveSemester} className="flex flex-col grow overflow-hidden space-y-4">
+              <div className="overflow-y-auto pr-1 space-y-4 text-xs grow">
                 <div>
                   <label className="block text-[#64748B] mb-1 font-semibold">
-                    Semester Number
+                    Department
                   </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="12"
+                  <select
                     required
-                    value={semForm.semester_number}
-                    onChange={(e) => {
-                      const num = parseInt(e.target.value) || 1;
-                      setSemForm({
-                        ...semForm,
-                        semester_number: num,
-                        semester_name: semForm.semester_name === `Semester ${semForm.semester_number}` ? `Semester ${num}` : semForm.semester_name,
-                      });
-                    }}
-                    className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-mono font-bold text-[#2563EB]"
-                  />
+                    value={semForm.department_id}
+                    onChange={(e) => setSemForm({ ...semForm, department_id: e.target.value })}
+                    className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-semibold text-[#1E293B]"
+                  >
+                    {departments.length === 0 ? (
+                      <option value="">No Departments Available</option>
+                    ) : (
+                      departments.map((d) => {
+                        const dId = d.department_id || d.departmentId;
+                        const dCode = d.department_code || d.departmentCode;
+                        const dName = d.department_name || d.departmentName;
+                        return (
+                          <option key={dId} value={dId}>
+                            {dName} ({dCode})
+                          </option>
+                        );
+                      })
+                    )}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[#64748B] mb-1 font-semibold">
+                      Semester Number
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="12"
+                      required
+                      value={semForm.semester_number}
+                      onChange={(e) => {
+                        const num = parseInt(e.target.value) || 1;
+                        setSemForm({
+                          ...semForm,
+                          semester_number: num,
+                          semester_name: semForm.semester_name === `Semester ${semForm.semester_number}` ? `Semester ${num}` : semForm.semester_name,
+                        });
+                      }}
+                      className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-mono font-bold text-[#2563EB]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[#64748B] mb-1 font-semibold">Status</label>
+                    <select
+                      value={semForm.is_active ? "true" : "false"}
+                      onChange={(e) => setSemForm({ ...semForm, is_active: e.target.value === "true" })}
+                      className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-semibold"
+                    >
+                      <option value="true">Active</option>
+                      <option value="false">Inactive</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">Status</label>
-                  <select
-                    value={semForm.is_active ? "true" : "false"}
-                    onChange={(e) => setSemForm({ ...semForm, is_active: e.target.value === "true" })}
-                    className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-semibold"
-                  >
-                    <option value="true">Active</option>
-                    <option value="false">Inactive</option>
-                  </select>
+                  <label className="block text-[#64748B] mb-1 font-semibold">
+                    Semester Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={semForm.semester_name}
+                    onChange={(e) => setSemForm({ ...semForm, semester_name: e.target.value })}
+                    placeholder="e.g. Semester 1, Term 1"
+                    className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-extrabold text-[#1E293B]"
+                  />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">
-                  Semester Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={semForm.semester_name}
-                  onChange={(e) => setSemForm({ ...semForm, semester_name: e.target.value })}
-                  placeholder="e.g. Semester 1, Term 1"
-                  className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-extrabold text-[#1E293B]"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#E2E8F0] shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
@@ -562,64 +554,101 @@ const SemesterManagement = () => {
 
       {/* View Semester Details Modal */}
       {viewSem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-8 animate-fade-in text-xs">
-            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-              <h3 className="text-base font-bold text-[#1E293B] flex items-center gap-2">
-                <Layers className="w-5 h-5 text-[#2563EB]" /> Semester Details
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-auto max-h-[90vh] flex flex-col animate-fade-in text-xs">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-4 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-[#2563EB]/10 text-[#2563EB]">
+                  <Layers className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-extrabold text-[#1E293B]">Semester Information</h3>
+                  <p className="text-xs text-[#64748B]">Complete details of configured semester</p>
+                </div>
+              </div>
               <button
                 onClick={() => setViewSem(null)}
-                className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
+                className="p-2 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
                 title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-3">
-              <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] flex items-center justify-between">
-                <span className="text-xs text-[#64748B] font-bold uppercase tracking-wider">Status</span>
-                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${(viewSem.is_active ?? viewSem.isActive ?? true) ? "bg-[#22C55E]/10 text-[#22C55E]" : "bg-gray-200 text-gray-600"}`}>
-                  {(viewSem.is_active ?? viewSem.isActive ?? true) ? "Active" : "Inactive"}
-                </span>
-              </div>
-
-              <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
-                <span className="text-[10px] text-[#64748B] uppercase font-bold block">Semester Name & Number</span>
-                <p className="font-extrabold text-sm text-[#1E293B]">{viewSem.semester_name || viewSem.semesterName || "Semester"}</p>
-                <span className="font-mono text-[#2563EB] font-bold text-xs bg-[#2563EB]/10 px-2 py-0.5 rounded inline-block mt-1">
-                  Semester Number: {viewSem.semester_number || viewSem.semesterNumber || 1}
-                </span>
-              </div>
-
-              <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
-                <span className="text-[10px] text-[#64748B] uppercase font-bold block">Department</span>
-                <p className="font-bold text-[#1E293B]">{viewSem.deptName || "Unassigned Department"}</p>
-                {viewSem.deptCode && (
-                  <span className="font-mono text-xs text-[#64748B] bg-gray-100 px-1.5 py-0.5 rounded inline-block">
-                    Code: {viewSem.deptCode}
+            {/* Scrollable Content */}
+            <div className="overflow-y-auto pr-1 space-y-4 text-xs grow">
+              {/* Top Banner Card */}
+              <div className="p-4 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
+                  <span className="px-3.5 py-1.5 rounded-lg bg-[#2563EB]/10 text-[#2563EB] font-mono font-bold text-xs border border-[#2563EB]/20">
+                    Semester Number: {viewSem.semester_number || viewSem.semesterNumber || 1}
                   </span>
-                )}
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${(viewSem.is_active ?? viewSem.isActive ?? true) ? "bg-[#22C55E]/10 text-[#22C55E]" : "bg-gray-200 text-gray-600"}`}>
+                    {(viewSem.is_active ?? viewSem.isActive ?? true) ? "● Active Semester" : "● Inactive Semester"}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-[10px] text-[#64748B] uppercase font-bold block mb-1">Semester Title</span>
+                  <p className="font-extrabold text-lg text-[#1E293B]">{viewSem.semester_name || viewSem.semesterName || "Semester"}</p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
-                  <span className="text-[10px] text-[#64748B] uppercase font-bold block">Created At</span>
-                  <p className="font-mono text-[11px] text-[#1E293B] font-medium pt-0.5">
-                    {viewSem.created_at || viewSem.createdAt ? new Date(viewSem.created_at || viewSem.createdAt).toLocaleString("en-IN") : "N/A"}
-                  </p>
+              {/* 2-Column Content Layout */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Left Column: Department Info */}
+                <div className="space-y-3">
+                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
+                    <span className="text-[10px] text-[#64748B] uppercase font-bold block">Department Name</span>
+                    <p className="font-extrabold text-sm text-[#1E293B]">{viewSem.deptName || "Unassigned Department"}</p>
+                    {viewSem.deptCode && (
+                      <span className="font-mono text-xs text-[#2563EB] bg-[#2563EB]/10 px-2 py-0.5 rounded inline-block mt-1">
+                        Code: {viewSem.deptCode}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
-                  <span className="text-[10px] text-[#64748B] uppercase font-bold block">Updated At</span>
-                  <p className="font-mono text-[11px] text-[#1E293B] font-medium pt-0.5">
-                    {viewSem.updated_at || viewSem.updatedAt ? new Date(viewSem.updated_at || viewSem.updatedAt).toLocaleString("en-IN") : "N/A"}
-                  </p>
+
+                {/* Right Column: Audit Timestamps */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                      <span className="text-[10px] text-[#64748B] uppercase font-bold block">Created At</span>
+                      <p className="font-mono text-[11px] text-[#1E293B] font-medium pt-0.5">
+                        {viewSem.created_at || viewSem.createdAt
+                          ? new Date(viewSem.created_at || viewSem.createdAt).toLocaleString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                          : "N/A"}
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                      <span className="text-[10px] text-[#64748B] uppercase font-bold block">Updated At</span>
+                      <p className="font-mono text-[11px] text-[#1E293B] font-medium pt-0.5">
+                        {viewSem.updated_at || viewSem.updatedAt
+                          ? new Date(viewSem.updated_at || viewSem.updatedAt).toLocaleString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                          : "N/A"}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end pt-2 border-t border-[#E2E8F0]">
+            {/* Footer */}
+            <div className="flex justify-end pt-3 border-t border-[#E2E8F0] shrink-0">
               <Button variant="outline" size="sm" onClick={() => setViewSem(null)}>
                 Close
               </Button>

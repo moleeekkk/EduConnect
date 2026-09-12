@@ -187,15 +187,13 @@ const AdminBatchManagement = () => {
                 <th className="p-3.5">Duration</th>
                 <th className="p-3.5">Status</th>
                 <th className="p-3.5">System Selection</th>
-                <th className="p-3.5">Created At</th>
-                <th className="p-3.5">Updated At</th>
                 <th className="p-3.5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-[#64748B]">
+                  <td colSpan={5} className="p-8 text-center text-[#64748B]">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="w-5 h-5 animate-spin text-[#2563EB]" />
                       <span>Fetching batches from database...</span>
@@ -204,7 +202,7 @@ const AdminBatchManagement = () => {
                 </tr>
               ) : filteredBatches.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-[#64748B]">
+                  <td colSpan={5} className="p-8 text-center text-[#64748B]">
                     No batches found in database. Click <strong>Add New Batch</strong> to create one.
                   </td>
                 </tr>
@@ -258,12 +256,6 @@ const AdminBatchManagement = () => {
                           </button>
                         )}
                       </td>
-                      <td className="p-3.5 text-[#64748B] font-mono text-[11px]">
-                        {batch.created_at || batch.createdAt ? new Date(batch.created_at || batch.createdAt).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A"}
-                      </td>
-                      <td className="p-3.5 text-[#64748B] font-mono text-[11px]">
-                        {batch.updated_at || batch.updatedAt ? new Date(batch.updated_at || batch.updatedAt).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A"}
-                      </td>
                       <td className="p-3.5 text-right space-x-1">
                         <button
                           onClick={() => handleOpenEdit(batch)}
@@ -291,11 +283,11 @@ const AdminBatchManagement = () => {
 
       {/* Add / Edit Batch Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-[#E2E8F0] animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-auto max-h-[90vh] flex flex-col animate-fade-in text-xs">
             {/* Modal Header */}
-            <div className="p-5 border-b border-[#E2E8F0] flex items-center justify-between bg-[#F8FAFC]">
-              <h2 className="text-sm font-bold text-[#1E293B]">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3 shrink-0">
+              <h2 className="text-base font-bold text-[#1E293B]">
                 {editBatchItem ? "Edit Batch Configuration" : "Add New Batch"}
               </h2>
               <button
@@ -307,70 +299,72 @@ const AdminBatchManagement = () => {
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleSubmit} className="p-5 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-[#1E293B] mb-1">Batch Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. MCA 2024-2026 or Batch 2024"
-                  value={formData.batch_name}
-                  onChange={(e) => setFormData({ ...formData, batch_name: e.target.value })}
-                  className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs text-[#1E293B] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all font-medium"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleSubmit} className="flex flex-col grow overflow-hidden space-y-4">
+              <div className="overflow-y-auto pr-1 space-y-4 text-xs grow">
                 <div>
-                  <label className="block text-xs font-bold text-[#1E293B] mb-1">Start Year *</label>
-                  <select
+                  <label className="block text-xs font-bold text-[#1E293B] mb-1">Batch Name *</label>
+                  <input
+                    type="text"
                     required
-                    value={formData.start_year}
-                    onChange={(e) => handleStartYearChange(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs text-[#1E293B] outline-none focus:border-[#2563EB] transition-all font-medium cursor-pointer"
-                  >
-                    {yearOptions.map((y) => (
-                      <option key={y} value={y}>
-                        {y}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="e.g. MCA 2024-2026 or Batch 2024"
+                    value={formData.batch_name}
+                    onChange={(e) => setFormData({ ...formData, batch_name: e.target.value })}
+                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs text-[#1E293B] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all font-medium"
+                  />
                 </div>
 
-                <div>
-                  <label className="block text-[#1E293B] text-xs font-bold mb-1">End Year *</label>
-                  <select
-                    required
-                    value={formData.end_year}
-                    onChange={(e) => setFormData({ ...formData, end_year: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs text-[#1E293B] outline-none focus:border-[#2563EB] transition-all font-medium cursor-pointer"
-                  >
-                    {yearOptions
-                      .filter((y) => y >= parseInt(formData.start_year))
-                      .map((y) => (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-[#1E293B] mb-1">Start Year *</label>
+                    <select
+                      required
+                      value={formData.start_year}
+                      onChange={(e) => handleStartYearChange(e.target.value)}
+                      className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs text-[#1E293B] outline-none focus:border-[#2563EB] transition-all font-medium cursor-pointer"
+                    >
+                      {yearOptions.map((y) => (
                         <option key={y} value={y}>
                           {y}
                         </option>
                       ))}
-                  </select>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[#1E293B] text-xs font-bold mb-1">End Year *</label>
+                    <select
+                      required
+                      value={formData.end_year}
+                      onChange={(e) => setFormData({ ...formData, end_year: parseInt(e.target.value) })}
+                      className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs text-[#1E293B] outline-none focus:border-[#2563EB] transition-all font-medium cursor-pointer"
+                    >
+                      {yearOptions
+                        .filter((y) => y >= parseInt(formData.start_year))
+                        .map((y) => (
+                          <option key={y} value={y}>
+                            {y}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="is_active"
+                    checked={formData.is_active}
+                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                    className="w-4 h-4 text-[#2563EB] rounded border-[#E2E8F0] focus:ring-[#2563EB] cursor-pointer"
+                  />
+                  <label htmlFor="is_active" className="text-xs font-semibold text-[#1E293B] cursor-pointer">
+                    Mark Batch as Active
+                  </label>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="is_active"
-                  checked={formData.is_active}
-                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                  className="w-4 h-4 text-[#2563EB] rounded border-[#E2E8F0] focus:ring-[#2563EB] cursor-pointer"
-                />
-                <label htmlFor="is_active" className="text-xs font-semibold text-[#1E293B] cursor-pointer">
-                  Mark Batch as Active
-                </label>
-              </div>
-
               {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#E2E8F0]">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#E2E8F0] shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}

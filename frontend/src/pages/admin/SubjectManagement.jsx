@@ -103,12 +103,16 @@ const AdminSubjectManagement = () => {
     if (!semId) return "Semester 1";
     const sem = semesters.find(
       (s) =>
-        String(s.semester_id || s.semesterId || s.id) === String(semId) ||
+        String(s.semester_id || s.semesterId || s.id).toLowerCase() ===
+          String(semId).toLowerCase() ||
         String(s.semester_number || s.number) === String(semId)
     );
     if (sem)
       return sem.semester_name || `Semester ${sem.semester_number || sem.number}`;
-    return `Semester ${semId}`;
+    if (!isNaN(semId) && String(semId).length <= 2) {
+      return `Semester ${semId}`;
+    }
+    return "Semester 1";
   };
 
   // Filter available semesters based on selected department
@@ -587,9 +591,9 @@ const AdminSubjectManagement = () => {
 
       {/* Add / Edit Subject Modal with Semester Selection */}
       {showSubjectModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-xl border border-[#E2E8F0] space-y-4 my-8 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-auto max-h-[90vh] flex flex-col animate-fade-in text-xs">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3 shrink-0">
               <h3 className="text-base font-bold text-[#1E293B] flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-[#2563EB]" />
                 {editSubject ? "Edit Subject Information" : "Add Subject for Particular Semester"}
@@ -603,7 +607,8 @@ const AdminSubjectManagement = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSaveSubject} className="space-y-3.5 text-xs">
+            <form onSubmit={handleSaveSubject} className="flex flex-col grow overflow-hidden space-y-4">
+              <div className="overflow-y-auto pr-1 space-y-4 text-xs grow">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Department Selection */}
                 <div>
@@ -799,9 +804,10 @@ const AdminSubjectManagement = () => {
                   Active Subject (Visible in curriculum and timetable)
                 </label>
               </div>
+              </div>
 
               {/* Modal Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#E2E8F0]">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#E2E8F0] shrink-0">
                 <Button
                   variant="outline"
                   size="sm"
@@ -821,92 +827,123 @@ const AdminSubjectManagement = () => {
 
       {/* View Subject Info Modal */}
       {viewSubject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-[#E2E8F0] space-y-4 my-8">
-            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-              <h3 className="text-base font-bold text-[#1E293B] flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-[#2563EB]" /> Complete Subject Info
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-auto max-h-[90vh] flex flex-col animate-fade-in text-xs">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-4 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-[#2563EB]/10 text-[#2563EB]">
+                  <BookOpen className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-extrabold text-[#1E293B]">Subject Information</h3>
+                  <p className="text-xs text-[#64748B]">Complete details of academic subject</p>
+                </div>
+              </div>
               <button
                 onClick={() => setViewSubject(null)}
-                className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
+                className="p-2 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
                 title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-[#2563EB] font-bold text-xs bg-[#2563EB]/10 px-2.5 py-0.5 rounded border border-[#2563EB]/20">
-                    Code: {viewSubject.subject_code || viewSubject.code}
+            {/* Scrollable Content */}
+            <div className="overflow-y-auto pr-1 space-y-4 text-xs grow">
+              {/* Top Banner Card */}
+              <div className="p-4 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
+                  <span className="px-3.5 py-1.5 rounded-lg bg-[#2563EB]/10 text-[#2563EB] font-mono font-bold text-xs border border-[#2563EB]/20">
+                    Subject Code: {viewSubject.subject_code || viewSubject.code}
                   </span>
                   <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    className={`px-3 py-1 rounded-full text-xs font-bold ${
                       viewSubject.is_active !== false && viewSubject.isActive !== false
                         ? "bg-[#22C55E]/10 text-[#22C55E]"
                         : "bg-[#EF4444]/10 text-[#EF4444]"
                     }`}
                   >
                     {viewSubject.is_active !== false && viewSubject.isActive !== false
-                      ? "Active Subject"
-                      : "Inactive"}
+                      ? "● Active Subject"
+                      : "● Inactive Subject"}
                   </span>
                 </div>
-                <h4 className="text-base font-extrabold text-[#1E293B] pt-1">
-                  {viewSubject.subject_name || viewSubject.name}
-                </h4>
-              </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">
-                    Department
-                  </span>
-                  <p className="font-bold text-[#1E293B]">
-                    {getDepartmentCode(
-                      viewSubject.department_id ||
-                        viewSubject.departmentId ||
-                        viewSubject.program_id
-                    )}
-                  </p>
-                </div>
-                <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">
-                    Enrolled Semester
-                  </span>
-                  <p className="font-bold text-[#14B8A6]">
-                    {getSemesterLabel(viewSubject.semester_id || viewSubject.semesterId)}
-                  </p>
-                </div>
-                <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">
-                    Credits
-                  </span>
-                  <p className="font-bold text-[#F59E0B]">
-                    {viewSubject.credits || 4} Credits
-                  </p>
-                </div>
-                <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">
-                    Subject Type
-                  </span>
-                  <p className="font-semibold text-[#1E293B]">
-                    {viewSubject.subject_type || "Core Theory"}
-                  </p>
+                <div>
+                  <span className="text-[10px] text-[#64748B] uppercase font-bold block mb-1">Subject Name</span>
+                  <h4 className="text-lg font-extrabold text-[#1E293B]">
+                    {viewSubject.subject_name || viewSubject.name}
+                  </h4>
                 </div>
               </div>
 
-              <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-1">
-                <span className="text-[10px] text-[#64748B] font-bold block uppercase">
-                  Syllabus & Course Objectives
-                </span>
-                <p className="text-[#64748B] leading-relaxed">
-                  {viewSubject.description ||
-                    "Comprehensive subject curriculum covering theoretical principles, practical assignments, and exam preparation."}
-                </p>
+              {/* 2-Column Content Layout */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Left Column: Academic Metadata */}
+                <div className="space-y-3">
+                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                      Department
+                    </span>
+                    <p className="font-extrabold text-sm text-[#1E293B]">
+                      {getDepartmentCode(
+                        viewSubject.department_id ||
+                          viewSubject.departmentId ||
+                          viewSubject.program_id
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                      Enrolled Semester
+                    </span>
+                    <p className="font-extrabold text-sm text-[#14B8A6]">
+                      {getSemesterLabel(viewSubject.semester_id || viewSubject.semesterId)}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
+                      <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                        Credits
+                      </span>
+                      <p className="font-extrabold text-sm text-[#F59E0B]">
+                        {viewSubject.credits || 4} Credits
+                      </p>
+                    </div>
+                    <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
+                      <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                        Subject Type
+                      </span>
+                      <p className="font-extrabold text-sm text-[#1E293B]">
+                        {viewSubject.subject_type || "Core Theory"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Syllabus & Course Objectives */}
+                <div className="space-y-3">
+                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1 min-h-[140px]">
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                      Syllabus & Course Objectives
+                    </span>
+                    <p className="text-[#334155] leading-relaxed text-xs pt-1">
+                      {viewSubject.description ||
+                        "Comprehensive subject curriculum covering theoretical principles, practical assignments, and exam preparation."}
+                    </p>
+                  </div>
+                </div>
               </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end pt-3 border-t border-[#E2E8F0] shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setViewSubject(null)}>
+                Close
+              </Button>
             </div>
           </div>
         </div>

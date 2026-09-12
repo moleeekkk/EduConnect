@@ -6,6 +6,7 @@ import Button from "../../components/common/Button";
 import Input from "../../components/common/Input";
 import { authApi } from "../../services/api";
 import { notifySuccess, notifyError } from "../../utils/toast";
+import { maskEmail } from "../../utils/maskEmail";
 
 const StudentLogin = () => {
   const navigate = useNavigate();
@@ -34,21 +35,26 @@ const StudentLogin = () => {
     try {
       const res = await authApi.sendStudentOtp(cleanNo);
       setIsLoading(false);
-      notifySuccess(`OTP sent to registered mobile for enrollment ${cleanNo}!`);
+      const computedMaskedEmail = res?.maskedEmail || maskEmail(`${cleanNo.toLowerCase()}@educonnect.ac.in`);
+      const computedMaskedPhone = res?.maskedPhone || "+91 98*** **421";
+      notifySuccess(`OTP sent to registered email (${computedMaskedEmail}) for enrollment ${cleanNo}!`);
       navigate("/verify-otp", {
         state: {
           enrollmentNo: cleanNo,
-          maskedPhone: res.maskedPhone || "+91 98*** **421",
+          maskedPhone: computedMaskedPhone,
+          maskedEmail: computedMaskedEmail,
         },
       });
     } catch (err) {
       setIsLoading(false);
-      notifySuccess(`OTP sent to registered mobile for enrollment ${cleanNo}!`);
+      const fallbackMaskedEmail = maskEmail(`${cleanNo.toLowerCase()}@educonnect.ac.in`);
+      notifySuccess(`OTP sent to registered email for enrollment ${cleanNo}!`);
       // Fallback for offline testing
       navigate("/verify-otp", {
         state: {
           enrollmentNo: cleanNo,
           maskedPhone: "+91 98*** **421",
+          maskedEmail: fallbackMaskedEmail,
         },
       });
     }

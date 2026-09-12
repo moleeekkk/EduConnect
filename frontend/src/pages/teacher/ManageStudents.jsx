@@ -83,8 +83,7 @@ const TeacherManageStudents = () => {
     // 3. Semester Filter
     const matchesSem =
       selectedSem === "all" ||
-      (stu.semester_id && String(stu.semester_id) === String(selectedSem)) ||
-      (stu.semester_no && String(stu.semester_no) === String(selectedSem));
+      (stu.semester_id && String(stu.semester_id) === String(selectedSem));
 
     // 4. Gender Filter
     const matchesGender =
@@ -180,8 +179,8 @@ const TeacherManageStudents = () => {
                   : `Semesters for Dept (${availableSemesters.length})`}
               </option>
               {availableSemesters.map((sem) => {
-                const id = sem.semester_id || sem.id || sem.semesterId || sem.semester_no || sem.semesterNo || sem.semester_number || sem.semesterNumber;
-                const name = sem.semester_name || sem.name || (sem.semester_number ? `Semester ${sem.semester_number}` : sem.semester_no ? `Semester ${sem.semester_no}` : `Semester ${id}`);
+                const id = sem.semester_id || sem.id || sem.semesterId || sem.semester_number || sem.semesterNumber;
+                const name = sem.semester_name || sem.name || (sem.semester_number ? `Semester ${sem.semester_number}` : `Semester ${id}`);
                 return (
                   <option key={id || name} value={id || name}>
                     {name}

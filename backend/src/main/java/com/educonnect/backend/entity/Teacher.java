@@ -23,9 +23,10 @@ public class Teacher {
     @JsonProperty("teacher_id")
     private UUID teacherId;
 
-    @Column(name = "employee_id", length = 30)
-    @JsonProperty("employee_id")
-    private String employeeId;
+    @Column(name = "faculty_id", length = 50)
+    @JsonProperty("faculty_id")
+    private String facultyId;
+
 
     @Column(name = "first_name", nullable = false, length = 50)
     @JsonProperty("first_name")
@@ -47,7 +48,7 @@ public class Teacher {
     @JsonProperty("password")
     private String password;
 
-    @Column(name = "mobile", length = 15)
+    @Column(name = "mobile", length = 30)
     @JsonProperty("mobile")
     private String mobile;
 
@@ -105,8 +106,8 @@ public class Teacher {
         if (password == null || password.trim().isEmpty()) {
             password = "teacher123";
         }
-        if (employeeId == null) {
-            employeeId = "";
+        if (facultyId == null) {
+            facultyId = "";
         }
         if (lastName == null) {
             lastName = "";

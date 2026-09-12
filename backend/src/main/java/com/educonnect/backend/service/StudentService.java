@@ -38,6 +38,10 @@ public class StudentService {
     private final AssignmentSubmissionRepository submissionRepository;
     private final WeeklyTestRepository weeklyTestRepository;
     private final WeeklyTestResultRepository weeklyTestResultRepository;
+    private final com.educonnect.backend.repository.LeaveRequestRepository leaveRequestRepository;
+    private final com.educonnect.backend.repository.StudentDoubtRepository studentDoubtRepository;
+    private final com.educonnect.backend.repository.StudyMaterialRepository studyMaterialRepository;
+    private final com.educonnect.backend.repository.QuizRepository quizRepository;
 
     @Transactional(readOnly = true)
     public List<Student> getAllStudents() {
@@ -509,5 +513,175 @@ public class StudentService {
         response.put("exams", testList);
         response.put("results", resultList);
         return response;
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.educonnect.backend.entity.LeaveRequest> getLeaveRequests(String enrollmentNo) {
+        if (enrollmentNo != null && !enrollmentNo.trim().isEmpty()) {
+            List<com.educonnect.backend.entity.LeaveRequest> list = leaveRequestRepository.findByEnrollmentNo(enrollmentNo.trim());
+            if (!list.isEmpty()) return list;
+        }
+        return leaveRequestRepository.findAll();
+    }
+
+    @Transactional
+    public com.educonnect.backend.entity.LeaveRequest submitLeaveRequest(String enrollmentNo, Map<String, Object> reqData) {
+        String finalEnroll = (enrollmentNo != null && !enrollmentNo.trim().isEmpty()) ? enrollmentNo.trim() : "2024MCA001";
+        Optional<Student> sOpt = studentRepository.findByEnrollmentNo(finalEnroll);
+        UUID studentId = sOpt.map(Student::getStudentId).orElse(null);
+
+        com.educonnect.backend.entity.LeaveRequest lr = new com.educonnect.backend.entity.LeaveRequest();
+        lr.setStudentId(studentId);
+        lr.setEnrollmentNo(finalEnroll);
+        lr.setLeaveType(reqData.get("leave_type") != null ? (String) reqData.get("leave_type") : "Sick");
+        
+        try {
+            if (reqData.get("from_date") != null) lr.setFromDate(LocalDate.parse((String) reqData.get("from_date")));
+        } catch (Exception ignored) {}
+        if (lr.getFromDate() == null) lr.setFromDate(LocalDate.now());
+
+        try {
+            if (reqData.get("to_date") != null) lr.setToDate(LocalDate.parse((String) reqData.get("to_date")));
+        } catch (Exception ignored) {}
+        if (lr.getToDate() == null) lr.setToDate(LocalDate.now());
+
+        lr.setReason(reqData.get("reason") != null ? (String) reqData.get("reason") : "");
+        lr.setStatus("Pending");
+
+        return leaveRequestRepository.save(lr);
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.educonnect.backend.entity.StudentDoubt> getStudentDoubts(String enrollmentNo) {
+        if (enrollmentNo != null && !enrollmentNo.trim().isEmpty()) {
+            List<com.educonnect.backend.entity.StudentDoubt> list = studentDoubtRepository.findByEnrollmentNo(enrollmentNo.trim());
+            if (!list.isEmpty()) return list;
+        }
+        return studentDoubtRepository.findAll();
+    }
+
+    @Transactional
+    public com.educonnect.backend.entity.StudentDoubt askDoubt(String enrollmentNo, Map<String, Object> reqData) {
+        String finalEnroll = (enrollmentNo != null && !enrollmentNo.trim().isEmpty()) ? enrollmentNo.trim() : "2024MCA001";
+        Optional<Student> sOpt = studentRepository.findByEnrollmentNo(finalEnroll);
+        UUID studentId = sOpt.map(Student::getStudentId).orElse(null);
+        String sName = sOpt.map(s -> (s.getFirstName() + " " + s.getLastName()).trim()).orElse("Alex Johnson");
+
+        com.educonnect.backend.entity.StudentDoubt sd = new com.educonnect.backend.entity.StudentDoubt();
+        sd.setStudentId(studentId);
+        sd.setEnrollmentNo(finalEnroll);
+        sd.setStudentName(sName);
+
+        String subjName = (String) reqData.get("subject_name");
+        if (subjName == null) subjName = (String) reqData.get("subjectName");
+        if (subjName == null || subjName.trim().isEmpty()) subjName = "Advanced Web Technologies";
+        sd.setSubjectName(subjName);
+
+        String qText = (String) reqData.get("question");
+        if (qText == null || qText.trim().isEmpty()) {
+            String title = (String) reqData.get("title");
+            String desc = (String) reqData.get("description");
+            if (title != null && desc != null && !desc.trim().isEmpty()) {
+                qText = title.trim() + ": " + desc.trim();
+            } else if (title != null) {
+                qText = title.trim();
+            } else if (desc != null) {
+                qText = desc.trim();
+            } else {
+                qText = "Academic Doubt";
+            }
+        }
+        sd.setQuestion(qText);
+        sd.setStatus("Pending");
+
+        return studentDoubtRepository.save(sd);
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.educonnect.backend.entity.StudyMaterial> getStudyMaterials() {
+        return studyMaterialRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.educonnect.backend.entity.Quiz> getQuizzes() {
+        return quizRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getTimetable(String enrollmentNo) {
+        List<Map<String, Object>> timetable = new ArrayList<>();
+        timetable.add(Map.of("day", "Monday", "time", "09:30 AM - 10:30 AM", "subject", "Advanced Web Technologies", "room", "Lab 301", "faculty", "Dr. Sarah Jenkins"));
+        timetable.add(Map.of("day", "Monday", "time", "10:45 AM - 11:45 AM", "subject", "Cloud Computing", "room", "LH 202", "faculty", "Prof. Robert Smith"));
+        timetable.add(Map.of("day", "Tuesday", "time", "09:30 AM - 10:30 AM", "subject", "Database Management Systems", "room", "Lab 102", "faculty", "Dr. Emily Davis"));
+        timetable.add(Map.of("day", "Wednesday", "time", "11:00 AM - 12:00 PM", "subject", "Data Structures & Algorithms", "room", "LH 104", "faculty", "Prof. Michael Brown"));
+        timetable.add(Map.of("day", "Thursday", "time", "02:00 PM - 03:30 PM", "subject", "Machine Learning Lab", "room", "AI Center", "faculty", "Dr. Sarah Jenkins"));
+        timetable.add(Map.of("day", "Friday", "time", "10:00 AM - 11:30 AM", "subject", "Software Engineering", "room", "LH 205", "faculty", "Dr. Alan Turing"));
+        return timetable;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getMarksheet(String enrollmentNo) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("enrollmentNo", enrollmentNo != null ? enrollmentNo : "2024MCA001");
+        map.put("studentName", "Alex Johnson");
+        map.put("program", "Master of Computer Applications");
+        map.put("semester", "Semester 3");
+        map.put("sgpa", 8.85);
+        map.put("cgpa", 8.92);
+        map.put("status", "PASSED WITH DISTINCTION");
+        
+        List<Map<String, Object>> subjects = List.of(
+                Map.of("code", "MCA301", "name", "Advanced Web Technologies", "credits", 4, "grade", "A+", "points", 10),
+                Map.of("code", "MCA302", "name", "Cloud Computing Architecture", "credits", 4, "grade", "A", "points", 9),
+                Map.of("code", "MCA303", "name", "Database Security & Admin", "credits", 3, "grade", "A+", "points", 10),
+                Map.of("code", "MCA304", "name", "Software Project Management", "credits", 3, "grade", "B+", "points", 8),
+                Map.of("code", "MCA305", "name", "Full Stack Development Lab", "credits", 2, "grade", "O", "points", 10)
+        );
+        map.put("subjects", subjects);
+        return map;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getSyllabus() {
+        return List.of(
+                Map.of("unit", "Unit 1", "title", "React Component Lifecycle & Hooks", "description", "useState, useEffect, custom hooks, virtual DOM reconciler"),
+                Map.of("unit", "Unit 2", "title", "RESTful API Integration with Axios", "description", "HTTP methods, interceptors, async state management, CORS"),
+                Map.of("unit", "Unit 3", "title", "Spring Boot Microservices & JPA", "description", "Entity mapping, Repositories, Spring Security, Hibernate ORM"),
+                Map.of("unit", "Unit 4", "title", "PostgreSQL Database Design & Indexing", "description", "Schema normalization, ACID properties, foreign keys, triggers")
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getDigitalID(String enrollmentNo) {
+        String finalEnroll = (enrollmentNo != null && !enrollmentNo.trim().isEmpty()) ? enrollmentNo.trim() : "2024MCA001";
+        Optional<Student> sOpt = studentRepository.findByEnrollmentNo(finalEnroll);
+        
+        Map<String, Object> card = new HashMap<>();
+        if (sOpt.isPresent()) {
+            Student s = sOpt.get();
+            card.put("student_id", s.getStudentId() != null ? s.getStudentId().toString() : "");
+            card.put("enrollment_no", s.getEnrollmentNo());
+            card.put("name", (s.getFirstName() + " " + s.getLastName()).trim());
+            card.put("email", s.getEmail());
+            card.put("mobile", s.getMobile());
+            card.put("department", "Computer Applications");
+            card.put("program", "MCA (2024-2026)");
+            card.put("dob", s.getDateOfBirth() != null ? s.getDateOfBirth().toString() : "2002-08-15");
+            card.put("blood_group", s.getBloodGroup() != null ? s.getBloodGroup() : "O+");
+            card.put("valid_until", "2026-06-30");
+            card.put("profile_photo", s.getProfilePhoto() != null ? s.getProfilePhoto() : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80");
+        } else {
+            card.put("enrollment_no", finalEnroll);
+            card.put("name", "Alex Johnson");
+            card.put("email", "alex.johnson@educonnect.ac.in");
+            card.put("mobile", "+91 9876543212");
+            card.put("department", "Computer Applications");
+            card.put("program", "MCA (2024-2026)");
+            card.put("dob", "2002-08-15");
+            card.put("blood_group", "O+");
+            card.put("valid_until", "2026-06-30");
+            card.put("profile_photo", "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80");
+        }
+        return card;
     }
 }

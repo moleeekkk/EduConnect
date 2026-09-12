@@ -22,7 +22,7 @@ const StudentProfile = () => {
     parent_name: "Parent / Guardian",
     parent_mobile: "+91 98765 00001",
     admission_date: "2025-07-15",
-    profile_photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+    profile_photo: "",
     is_active: true,
   });
   const [isEditing, setIsEditing] = useState(false);

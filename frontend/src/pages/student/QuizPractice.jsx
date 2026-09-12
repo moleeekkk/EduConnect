@@ -3,6 +3,63 @@ import { HelpCircle, CheckCircle, XCircle, Sparkles, RefreshCw, BookOpen } from 
 import Button from "../../components/common/Button";
 import { studentApi } from "../../services/api";
 
+const defaultPracticeQuestions = {
+  Fast: [
+    {
+      mcq_id: "mcq-f1",
+      question: "Which React hook is designed specifically for handling side-effects such as API fetching and subscription cleanup?",
+      option_a: "useState",
+      option_b: "useEffect",
+      option_c: "useContext",
+      option_d: "useMemo",
+      correct_answer: "B",
+      explanation: "useEffect handles side-effects after component mounting and rendering, returning a cleanup function if needed."
+    },
+    {
+      mcq_id: "mcq-f2",
+      question: "In Spring Boot, which annotation marks a repository interface for JPA CRUD operations?",
+      option_a: "@Controller",
+      option_b: "@Service",
+      option_c: "@Repository",
+      option_d: "@Component",
+      correct_answer: "C",
+      explanation: "@Repository indicates that the annotated class or interface provides data access and persistence capabilities."
+    },
+    {
+      mcq_id: "mcq-f3",
+      question: "Which database index structure is default in PostgreSQL for fast range and equality searches?",
+      option_a: "B-Tree",
+      option_b: "Hash Index",
+      option_c: "GIN Index",
+      option_d: "GiST Index",
+      correct_answer: "A",
+      explanation: "B-Tree is the default PostgreSQL index structure optimized for equality and range queries on ordered data."
+    }
+  ],
+  Slow: [
+    {
+      mcq_id: "mcq-s1",
+      question: "What does HTTP stand for in web communication?",
+      option_a: "HyperText Transfer Protocol",
+      option_b: "High Transfer Text Procedure",
+      option_c: "Hyperlink Testing Tool",
+      option_d: "Home Text Protocol",
+      correct_answer: "A",
+      explanation: "HTTP stands for HyperText Transfer Protocol, the foundation of data communication on the World Wide Web."
+    },
+    {
+      mcq_id: "mcq-s2",
+      question: "Which SQL clause is used to filter records in a database query?",
+      option_a: "ORDER BY",
+      option_b: "WHERE",
+      option_c: "GROUP BY",
+      option_d: "JOIN",
+      correct_answer: "B",
+      explanation: "The WHERE clause filters database rows according to specified condition criteria."
+    }
+  ]
+};
+
 const StudentQuizPractice = () => {
   const [selectedLearnerType, setSelectedLearnerType] = useState("Fast");
   const [selectedSubjectId, setSelectedSubjectId] = useState("subj-101");
@@ -34,11 +91,26 @@ const StudentQuizPractice = () => {
   }, []);
 
   const matchingQuizzes = quizzes.filter(
-    (q) => q.learner_type === selectedLearnerType && (q.subject_id === selectedSubjectId || !q.subject_id)
+    (q) => {
+      const cat = (q.learner_type || q.category || q.learnerType || "").toLowerCase();
+      const matchCat = cat.includes(selectedLearnerType.toLowerCase()) || !q.learner_type;
+      const matchSubj = !q.subject_id || String(q.subject_id) === String(selectedSubjectId);
+      return matchCat && matchSubj;
+    }
   );
 
-  const activeQuiz = matchingQuizzes[0] || quizzes.find((q) => q.learner_type === selectedLearnerType) || quizzes[0];
-  const quizMcqs = mcqs.filter((m) => m.quiz_id === activeQuiz?.quiz_id) || activeQuiz?.mcqs || [];
+  const activeQuiz = matchingQuizzes[0] || quizzes.find((q) => {
+    const cat = (q.learner_type || q.category || "").toLowerCase();
+    return cat.includes(selectedLearnerType.toLowerCase());
+  }) || quizzes[0] || {
+    quiz_id: "quiz-demo-1",
+    title: `${selectedLearnerType} Learner Practice Quiz`,
+    description: `Targeted conceptual practice questions for ${selectedLearnerType} learners.`,
+    learner_type: selectedLearnerType,
+  };
+
+  const loadedMcqs = mcqs.filter((m) => m.quiz_id === activeQuiz?.quiz_id) || activeQuiz?.mcqs || [];
+  const quizMcqs = loadedMcqs.length > 0 ? loadedMcqs : (defaultPracticeQuestions[selectedLearnerType] || defaultPracticeQuestions.Fast);
 
   const handleSelectOption = (mcqId, option) => {
     if (showExplanations) return;

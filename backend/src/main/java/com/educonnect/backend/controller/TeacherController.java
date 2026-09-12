@@ -164,4 +164,60 @@ public class TeacherController {
             @RequestBody List<Map<String, Object>> resultsList) {
         return ResponseEntity.ok(teacherService.saveWeeklyTestResults(testId, resultsList));
     }
+
+    @GetMapping("/leave-requests")
+    public ResponseEntity<List<com.educonnect.backend.entity.LeaveRequest>> getLeaveRequests() {
+        return ResponseEntity.ok(teacherService.getLeaveRequests());
+    }
+
+    @PutMapping("/leave-requests/{id}")
+    public ResponseEntity<com.educonnect.backend.entity.LeaveRequest> updateLeaveStatus(
+            @PathVariable UUID id,
+            @RequestBody Map<String, Object> reqData) {
+        return ResponseEntity.ok(teacherService.updateLeaveStatus(id, reqData));
+    }
+
+    @GetMapping("/doubts")
+    public ResponseEntity<List<com.educonnect.backend.entity.StudentDoubt>> getDoubts() {
+        return ResponseEntity.ok(teacherService.getDoubts());
+    }
+
+    @PostMapping("/doubts/{id}/reply")
+    public ResponseEntity<com.educonnect.backend.entity.StudentDoubt> replyDoubt(
+            @PathVariable UUID id,
+            @RequestBody Map<String, Object> reqData) {
+        return ResponseEntity.ok(teacherService.replyDoubt(id, reqData));
+    }
+
+    @GetMapping("/study-materials")
+    public ResponseEntity<List<com.educonnect.backend.entity.StudyMaterial>> getStudyMaterials() {
+        return ResponseEntity.ok(teacherService.getStudyMaterials());
+    }
+
+    @PostMapping("/study-materials")
+    public ResponseEntity<com.educonnect.backend.entity.StudyMaterial> uploadStudyMaterial(
+            @RequestBody Map<String, Object> reqData) {
+        return ResponseEntity.ok(teacherService.uploadStudyMaterial(reqData));
+    }
+
+    @GetMapping("/quizzes")
+    public ResponseEntity<List<com.educonnect.backend.entity.Quiz>> getQuizzes() {
+        return ResponseEntity.ok(teacherService.getQuizzes());
+    }
+
+    @PostMapping("/quizzes")
+    public ResponseEntity<com.educonnect.backend.entity.Quiz> createQuiz(
+            @RequestBody Map<String, Object> reqData) {
+        return ResponseEntity.ok(teacherService.createQuiz(reqData));
+    }
+
+    @PostMapping("/parent-email")
+    public ResponseEntity<Map<String, Object>> sendParentEmail(@RequestBody Map<String, Object> reqData) {
+        return ResponseEntity.ok(teacherService.sendParentEmail(reqData));
+    }
+
+    @PostMapping("/grades")
+    public ResponseEntity<Map<String, Object>> submitGrades(@RequestBody Map<String, Object> reqData) {
+        return ResponseEntity.ok(teacherService.submitGrades(reqData));
+    }
 }

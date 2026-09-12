@@ -41,9 +41,6 @@ public class Subject {
     @JsonProperty("credits")
     private Integer credits;
 
-    @Column(name = "semester_no")
-    @JsonProperty("semester_no")
-    private Integer semesterNo;
 
     @Column(name = "subject_type", nullable = false, length = 20)
     @JsonProperty("subject_type")

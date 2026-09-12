@@ -125,7 +125,7 @@ export const downloadFile = (fileUrl, fileName = "Document") => {
 /**
  * Safely opens a file in a new tab without popup blocker errors or empty iframe issues.
  */
-export const openFileInNewTab = (fileUrl, title = "Document Preview") => {
+export const openFileInNewTab = (fileUrl) => {
   if (!fileUrl) return;
 
   if (fileUrl.startsWith("data:")) {

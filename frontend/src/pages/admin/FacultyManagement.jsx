@@ -21,7 +21,7 @@ const FacultyManagement = () => {
   const [showTeacherModal, setShowTeacherModal] = useState(false);
   const [editTeacher, setEditTeacher] = useState(null);
   const [teacherForm, setTeacherForm] = useState({
-    employee_id: "",
+    faculty_id: "",
     first_name: "",
     last_name: "",
     surname: "",
@@ -67,7 +67,7 @@ const FacultyManagement = () => {
     setEditTeacher(null);
     setErrorMessage(null);
     setTeacherForm({
-      employee_id: "",
+      faculty_id: "",
       first_name: "",
       last_name: "",
       surname: "",
@@ -89,8 +89,9 @@ const FacultyManagement = () => {
   const handleOpenTeacherEdit = (t) => {
     setEditTeacher(t);
     setErrorMessage(null);
+    const facId = t.faculty_id || t.facultyId || "";
     setTeacherForm({
-      employee_id: t.employee_id || t.employeeId || "",
+      faculty_id: facId,
       first_name: t.first_name || t.firstName || "",
       last_name: t.last_name || t.lastName || "",
       surname: t.surname || "",
@@ -133,12 +134,14 @@ const FacultyManagement = () => {
     setSaving(true);
     setErrorMessage(null);
     try {
-      const generatedEmpId = teacherForm.employee_id && teacherForm.employee_id.trim() !== ""
-        ? teacherForm.employee_id.trim()
-        : `EMP${Math.floor(10000 + Math.random() * 90000)}`;
+      const inputFacId = (teacherForm.faculty_id || "").trim();
+      const generatedFacId = inputFacId !== ""
+        ? inputFacId
+        : `FAC${Math.floor(10000 + Math.random() * 90000)}`;
 
       const payload = {
-        employee_id: generatedEmpId,
+        faculty_id: generatedFacId,
+        facultyId: generatedFacId,
         first_name: teacherForm.first_name ? teacherForm.first_name.trim() : "Faculty",
         last_name: teacherForm.last_name ? teacherForm.last_name.trim() : "",
         surname: teacherForm.surname ? teacherForm.surname.trim() : "",
@@ -157,6 +160,8 @@ const FacultyManagement = () => {
 
       if (editTeacher) {
         const id = editTeacher.teacher_id || editTeacher.teacherId || editTeacher.id;
+        payload.teacher_id = id;
+        payload.teacherId = id;
         const updated = await adminApi.updateFaculty(id, payload);
         if (updated && (updated.teacher_id || updated.teacherId || updated.id)) {
           setTeachers((prev) => prev.map((t) => ((t.teacher_id || t.teacherId || t.id) === id ? updated : t)));
@@ -186,10 +191,10 @@ const FacultyManagement = () => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
     const fullName = `${t.first_name || t.firstName || ""} ${t.last_name || t.lastName || ""}`.toLowerCase();
-    const empId = (t.employee_id || t.employeeId || "").toLowerCase();
+    const facId = (t.faculty_id || t.facultyId || "").toString().toLowerCase();
     const email = (t.email || "").toLowerCase();
     const desig = (t.designation || "").toLowerCase();
-    return fullName.includes(q) || empId.includes(q) || email.includes(q) || desig.includes(q);
+    return fullName.includes(q) || facId.includes(q) || email.includes(q) || desig.includes(q);
   });
 
   return (
@@ -227,7 +232,7 @@ const FacultyManagement = () => {
         <div className="relative flex-1 w-full">
           <input
             type="text"
-            placeholder="Search faculty by name, employee ID, email, designation..."
+            placeholder="Search faculty by name, faculty ID, email, designation..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-3 pr-8 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs text-[#1E293B] placeholder-[#64748B] outline-none focus:border-[#14B8A6] focus:ring-2 focus:ring-[#14B8A6]/10 transition-all"
@@ -255,21 +260,19 @@ const FacultyManagement = () => {
           <table className="w-full text-left text-xs">
             <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#64748B] font-semibold">
               <tr>
-                <th className="p-3.5">Employee ID</th>
+                <th className="p-3.5">Faculty ID</th>
                 <th className="p-3.5">Faculty Name</th>
                 <th className="p-3.5">Email</th>
                 <th className="p-3.5">Mobile</th>
                 <th className="p-3.5">Designation</th>
                 <th className="p-3.5">Experience</th>
-                <th className="p-3.5">Created At</th>
-                <th className="p-3.5">Updated At</th>
                 <th className="p-3.5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
               {loading ? (
                 <tr>
-                  <td colSpan="9" className="p-8 text-center text-[#64748B]">
+                  <td colSpan="7" className="p-8 text-center text-[#64748B]">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="w-5 h-5 animate-spin text-[#14B8A6]" />
                       <span>Fetching faculty records from database...</span>
@@ -278,7 +281,7 @@ const FacultyManagement = () => {
                 </tr>
               ) : filteredTeachers.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="p-8 text-center text-[#64748B] font-medium">
+                  <td colSpan="7" className="p-8 text-center text-[#64748B] font-medium">
                     No faculty records found in database. Click <strong className="text-[#14B8A6]">"Add Faculty"</strong> to create a new teacher record.
                   </td>
                 </tr>
@@ -287,24 +290,16 @@ const FacultyManagement = () => {
                   const teacherId = t.teacher_id || t.teacherId || t.id;
                   const firstName = t.first_name || t.firstName || "Faculty";
                   const lastName = t.last_name || t.lastName || "";
-                  const empId = t.employee_id || t.employeeId || "N/A";
-                  const createdAtVal = t.created_at || t.createdAt;
-                  const updatedAtVal = t.updated_at || t.updatedAt;
+                  const facId = t.faculty_id || t.facultyId || "N/A";
 
                   return (
-                    <tr key={teacherId || empId} className="hover:bg-[#F8FAFC]">
-                      <td className="p-3.5 font-mono font-bold text-[#14B8A6]">{empId}</td>
+                    <tr key={teacherId || facId} className="hover:bg-[#F8FAFC]">
+                      <td className="p-3.5 font-mono font-bold text-[#14B8A6]">{facId}</td>
                       <td className="p-3.5 font-semibold">{firstName} {lastName}</td>
                       <td className="p-3.5 text-[#64748B]">{t.email}</td>
                       <td className="p-3.5">{t.mobile || "N/A"}</td>
                       <td className="p-3.5 font-medium">{t.designation || "N/A"}</td>
                       <td className="p-3.5 text-[#64748B]">{t.experience !== undefined && t.experience !== null ? `${t.experience} Years` : "N/A"}</td>
-                      <td className="p-3.5 text-[#64748B] font-mono text-[11px]">
-                        {createdAtVal ? new Date(createdAtVal).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A"}
-                      </td>
-                      <td className="p-3.5 text-[#64748B] font-mono text-[11px]">
-                        {updatedAtVal ? new Date(updatedAtVal).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A"}
-                      </td>
                       <td className="p-3.5 text-right whitespace-nowrap">
                         <div className="inline-flex items-center justify-end gap-1.5">
                           <button
@@ -317,14 +312,14 @@ const FacultyManagement = () => {
                           <button
                             onClick={() => handleOpenTeacherEdit(t)}
                             className="p-1.5 hover:bg-[#14B8A6]/10 rounded-lg text-[#14B8A6] transition-colors cursor-pointer"
-                            title="Edit Full Info"
+                            title="Edit Record"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => setDeletingUser({ id: teacherId, name: `${firstName} ${lastName}`.trim() })}
                             className="p-1.5 hover:bg-[#EF4444]/10 rounded-lg text-[#EF4444] transition-colors cursor-pointer"
-                            title="Delete Record"
+                            title="Delete Faculty"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -341,78 +336,86 @@ const FacultyManagement = () => {
 
       {/* View Teacher Details Modal */}
       {viewTeacher && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-[#E2E8F0] space-y-4 my-8">
-            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-auto max-h-[90vh] flex flex-col animate-fade-in text-xs">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3 shrink-0">
               <h3 className="text-base font-bold text-[#1E293B] flex items-center gap-2">
-                <School className="w-5 h-5 text-[#14B8A6]" /> Faculty Profile Details
+                <School className="w-5 h-5 text-[#14B8A6]" />
+                Faculty Information Sheet
               </h3>
               <button
                 onClick={() => setViewTeacher(null)}
-                className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
-                title="Close"
+                className="p-1 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-4 text-xs">
-              <div className="flex items-center gap-4 p-4 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
-                {(viewTeacher.profile_photo || viewTeacher.profilePhoto) ? (
-                  <img
-                    src={viewTeacher.profile_photo || viewTeacher.profilePhoto}
-                    alt={viewTeacher.first_name || viewTeacher.firstName || "Teacher"}
-                    className="w-16 h-16 rounded-xl object-cover border border-[#E2E8F0] shadow-xs shrink-0"
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-xl bg-[#14B8A6]/10 text-[#14B8A6] font-bold text-xl flex items-center justify-center border border-[#14B8A6]/20 shrink-0">
-                    {(viewTeacher.first_name || viewTeacher.firstName || "T")[0]}
+            {/* Scrollable Content */}
+            <div className="overflow-y-auto pr-1 space-y-4 text-xs grow">
+              {/* Profile Card Summary */}
+              <div className="flex items-center gap-4 p-4 bg-[#14B8A6]/5 rounded-xl border border-[#14B8A6]/20">
+                <img
+                  src={viewTeacher.profile_photo || viewTeacher.profilePhoto || "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80"}
+                  alt={viewTeacher.first_name || viewTeacher.firstName}
+                  className="w-16 h-16 rounded-full object-cover border-2 border-[#14B8A6]"
+                />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-base font-extrabold text-[#1E293B]">
+                      {viewTeacher.first_name || viewTeacher.firstName} {viewTeacher.last_name || viewTeacher.lastName}
+                    </h4>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${(viewTeacher.is_active !== undefined ? viewTeacher.is_active : viewTeacher.isActive) ? "bg-[#22C55E]/10 text-[#22C55E]" : "bg-gray-200 text-gray-600"}`}>
+                      {(viewTeacher.is_active !== undefined ? viewTeacher.is_active : viewTeacher.isActive) ? "● Active Faculty" : "● Inactive"}
+                    </span>
                   </div>
-                )}
-                <div>
-                  <h4 className="text-base font-extrabold text-[#1E293B]">
-                    {viewTeacher.first_name || viewTeacher.firstName} {viewTeacher.last_name || viewTeacher.lastName}
-                  </h4>
-                  <p className="font-mono text-[#14B8A6] font-bold text-xs">Employee ID: {viewTeacher.employee_id || viewTeacher.employeeId || "N/A"}</p>
-                  <p className="text-xs text-[#64748B] font-medium mt-0.5">{viewTeacher.designation || "N/A"}</p>
+                  <p className="font-mono text-[#14B8A6] font-bold text-xs">Faculty ID: {viewTeacher.faculty_id || viewTeacher.facultyId || "N/A"}</p>
+                  <p className="text-xs text-[#64748B] font-medium">{viewTeacher.designation || "Faculty Member"}</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">Email Address</span>
-                  <p className="font-medium text-[#1E293B]">{viewTeacher.email}</p>
+              {/* 2-Column Details Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Email Address</span>
+                    <p className="font-medium text-[#2563EB] text-xs">{viewTeacher.email}</p>
+                  </div>
+                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Mobile Number</span>
+                    <p className="font-mono text-[#1E293B] font-extrabold text-xs">{viewTeacher.mobile || "N/A"}</p>
+                  </div>
+                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Qualification</span>
+                    <p className="font-bold text-[#2563EB] text-xs">{viewTeacher.qualification || "N/A"}</p>
+                  </div>
                 </div>
-                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">Mobile Number</span>
-                  <p className="font-mono text-[#1E293B] font-bold">{viewTeacher.mobile || "N/A"}</p>
-                </div>
-                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">Qualification</span>
-                  <p className="font-bold text-[#2563EB]">{viewTeacher.qualification || "N/A"}</p>
-                </div>
-                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">Experience & Joining</span>
-                  <p className="font-medium text-[#1E293B]">
-                    {viewTeacher.experience !== undefined && viewTeacher.experience !== null ? `${viewTeacher.experience} Years` : "N/A"} • {viewTeacher.joining_date || viewTeacher.joiningDate || "N/A"}
-                  </p>
-                </div>
-                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">Gender & DOB</span>
-                  <p className="font-medium text-[#1E293B]">{viewTeacher.gender || "N/A"} • {viewTeacher.date_of_birth || viewTeacher.dateOfBirth || "N/A"}</p>
-                </div>
-                <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">Status</span>
-                  <span className={`inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold ${(viewTeacher.is_active !== undefined ? viewTeacher.is_active : viewTeacher.isActive) ? "bg-[#22C55E]/10 text-[#22C55E]" : "bg-gray-200 text-gray-600"}`}>
-                    {(viewTeacher.is_active !== undefined ? viewTeacher.is_active : viewTeacher.isActive) ? "Active Faculty" : "Inactive Account"}
-                  </span>
-                </div>
-              </div>
 
-              <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                <span className="text-[10px] text-[#64748B] font-bold block uppercase">Residential Address</span>
-                <p className="font-medium text-[#1E293B]">{viewTeacher.address || "N/A"}</p>
+                <div className="space-y-3">
+                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Experience & Joining Date</span>
+                    <p className="font-semibold text-[#1E293B] text-xs">
+                      {viewTeacher.experience !== undefined && viewTeacher.experience !== null ? `${viewTeacher.experience} Years Experience` : "N/A"} • Joined: {viewTeacher.joining_date || viewTeacher.joiningDate || "N/A"}
+                    </p>
+                  </div>
+                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Gender & Date of Birth</span>
+                    <p className="font-semibold text-[#1E293B] text-xs">{viewTeacher.gender || "N/A"} • {viewTeacher.date_of_birth || viewTeacher.dateOfBirth || "N/A"}</p>
+                  </div>
+                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Residential Address</span>
+                    <p className="font-medium text-[#1E293B] text-xs">{viewTeacher.address || "N/A"}</p>
+                  </div>
+                </div>
               </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end pt-3 border-t border-[#E2E8F0] shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setViewTeacher(null)}>
+                Close
+              </Button>
             </div>
           </div>
         </div>
@@ -420,205 +423,215 @@ const FacultyManagement = () => {
 
       {/* Add / Edit Faculty Modal */}
       {showTeacherModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl max-w-2xl w-full p-6 shadow-xl border border-[#E2E8F0] space-y-4 my-8 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-base font-bold text-[#1E293B] border-b border-[#E2E8F0] pb-2">
-              {editTeacher ? "Edit Complete Faculty Information" : "Add New Teacher Record"}
-            </h3>
-            <form onSubmit={handleSaveTeacher} className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Employee ID</label>
-                <input
-                  type="text"
-                  placeholder="Enter Employee ID"
-                  value={teacherForm.employee_id}
-                  onChange={(e) => setTeacherForm({ ...teacherForm, employee_id: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg font-mono font-bold text-[#14B8A6]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">First Name</label>
-                <input
-                  type="text"
-                  placeholder="First name"
-                  value={teacherForm.first_name}
-                  onChange={(e) => setTeacherForm({ ...teacherForm, first_name: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Last Name</label>
-                <input
-                  type="text"
-                  placeholder="Last name"
-                  value={teacherForm.last_name}
-                  onChange={(e) => setTeacherForm({ ...teacherForm, last_name: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Surname</label>
-                <input
-                  type="text"
-                  placeholder="Surname"
-                  value={teacherForm.surname}
-                  onChange={(e) => setTeacherForm({ ...teacherForm, surname: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Email</label>
-                <input
-                  type="text"
-                  placeholder="faculty@educonnect.ac.in"
-                  value={teacherForm.email}
-                  onChange={(e) => setTeacherForm({ ...teacherForm, email: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Mobile</label>
-                <input
-                  type="text"
-                  placeholder="+91 9876543210"
-                  value={teacherForm.mobile}
-                  onChange={(e) => setTeacherForm({ ...teacherForm, mobile: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Designation</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Assistant Professor"
-                  value={teacherForm.designation}
-                  onChange={(e) => setTeacherForm({ ...teacherForm, designation: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Qualification</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Ph.D. in Computer Science"
-                  value={teacherForm.qualification}
-                  onChange={(e) => setTeacherForm({ ...teacherForm, qualification: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Experience in Years</label>
-                <input
-                  type="number"
-                  min="0"
-                  placeholder="Years of experience"
-                  value={teacherForm.experience}
-                  onChange={(e) => setTeacherForm({ ...teacherForm, experience: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Joining Date</label>
-                <input
-                  type="date"
-                  value={teacherForm.joining_date}
-                  onChange={(e) => setTeacherForm({ ...teacherForm, joining_date: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Date of Birth</label>
-                <input
-                  type="date"
-                  value={teacherForm.date_of_birth}
-                  onChange={(e) => setTeacherForm({ ...teacherForm, date_of_birth: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Gender</label>
-                <select
-                  value={teacherForm.gender}
-                  onChange={(e) => setTeacherForm({ ...teacherForm, gender: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                >
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div className="sm:col-span-2 space-y-1.5">
-                <label className="block text-[#64748B] font-semibold">Upload Profile Photo or Image URL</label>
-                <div className="flex flex-col sm:flex-row items-center gap-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-auto max-h-[90vh] flex flex-col animate-fade-in text-xs">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3 shrink-0">
+              <h3 className="text-base font-bold text-[#1E293B]">
+                {editTeacher ? "Edit Complete Faculty Information" : "Add New Teacher Record"}
+              </h3>
+              <button
+                onClick={() => setShowTeacherModal(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveTeacher} className="flex flex-col grow overflow-hidden space-y-4">
+              <div className="overflow-y-auto pr-1 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs grow">
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Faculty ID</label>
                   <input
                     type="text"
-                    placeholder="Paste image URL (optional)"
-                    value={teacherForm.profile_photo || ""}
-                    onChange={(e) => setTeacherForm({ ...teacherForm, profile_photo: e.target.value })}
-                    className="flex-1 w-full p-2 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg text-xs"
+                    placeholder="Enter Faculty ID"
+                    value={teacherForm.faculty_id}
+                    onChange={(e) => setTeacherForm({ ...teacherForm, faculty_id: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg font-mono font-bold text-[#14B8A6]"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">First Name</label>
                   <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                          setTeacherForm({ ...teacherForm, profile_photo: reader.result });
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                    className="w-full sm:w-auto p-1.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg text-xs"
+                    type="text"
+                    placeholder="First name"
+                    value={teacherForm.first_name}
+                    onChange={(e) => setTeacherForm({ ...teacherForm, first_name: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
                   />
-                  {teacherForm.profile_photo && (
-                    <img
-                      src={teacherForm.profile_photo}
-                      alt="Preview"
-                      className="w-10 h-10 rounded-lg object-cover border border-[#E2E8F0] shrink-0"
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Last Name</label>
+                  <input
+                    type="text"
+                    placeholder="Last name"
+                    value={teacherForm.last_name}
+                    onChange={(e) => setTeacherForm({ ...teacherForm, last_name: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Surname</label>
+                  <input
+                    type="text"
+                    placeholder="Surname"
+                    value={teacherForm.surname}
+                    onChange={(e) => setTeacherForm({ ...teacherForm, surname: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Email</label>
+                  <input
+                    type="text"
+                    placeholder="faculty@educonnect.ac.in"
+                    value={teacherForm.email}
+                    onChange={(e) => setTeacherForm({ ...teacherForm, email: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Mobile</label>
+                  <input
+                    type="text"
+                    placeholder="+91 9876543210"
+                    value={teacherForm.mobile}
+                    onChange={(e) => setTeacherForm({ ...teacherForm, mobile: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Designation</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Assistant Professor"
+                    value={teacherForm.designation}
+                    onChange={(e) => setTeacherForm({ ...teacherForm, designation: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Qualification</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Ph.D. in Computer Science"
+                    value={teacherForm.qualification}
+                    onChange={(e) => setTeacherForm({ ...teacherForm, qualification: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Experience in Years</label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Years of experience"
+                    value={teacherForm.experience}
+                    onChange={(e) => setTeacherForm({ ...teacherForm, experience: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Joining Date</label>
+                  <input
+                    type="date"
+                    value={teacherForm.joining_date}
+                    onChange={(e) => setTeacherForm({ ...teacherForm, joining_date: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Date of Birth</label>
+                  <input
+                    type="date"
+                    value={teacherForm.date_of_birth}
+                    onChange={(e) => setTeacherForm({ ...teacherForm, date_of_birth: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Gender</label>
+                  <select
+                    value={teacherForm.gender}
+                    onChange={(e) => setTeacherForm({ ...teacherForm, gender: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="block text-[#64748B] font-semibold">Upload Profile Photo or Image URL</label>
+                  <div className="flex flex-col sm:flex-row items-center gap-3">
+                    <input
+                      type="text"
+                      placeholder="Paste image URL (optional)"
+                      value={teacherForm.profile_photo || ""}
+                      onChange={(e) => setTeacherForm({ ...teacherForm, profile_photo: e.target.value })}
+                      className="flex-1 w-full p-2 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg text-xs"
                     />
-                  )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setTeacherForm({ ...teacherForm, profile_photo: reader.result });
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="w-full sm:w-auto p-1.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg text-xs"
+                    />
+                    {teacherForm.profile_photo && (
+                      <img
+                        src={teacherForm.profile_photo}
+                        alt="Preview"
+                        className="w-10 h-10 rounded-lg object-cover border border-[#E2E8F0] shrink-0"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-[#64748B] mb-1 font-semibold">Residential Address</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Faculty address"
+                    value={teacherForm.address}
+                    onChange={(e) => setTeacherForm({ ...teacherForm, address: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
+                  />
+                </div>
+
+                <div className="sm:col-span-2 flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="teacher_active"
+                    checked={teacherForm.is_active}
+                    onChange={(e) => setTeacherForm({ ...teacherForm, is_active: e.target.checked })}
+                    className="rounded border-[#E2E8F0] text-[#14B8A6] focus:ring-[#14B8A6]"
+                  />
+                  <label htmlFor="teacher_active" className="text-xs font-bold text-[#1E293B] cursor-pointer">
+                    Faculty Active Status
+                  </label>
                 </div>
               </div>
 
-              <div className="sm:col-span-2">
-                <label className="block text-[#64748B] mb-1 font-semibold">Residential Address</label>
-                <textarea
-                  rows={2}
-                  placeholder="Faculty address"
-                  value={teacherForm.address}
-                  onChange={(e) => setTeacherForm({ ...teacherForm, address: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                />
-              </div>
-
-              <div className="sm:col-span-2 flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="teacher_active"
-                  checked={teacherForm.is_active}
-                  onChange={(e) => setTeacherForm({ ...teacherForm, is_active: e.target.checked })}
-                  className="rounded border-[#E2E8F0] text-[#14B8A6] focus:ring-[#14B8A6]"
-                />
-                <label htmlFor="teacher_active" className="text-xs font-bold text-[#1E293B] cursor-pointer">
-                  Faculty Active Status
-                </label>
-              </div>
-
-              <div className="sm:col-span-2 flex justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
+              <div className="flex justify-end gap-2 pt-3 border-t border-[#E2E8F0] shrink-0">
                 <Button variant="outline" size="sm" type="button" onClick={() => setShowTeacherModal(false)}>
                   Cancel
                 </Button>

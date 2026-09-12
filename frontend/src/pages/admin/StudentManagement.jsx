@@ -98,11 +98,25 @@ const StudentManagement = () => {
   };
 
   // Helper to map semester_id to Semester Label
-  const getSemesterLabel = (semId) => {
-    if (!semId) return "Semester 1";
-    const sem = semesters.find((s) => String(s.semester_id || s.semesterId || s.id) === String(semId) || String(s.semester_number || s.semesterNumber) === String(semId));
-    if (sem) return sem.semester_name || `Semester ${sem.semester_number || sem.number}`;
-    return `Semester ${semId}`;
+  const getSemesterLabel = (semId, semNo) => {
+    if (!semId && !semNo) return "Semester 1";
+    if (semId) {
+      const sem = semesters.find(
+        (s) =>
+          String(s.semester_id || s.semesterId || s.id).toLowerCase() === String(semId).toLowerCase() ||
+          String(s.semester_number || s.number) === String(semId)
+      );
+      if (sem) return sem.semester_name || `Semester ${sem.semester_number || sem.number}`;
+    }
+    if (semNo) {
+      const sem = semesters.find((s) => String(s.semester_number || s.number) === String(semNo));
+      if (sem) return sem.semester_name || `Semester ${sem.semester_number || sem.number}`;
+      return `Semester ${semNo}`;
+    }
+    if (semId && (!isNaN(semId) && String(semId).length <= 2)) {
+      return `Semester ${semId}`;
+    }
+    return "Semester 1";
   };
 
   const getAvailableSemestersForDepartment = (deptId) => {
@@ -568,22 +582,30 @@ const StudentManagement = () => {
 
       {/* View Student Details Modal */}
       {viewStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-xl border border-[#E2E8F0] space-y-5 my-8 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-auto max-h-[90vh] flex flex-col animate-fade-in text-xs">
             {/* Modal Title Bar */}
-            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-              <h3 className="text-base font-bold text-[#1E293B] flex items-center gap-2">
-                <GraduationCap className="w-5 h-5 text-[#2563EB]" /> Complete Student Details              </h3>
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-4 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-[#2563EB]/10 text-[#2563EB]">
+                  <GraduationCap className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-extrabold text-[#1E293B]">Student Information</h3>
+                  <p className="text-xs text-[#64748B]">Complete profile details of enrolled student</p>
+                </div>
+              </div>
               <button
                 onClick={() => setViewStudent(null)}
-                className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
+                className="p-2 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
                 title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-4 text-xs">
+            {/* Scrollable Content Area */}
+            <div className="overflow-y-auto pr-1 space-y-4 text-xs grow">
               {/* Profile Overview Header Card */}
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 p-4 bg-gradient-to-r from-[#F8FAFC] to-[#EFF6FF] rounded-xl border border-[#E2E8F0]">
                 {viewStudent.profile_photo || viewStudent.profilePhoto ? (
@@ -612,7 +634,6 @@ const StudentManagement = () => {
                   <p className="text-xs text-[#64748B] font-medium">
                     {getDepartmentName(viewStudent.department_id || viewStudent.departmentId)} • {getSemesterLabel(viewStudent.semester_id || viewStudent.semesterId)}
                   </p>
-
                 </div>
               </div>
 
@@ -738,374 +759,391 @@ const StudentManagement = () => {
                 </div>
               </div>
             </div>
+
+            {/* Footer */}
+            <div className="flex justify-end pt-3 border-t border-[#E2E8F0] shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setViewStudent(null)}>
+                Close
+              </Button>
+            </div>
           </div>
         </div>
       )}
 
       {/* Add / Edit Student Modal */}
       {showStudentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl w-[95%] sm:w-[90%] md:w-[80%] lg:w-[75%] max-w-5xl p-6 shadow-xl border border-[#E2E8F0] space-y-4 my-8 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-base font-bold text-[#1E293B] border-b border-[#E2E8F0] pb-2">
-              {editStudent ? "Edit Student Information" : "Add New Student Record"}
-            </h3>
-            <form onSubmit={handleSaveStudent} className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Institute</label>
-                <select
-                  value={studentForm.institute_id || ""}
-                  onChange={(e) => {
-                    const newInst = e.target.value;
-                    setStudentForm({
-                      ...studentForm,
-                      institute_id: newInst,
-                      program_id: "",
-                      semester_id: "",
-                      batch_id: "",
-                    });
-                  }}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] focus:bg-white rounded-lg font-semibold text-[#1E293B]"
-                >
-                  <option value="">-- Select Institute --</option>
-                  {institutes.map((inst) => {
-                    const instId = inst.institute_id || inst.instituteId || inst.id;
-                    return (
-                      <option key={instId} value={instId}>
-                        {inst.institute_code || inst.code} - {inst.institute_name || inst.name}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-auto max-h-[90vh] flex flex-col animate-fade-in text-xs">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3 shrink-0">
+              <h3 className="text-base font-bold text-[#1E293B]">
+                {editStudent ? "Edit Student Information" : "Add New Student Record"}
+              </h3>
+              <button
+                onClick={() => setShowStudentModal(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveStudent} className="flex flex-col grow overflow-hidden space-y-4">
+              <div className="overflow-y-auto pr-1 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs grow">
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Institute</label>
+                  <select
+                    value={studentForm.institute_id || ""}
+                    onChange={(e) => {
+                      const newInst = e.target.value;
+                      setStudentForm({
+                        ...studentForm,
+                        institute_id: newInst,
+                        program_id: "",
+                        semester_id: "",
+                        batch_id: "",
+                      });
+                    }}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] focus:bg-white rounded-lg font-semibold text-[#1E293B]"
+                  >
+                    <option value="">-- Select Institute --</option>
+                    {institutes.map((inst) => {
+                      const instId = inst.institute_id || inst.instituteId || inst.id;
+                      return (
+                        <option key={instId} value={instId}>
+                          {inst.institute_code || inst.code} - {inst.institute_name || inst.name}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Department</label>
-                <select
-                  disabled={!studentForm.institute_id}
-                  value={studentForm.department_id || ""}
-                  onChange={(e) => {
-                    const newDept = e.target.value;
-                    setStudentForm({
-                      ...studentForm,
-                      department_id: newDept,
-                      semester_id: "",
-                      batch_id: "",
-                    });
-                  }}
-                  className={`w-full p-2.5 border border-[#E2E8F0] rounded-lg font-semibold ${!studentForm.institute_id
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "bg-[#F8FAFC] focus:bg-white text-[#1E293B]"
-                    }`}
-                >
-                  {!studentForm.institute_id ? (
-                    <option value="">-- Select Institute First --</option>
-                  ) : (
-                    <>
-                      <option value="">-- Select Department --</option>
-                      {formAvailableDepartments.length > 0 ? (
-                        formAvailableDepartments.map((dept) => {
-                          const dId = dept.department_id || dept.departmentId || dept.id;
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Department</label>
+                  <select
+                    disabled={!studentForm.institute_id}
+                    value={studentForm.department_id || ""}
+                    onChange={(e) => {
+                      const newDept = e.target.value;
+                      setStudentForm({
+                        ...studentForm,
+                        department_id: newDept,
+                        semester_id: "",
+                        batch_id: "",
+                      });
+                    }}
+                    className={`w-full p-2.5 border border-[#E2E8F0] rounded-lg font-semibold ${!studentForm.institute_id
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      : "bg-[#F8FAFC] focus:bg-white text-[#1E293B]"
+                      }`}
+                  >
+                    {!studentForm.institute_id ? (
+                      <option value="">-- Select Institute First --</option>
+                    ) : (
+                      <>
+                        <option value="">-- Select Department --</option>
+                        {formAvailableDepartments.length > 0 ? (
+                          formAvailableDepartments.map((dept) => {
+                            const dId = dept.department_id || dept.departmentId || dept.id;
+                            return (
+                              <option key={dId} value={dId}>
+                                {dept.department_code || dept.code} - {dept.department_name || dept.name}
+                              </option>
+                            );
+                          })
+                        ) : (
+                          <option value="" disabled>No departments found for selected institute</option>
+                        )}
+                      </>
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Enrolled Semester</label>
+                  <select
+                    disabled={!studentForm.department_id}
+                    value={studentForm.semester_id || ""}
+                    onChange={(e) => {
+                      const newSem = e.target.value;
+                      setStudentForm({
+                        ...studentForm,
+                        semester_id: newSem,
+                        batch_id: "",
+                      });
+                    }}
+                    className={`w-full p-2.5 border border-[#E2E8F0] rounded-lg font-semibold ${!studentForm.department_id
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      : "bg-[#F8FAFC] focus:bg-white text-[#14B8A6]"
+                      }`}
+                  >
+                    {!studentForm.department_id ? (
+                      <option value="">-- Select Department First --</option>
+                    ) : (
+                      <>
+                        <option value="">-- Select Semester --</option>
+                        {formAvailableSemesters.map((sem) => {
+                          const sId = sem.semester_id || sem.semesterId || sem.id;
                           return (
-                            <option key={dId} value={dId}>
-                              {dept.department_code || dept.code} - {dept.department_name || dept.name}
+                            <option key={sId} value={sId}>
+                              {sem.semester_name || `Semester ${sem.semester_number || sem.number}`}
                             </option>
                           );
-                        })
-                      ) : (
-                        <option value="" disabled>No departments found for selected institute</option>
-                      )}
-                    </>
-                  )}
-                </select>
-              </div>
+                        })}
+                      </>
+                    )}
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Enrolled Semester</label>
-                <select
-                  disabled={!studentForm.department_id}
-                  value={studentForm.semester_id || ""}
-                  onChange={(e) => {
-                    const newSem = e.target.value;
-                    setStudentForm({
-                      ...studentForm,
-                      semester_id: newSem,
-                      batch_id: "",
-                    });
-                  }}
-                  className={`w-full p-2.5 border border-[#E2E8F0] rounded-lg font-semibold ${!studentForm.department_id
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "bg-[#F8FAFC] focus:bg-white text-[#14B8A6]"
-                    }`}
-                >
-                  {!studentForm.department_id ? (
-                    <option value="">-- Select Department First --</option>
-                  ) : (
-                    <>
-                      <option value="">-- Select Semester --</option>
-                      {formAvailableSemesters.map((sem) => {
-                        const sId = sem.semester_id || sem.semesterId || sem.id;
-                        return (
-                          <option key={sId} value={sId}>
-                            {sem.semester_name || `Semester ${sem.semester_number || sem.number}`}
-                          </option>
-                        );
-                      })}
-                    </>
-                  )}
-                </select>
-              </div>
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Academic Batch</label>
+                  <select
+                    disabled={!studentForm.semester_id}
+                    value={studentForm.batch_id || ""}
+                    onChange={(e) => setStudentForm({ ...studentForm, batch_id: e.target.value })}
+                    className={`w-full p-2.5 border border-[#E2E8F0] rounded-lg font-semibold ${!studentForm.semester_id
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      : "bg-[#F8FAFC] focus:bg-white text-[#F59E0B]"
+                      }`}
+                  >
+                    {!studentForm.semester_id ? (
+                      <option value="">-- Select Semester First --</option>
+                    ) : (
+                      <>
+                        <option value="">-- Select Batch --</option>
+                        {batches.map((b) => {
+                          const bId = b.batch_id || b.batchId || b.id;
+                          const bName = b.batch_name || b.batchName;
+                          return (
+                            <option key={bId} value={bId}>
+                              {bName}
+                            </option>
+                          );
+                        })}
+                      </>
+                    )}
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Academic Batch</label>
-                <select
-                  disabled={!studentForm.semester_id}
-                  value={studentForm.batch_id || ""}
-                  onChange={(e) => setStudentForm({ ...studentForm, batch_id: e.target.value })}
-                  className={`w-full p-2.5 border border-[#E2E8F0] rounded-lg font-semibold ${!studentForm.semester_id
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "bg-[#F8FAFC] focus:bg-white text-[#F59E0B]"
-                    }`}
-                >
-                  {!studentForm.semester_id ? (
-                    <option value="">-- Select Semester First --</option>
-                  ) : (
-                    <>
-                      <option value="">-- Select Batch --</option>
-                      {batches.map((b) => {
-                        const bId = b.batch_id || b.batchId || b.id;
-                        const bName = b.batch_name || b.batchName;
-                        return (
-                          <option key={bId} value={bId}>
-                            {bName}
-                          </option>
-                        );
-                      })}
-                    </>
-                  )}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Enrollment No</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 25CI211001"
-                  value={studentForm.enrollment_no}
-                  onChange={(e) => setStudentForm({ ...studentForm, enrollment_no: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg font-mono font-bold text-[#2563EB]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">First Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="First name"
-                  value={studentForm.first_name}
-                  onChange={(e) => setStudentForm({ ...studentForm, first_name: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Last Name</label>
-                <input
-                  type="text"
-                  placeholder="Last name"
-                  value={studentForm.last_name}
-                  onChange={(e) => setStudentForm({ ...studentForm, last_name: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Surname</label>
-                <input
-                  type="text"
-                  placeholder="Surname"
-                  value={studentForm.surname}
-                  onChange={(e) => setStudentForm({ ...studentForm, surname: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Student Email</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="student@educonnect.ac.in"
-                  value={studentForm.email}
-                  onChange={(e) => setStudentForm({ ...studentForm, email: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Student Mobile</label>
-                <input
-                  type="text"
-                  placeholder="+91 9876543210"
-                  value={studentForm.mobile}
-                  onChange={(e) => setStudentForm({ ...studentForm, mobile: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Gender</label>
-                <select
-                  value={studentForm.gender}
-                  onChange={(e) => setStudentForm({ ...studentForm, gender: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                >
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Date of Birth</label>
-                <input
-                  type="date"
-                  max={new Date().toISOString().split("T")[0]}
-                  value={studentForm.date_of_birth}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    const todayDateStr = new Date().toISOString().split("T")[0];
-                    if (val && val > todayDateStr) {
-                      alert("Date of Birth cannot be in the future (after today).");
-                      return;
-                    }
-                    setStudentForm({ ...studentForm, date_of_birth: val });
-                  }}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Blood Group</label>
-                <select
-                  value={studentForm.blood_group}
-                  onChange={(e) => setStudentForm({ ...studentForm, blood_group: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                >
-                  <option value="A+">A+</option>
-                  <option value="B+">B+</option>
-                  <option value="O+">O+</option>
-                  <option value="AB+">AB+</option>
-                  <option value="A-">A-</option>
-                  <option value="B-">B-</option>
-                  <option value="O-">O-</option>
-                  <option value="AB-">AB-</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Admission Date</label>
-                <input
-                  type="date"
-                  value={studentForm.admission_date}
-                  onChange={(e) => setStudentForm({ ...studentForm, admission_date: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Parent Name</label>
-                <input
-                  type="text"
-                  placeholder="Parent / Guardian Name"
-                  value={studentForm.parent_name}
-                  onChange={(e) => setStudentForm({ ...studentForm, parent_name: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Parent Mobile</label>
-                <input
-                  type="text"
-                  placeholder="+91 9876543210"
-                  value={studentForm.parent_mobile}
-                  onChange={(e) => setStudentForm({ ...studentForm, parent_mobile: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Parent Email</label>
-                <input
-                  type="email"
-                  value={studentForm.parent_email}
-                  onChange={(e) => setStudentForm({ ...studentForm, parent_email: e.target.value })}
-                  placeholder="parent@gmail.com"
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                />
-              </div>
-
-              <div className="sm:col-span-2 space-y-1.5">
-                <label className="block text-[#64748B] font-semibold">Upload Profile Photo or Image URL</label>
-                <div className="flex flex-col sm:flex-row items-center gap-3">
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Enrollment No</label>
                   <input
                     type="text"
-                    placeholder="Paste image URL (optional)"
-                    value={studentForm.profile_photo || ""}
-                    onChange={(e) => setStudentForm({ ...studentForm, profile_photo: e.target.value })}
-                    className="flex-1 w-full p-2 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg text-xs"
+                    placeholder="e.g. 25CI211001"
+                    value={studentForm.enrollment_no}
+                    onChange={(e) => setStudentForm({ ...studentForm, enrollment_no: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg font-mono font-bold text-[#2563EB]"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">First Name</label>
                   <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                          setStudentForm({ ...studentForm, profile_photo: reader.result });
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                    className="w-full sm:w-auto p-1.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg text-xs"
+                    type="text"
+                    required
+                    placeholder="First name"
+                    value={studentForm.first_name}
+                    onChange={(e) => setStudentForm({ ...studentForm, first_name: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
                   />
-                  {studentForm.profile_photo && (
-                    <img
-                      src={studentForm.profile_photo}
-                      alt="Preview"
-                      className="w-10 h-10 rounded-lg object-cover border border-[#E2E8F0] shrink-0"
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Last Name</label>
+                  <input
+                    type="text"
+                    placeholder="Last name"
+                    value={studentForm.last_name}
+                    onChange={(e) => setStudentForm({ ...studentForm, last_name: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Surname</label>
+                  <input
+                    type="text"
+                    placeholder="Surname"
+                    value={studentForm.surname}
+                    onChange={(e) => setStudentForm({ ...studentForm, surname: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Student Email</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="student@educonnect.ac.in"
+                    value={studentForm.email}
+                    onChange={(e) => setStudentForm({ ...studentForm, email: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Student Mobile</label>
+                  <input
+                    type="text"
+                    placeholder="+91 9876543210"
+                    value={studentForm.mobile}
+                    onChange={(e) => setStudentForm({ ...studentForm, mobile: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Gender</label>
+                  <select
+                    value={studentForm.gender}
+                    onChange={(e) => setStudentForm({ ...studentForm, gender: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Date of Birth</label>
+                  <input
+                    type="date"
+                    max={new Date().toISOString().split("T")[0]}
+                    value={studentForm.date_of_birth}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const todayDateStr = new Date().toISOString().split("T")[0];
+                      if (val && val > todayDateStr) {
+                        alert("Date of Birth cannot be in the future (after today).");
+                        return;
+                      }
+                      setStudentForm({ ...studentForm, date_of_birth: val });
+                    }}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Blood Group</label>
+                  <select
+                    value={studentForm.blood_group}
+                    onChange={(e) => setStudentForm({ ...studentForm, blood_group: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
+                  >
+                    <option value="A+">A+</option>
+                    <option value="B+">B+</option>
+                    <option value="O+">O+</option>
+                    <option value="AB+">AB+</option>
+                    <option value="A-">A-</option>
+                    <option value="B-">B-</option>
+                    <option value="O-">O-</option>
+                    <option value="AB-">AB-</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Admission Date</label>
+                  <input
+                    type="date"
+                    value={studentForm.admission_date}
+                    onChange={(e) => setStudentForm({ ...studentForm, admission_date: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Parent Name</label>
+                  <input
+                    type="text"
+                    placeholder="Parent / Guardian Name"
+                    value={studentForm.parent_name}
+                    onChange={(e) => setStudentForm({ ...studentForm, parent_name: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Parent Mobile</label>
+                  <input
+                    type="text"
+                    placeholder="+91 9876543210"
+                    value={studentForm.parent_mobile}
+                    onChange={(e) => setStudentForm({ ...studentForm, parent_mobile: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Parent Email</label>
+                  <input
+                    type="email"
+                    value={studentForm.parent_email}
+                    onChange={(e) => setStudentForm({ ...studentForm, parent_email: e.target.value })}
+                    placeholder="parent@gmail.com"
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
+                  />
+                </div>
+
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="block text-[#64748B] font-semibold">Upload Profile Photo or Image URL</label>
+                  <div className="flex flex-col sm:flex-row items-center gap-3">
+                    <input
+                      type="text"
+                      placeholder="Paste image URL (optional)"
+                      value={studentForm.profile_photo || ""}
+                      onChange={(e) => setStudentForm({ ...studentForm, profile_photo: e.target.value })}
+                      className="flex-1 w-full p-2 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg text-xs"
                     />
-                  )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setStudentForm({ ...studentForm, profile_photo: reader.result });
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="w-full sm:w-auto p-1.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg text-xs"
+                    />
+                    {studentForm.profile_photo && (
+                      <img
+                        src={studentForm.profile_photo}
+                        alt="Preview"
+                        className="w-10 h-10 rounded-lg object-cover border border-[#E2E8F0] shrink-0"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-[#64748B] mb-1 font-semibold">Residential Address</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Student address"
+                    value={studentForm.address}
+                    onChange={(e) => setStudentForm({ ...studentForm, address: e.target.value })}
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
+                  />
+                </div>
+
+                <div className="sm:col-span-2 flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="student_active"
+                    checked={studentForm.is_active}
+                    onChange={(e) => setStudentForm({ ...studentForm, is_active: e.target.checked })}
+                    className="rounded border-[#E2E8F0] text-[#2563EB] focus:ring-[#2563EB]"
+                  />
+                  <label htmlFor="student_active" className="text-xs font-bold text-[#1E293B] cursor-pointer">
+                    Student Active Status
+                  </label>
                 </div>
               </div>
 
-              <div className="sm:col-span-2">
-                <label className="block text-[#64748B] mb-1 font-semibold">Residential Address</label>
-                <textarea
-                  rows={2}
-                  placeholder="Student address"
-                  value={studentForm.address}
-                  onChange={(e) => setStudentForm({ ...studentForm, address: e.target.value })}
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
-                />
-              </div>
-
-              <div className="sm:col-span-2 flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="student_active"
-                  checked={studentForm.is_active}
-                  onChange={(e) => setStudentForm({ ...studentForm, is_active: e.target.checked })}
-                  className="rounded border-[#E2E8F0] text-[#2563EB] focus:ring-[#2563EB]"
-                />
-                <label htmlFor="student_active" className="text-xs font-bold text-[#1E293B] cursor-pointer">
-                  Student Active Status
-                </label>
-              </div>
-
-              <div className="sm:col-span-2 flex justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
+              <div className="flex justify-end gap-2 pt-3 border-t border-[#E2E8F0] shrink-0">
                 <Button variant="outline" size="sm" type="button" onClick={() => setShowStudentModal(false)}>
                   Cancel
                 </Button>

@@ -29,8 +29,9 @@ const TeacherLeaveManagement = () => {
   const handleReview = async (status) => {
     if (!selectedReq) return;
     try {
-      const id = selectedReq.leave_request_id;
-      await teacherApi.updateLeaveStatus(id, status);
+      const id = selectedReq.leave_request_id || selectedReq.id;
+      const remarks = remarksText || (status === "Approved" ? "Approved by faculty." : "Rejected by faculty.");
+      await teacherApi.updateLeaveStatus(id, status, remarks);
       setRequests(
         requests.map((r) =>
           r.leave_request_id === id

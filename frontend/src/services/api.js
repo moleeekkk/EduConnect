@@ -156,8 +156,8 @@ export const teacherApi = {
     handleMutationRequest(() => api.post("/teacher/grades", data)),
   getLeaveRequests: () =>
     handleRequest(() => api.get("/teacher/leave-requests"), []),
-  updateLeaveStatus: (id, status) =>
-    handleMutationRequest(() => api.put(`/teacher/leave-requests/${id}`, { status })),
+  updateLeaveStatus: (id, status, remarks) =>
+    handleMutationRequest(() => api.put(`/teacher/leave-requests/${id}`, typeof status === "object" ? status : { status, remarks })),
   getDoubts: () =>
     handleRequest(() => api.get("/teacher/doubts"), []),
   replyDoubt: (id, reply) =>

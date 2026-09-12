@@ -5,13 +5,16 @@ import AuthLayout from "../../layouts/AuthLayout";
 import Button from "../../components/common/Button";
 import { authApi } from "../../services/api";
 import { notifySuccess, notifyError } from "../../utils/toast";
+import { maskEmail } from "../../utils/maskEmail";
 
 
 const OTPVerification = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const enrollmentNo = location.state?.enrollmentNo || "2024MCA001";
-  const maskedEmail = location.state?.maskedEmail || "mau***al.gmail.com";
+  const [maskedEmail, setMaskedEmail] = useState(
+    location.state?.maskedEmail || maskEmail(`${enrollmentNo.toLowerCase()}@educonnect.ac.in`)
+  );
 
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
@@ -76,7 +79,10 @@ const OTPVerification = () => {
     setError("");
 
     try {
-      await authApi.sendStudentOtp(enrollmentNo);
+      const res = await authApi.sendStudentOtp(enrollmentNo);
+      if (res?.maskedEmail) {
+        setMaskedEmail(res.maskedEmail);
+      }
       setResendMessage("A fresh 6-digit OTP code has been dispatched!");
       notifySuccess("A fresh 6-digit OTP code has been dispatched!");
     } catch (err) {

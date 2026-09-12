@@ -9,6 +9,7 @@ import {
   Layers,
   Loader2,
   X,
+  Eye,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import Button from "../../components/common/Button";
@@ -24,6 +25,7 @@ const AdminDepartmentManagement = () => {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deletingDept, setDeletingDept] = useState(null);
+  const [viewDept, setViewDept] = useState(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -199,6 +201,13 @@ const AdminDepartmentManagement = () => {
 
                     <div className="flex items-center gap-1">
                       <button
+                        onClick={(e) => { e.stopPropagation(); setViewDept(dept); }}
+                        className="p-1.5 hover:bg-[#2563EB]/10 rounded-lg text-[#2563EB] transition-colors cursor-pointer"
+                        title="View Department Details"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={(e) => handleOpenEditDept(dept, e)}
                         className="p-1.5 hover:bg-[#14B8A6]/10 rounded-lg text-[#14B8A6] transition-colors cursor-pointer"
                         title="Edit Department"
@@ -238,7 +247,7 @@ const AdminDepartmentManagement = () => {
 
                     <div className="flex items-center justify-between pt-1.5 border-t border-[#E2E8F0]">
                       <span className="text-[10px] text-[#64748B] font-bold uppercase flex items-center gap-1">
-                        <Layers className="w-3.5 h-3.5 text-[#14B8A6]" /> Configured Semesters
+                        <Layers className="w-3.5 h-3.5 text-[#14B8A6]" /> Semesters
                       </span>
                       <span className="font-mono font-bold text-[#2563EB] bg-[#2563EB]/10 px-2.5 py-0.5 rounded">
                         {deptSemesters.length} Semesters
@@ -262,109 +271,126 @@ const AdminDepartmentManagement = () => {
 
       {/* Add / Edit Department Modal */}
       {showDeptModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-8 animate-fade-in">
-            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-              <h3 className="text-base font-bold text-[#1E293B]">
-                {editDept ? "Edit Department" : "Add New Department"}
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-auto max-h-[90vh] flex flex-col animate-fade-in text-xs">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-4 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-[#2563EB]/10 text-[#2563EB]">
+                  <Building2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-extrabold text-[#1E293B]">
+                    {editDept ? "Edit Department" : "Add New Department"}
+                  </h3>
+                  <p className="text-xs text-[#64748B]">Configure department details and parameters</p>
+                </div>
+              </div>
               <button
                 onClick={() => setShowDeptModal(false)}
-                className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
+                className="p-2 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
                 title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveDept} className="space-y-3 text-xs">
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Department Code</label>
-                <input
-                  type="text"
-                  required
-                  value={deptForm.department_code}
-                  onChange={(e) => setDeptForm({ ...deptForm, department_code: e.target.value })}
-                  placeholder="e.g. MCA, BCA, BTECH-IT"
-                  className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-mono font-bold text-[#2563EB]"
-                />
+            {/* Scrollable Form Body */}
+            <form onSubmit={handleSaveDept} className="flex flex-col grow overflow-hidden space-y-4">
+              <div className="overflow-y-auto pr-1 space-y-4 text-xs grow">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[#64748B] mb-1 font-semibold">Department Code *</label>
+                    <input
+                      type="text"
+                      required
+                      value={deptForm.department_code}
+                      onChange={(e) => setDeptForm({ ...deptForm, department_code: e.target.value })}
+                      placeholder="e.g. MCA, BCA, BTECH-IT"
+                      className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-mono font-bold text-[#2563EB]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[#64748B] mb-1 font-semibold">Department Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={deptForm.department_name}
+                      onChange={(e) => setDeptForm({ ...deptForm, department_name: e.target.value })}
+                      placeholder="e.g. Department of Master of Computer Applications"
+                      className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-semibold text-[#1E293B]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[#64748B] mb-1 font-semibold">Belongs to Institute</label>
+                    <select
+                      value={deptForm.institute_id}
+                      onChange={(e) => setDeptForm({ ...deptForm, institute_id: e.target.value })}
+                      className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-semibold text-[#1E293B]"
+                    >
+                      {institutes.length === 0 ? (
+                        <option value="">No Institutes Available</option>
+                      ) : (
+                        institutes.map((inst) => {
+                          const id = inst.institute_id || inst.instituteId;
+                          const name = inst.institute_name || inst.instituteName;
+                          const code = inst.institute_code || inst.instituteCode;
+                          return (
+                            <option key={id} value={id}>
+                              {name} ({code})
+                            </option>
+                          );
+                        })
+                      )}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[#64748B] mb-1 font-semibold">Duration in Years *</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      max="6"
+                      value={deptForm.duration_years}
+                      onChange={(e) => setDeptForm({ ...deptForm, duration_years: e.target.value })}
+                      placeholder="e.g. 2"
+                      className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-semibold text-[#1E293B]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Description & Overview</label>
+                  <textarea
+                    rows={3}
+                    value={deptForm.description}
+                    onChange={(e) => setDeptForm({ ...deptForm, description: e.target.value })}
+                    placeholder="e.g. Postgraduate department focusing on computer applications and software engineering."
+                    className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="dept_active"
+                    checked={deptForm.is_active}
+                    onChange={(e) => setDeptForm({ ...deptForm, is_active: e.target.checked })}
+                    className="rounded border-[#E2E8F0] text-[#2563EB] focus:ring-[#2563EB] cursor-pointer"
+                  />
+                  <label htmlFor="dept_active" className="text-xs font-bold text-[#1E293B] cursor-pointer">
+                    Department Active Status
+                  </label>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Department Name</label>
-                <input
-                  type="text"
-                  required
-                  value={deptForm.department_name}
-                  onChange={(e) => setDeptForm({ ...deptForm, department_name: e.target.value })}
-                  placeholder="e.g. Department of Master of Computer Applications"
-                  className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Belongs to Institute</label>
-                <select
-                  value={deptForm.institute_id}
-                  onChange={(e) => setDeptForm({ ...deptForm, institute_id: e.target.value })}
-                  className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-semibold text-[#1E293B]"
-                >
-                  {institutes.length === 0 ? (
-                    <option value="">No Institutes Available</option>
-                  ) : (
-                    institutes.map((inst) => {
-                      const id = inst.institute_id || inst.instituteId;
-                      const name = inst.institute_name || inst.instituteName;
-                      const code = inst.institute_code || inst.instituteCode;
-                      return (
-                        <option key={id} value={id}>
-                          {name} ({code})
-                        </option>
-                      );
-                    })
-                  )}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Duration in Years</label>
-                <input
-                  type="number"
-                  required
-                  min="1"
-                  max="6"
-                  value={deptForm.duration_years}
-                  onChange={(e) => setDeptForm({ ...deptForm, duration_years: e.target.value })}
-                  placeholder="e.g. 2"
-                  className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Description & Overview</label>
-                <textarea
-                  rows={3}
-                  value={deptForm.description}
-                  onChange={(e) => setDeptForm({ ...deptForm, description: e.target.value })}
-                  placeholder="e.g. Postgraduate department focusing on computer applications and software engineering."
-                  className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="dept_active"
-                  checked={deptForm.is_active}
-                  onChange={(e) => setDeptForm({ ...deptForm, is_active: e.target.checked })}
-                  className="rounded border-[#E2E8F0] text-[#2563EB] focus:ring-[#2563EB]"
-                />
-                <label htmlFor="dept_active" className="text-xs font-bold text-[#1E293B] cursor-pointer">
-                  Department Active Status
-                </label>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
+              {/* Footer */}
+              <div className="flex justify-end gap-2 pt-3 border-t border-[#E2E8F0] shrink-0">
                 <Button variant="outline" size="sm" type="button" onClick={() => setShowDeptModal(false)} disabled={saving}>
                   Cancel
                 </Button>
@@ -382,6 +408,169 @@ const AdminDepartmentManagement = () => {
           </div>
         </div>
       )}
+
+      {/* View Department Details Modal */}
+      {viewDept && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-auto max-h-[90vh] flex flex-col animate-fade-in">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-4 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-[#2563EB]/10 text-[#2563EB]">
+                  <Building2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-extrabold text-[#1E293B]">Department Information</h3>
+                  <p className="text-xs text-[#64748B]">Complete details of academic department</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewDept(null)}
+                className="p-2 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="overflow-y-auto pr-1 space-y-4 text-xs grow">
+              {(() => {
+                const dCode = viewDept.department_code || viewDept.departmentCode || viewDept.program_code || viewDept.programCode || "N/A";
+                const dName = viewDept.department_name || viewDept.departmentName || viewDept.program_name || viewDept.programName || "N/A";
+                const duration = viewDept.duration_years || viewDept.durationYears || 2;
+                const instId = viewDept.institute_id || viewDept.instituteId;
+                const inst = institutes.find((i) => (i.institute_id || i.instituteId) === instId);
+                const instName = inst ? (inst.institute_name || inst.instituteName) : (viewDept.institute_name || viewDept.instituteName || "Not Specified");
+                const instCode = inst ? (inst.institute_code || inst.instituteCode) : "";
+                const isActive = viewDept.is_active ?? viewDept.isActive ?? true;
+                const dId = viewDept.department_id || viewDept.departmentId || viewDept.program_id || viewDept.programId;
+                const deptSemesters = semesters.filter((s) => s.department_id === dId || s.program_id === dId || s.programId === dId);
+
+                return (
+                  <div className="space-y-4 text-xs">
+                    {/* Top Banner Card: Code, Name, Institute & Status */}
+                    <div className="p-4 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
+                        <span className="px-3.5 py-1.5 rounded-lg bg-[#2563EB]/10 text-[#2563EB] font-mono font-bold text-xs border border-[#2563EB]/20">
+                          Code: {dCode}
+                        </span>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${isActive ? "bg-[#22C55E]/10 text-[#22C55E]" : "bg-gray-200 text-gray-600"}`}>
+                          {isActive ? "● Active Department" : "● Inactive Department"}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                        <div>
+                          <span className="text-[10px] text-[#64748B] uppercase font-bold block mb-1">Department Name</span>
+                          <p className="font-extrabold text-base text-[#1E293B] leading-snug">{dName}</p>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-[#64748B] uppercase font-bold block mb-1">Affiliated Institute</span>
+                          <div className="flex items-center gap-1.5 font-bold text-[#1E293B] text-sm">
+                            <Building2 className="w-4 h-4 text-[#2563EB]" />
+                            <span>{instName}</span>
+                            {instCode && (
+                              <span className="font-mono text-xs text-[#2563EB] bg-[#2563EB]/10 px-2 py-0.5 rounded ml-1">
+                                {instCode}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 2-Column Content Layout */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Left Column: Academic Structure */}
+                      <div className="space-y-3">
+                        <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
+                          <span className="text-[10px] text-[#64748B] uppercase font-bold flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5 text-[#2563EB]" /> Course Duration
+                          </span>
+                          <p className="font-extrabold text-[#1E293B] text-sm">{duration} Years</p>
+                        </div>
+
+                        <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
+                          <span className="text-[10px] text-[#64748B] uppercase font-bold flex items-center gap-1">
+                            <Layers className="w-3.5 h-3.5 text-[#14B8A6]" /> Configured Semesters Count
+                          </span>
+                          <p className="font-extrabold text-[#2563EB] text-sm">
+                            {deptSemesters.length} {deptSemesters.length === 1 ? "Semester" : "Semesters"}
+                          </p>
+                        </div>
+
+                        {deptSemesters.length > 0 && (
+                          <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-2">
+                            <span className="text-[10px] text-[#64748B] uppercase font-bold block">Configured Semester Breakdown</span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {deptSemesters.map((s, i) => (
+                                <span key={s.semester_id || s.semesterId || i} className="bg-white border border-[#E2E8F0] px-2.5 py-1 rounded-md text-[11px] font-semibold text-[#1E293B]">
+                                  {s.semester_name || s.semesterName || `Semester ${s.semester_number || s.semesterNumber || i + 1}`}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Right Column: Description & Audit Timestamps */}
+                      <div className="space-y-3">
+                        <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1 min-h-[90px]">
+                          <span className="text-[10px] text-[#64748B] uppercase font-bold block">Description & Overview</span>
+                          <p className="text-[#334155] leading-relaxed text-xs">
+                            {viewDept.description || "No description provided for this department."}
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                            <span className="text-[10px] text-[#64748B] uppercase font-bold block">Created At</span>
+                            <p className="font-mono text-[11px] text-[#1E293B] font-medium pt-0.5">
+                              {viewDept.created_at || viewDept.createdAt
+                                ? new Date(viewDept.created_at || viewDept.createdAt).toLocaleString("en-IN", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                                : "N/A"}
+                            </p>
+                          </div>
+
+                          <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                            <span className="text-[10px] text-[#64748B] uppercase font-bold block">Updated At</span>
+                            <p className="font-mono text-[11px] text-[#1E293B] font-medium pt-0.5">
+                              {viewDept.updated_at || viewDept.updatedAt
+                                ? new Date(viewDept.updated_at || viewDept.updatedAt).toLocaleString("en-IN", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                                : "N/A"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end pt-3 border-t border-[#E2E8F0] shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setViewDept(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       <ConfirmModal
         isOpen={Boolean(deletingDept)}

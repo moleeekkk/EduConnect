@@ -702,31 +702,39 @@ const AdminReports = () => {
 
       {/* FULL STUDENT PROFILE DETAILS MODAL */}
       {selectedStudentForProfile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-8 animate-fade-in">
-            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-              <h3 className="text-base font-bold text-[#1E293B] flex items-center gap-2">
-                <GraduationCap className="w-5 h-5 text-[#2563EB]" /> Official Student Profile Details
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-auto max-h-[90vh] flex flex-col animate-fade-in text-xs">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-4 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-[#2563EB]/10 text-[#2563EB]">
+                  <GraduationCap className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-extrabold text-[#1E293B]">Official Student Profile Details</h3>
+                  <p className="text-xs text-[#64748B]">Complete academic & personal profile overview</p>
+                </div>
+              </div>
               <button
                 onClick={() => setSelectedStudentForProfile(null)}
-                className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
+                className="p-2 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
                 title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-4 text-xs">
+            {/* Scrollable Content */}
+            <div className="overflow-y-auto pr-1 space-y-4 text-xs grow">
               {/* Student Header Card */}
-              <div className="flex items-center gap-4 p-4 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 p-4 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
                 <img
                   src={selectedStudentForProfile.profile_photo || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"}
                   alt={selectedStudentForProfile.first_name}
-                  className="w-16 h-16 rounded-xl object-cover border border-[#E2E8F0] shadow-2xs"
+                  className="w-20 h-20 rounded-xl object-cover border-2 border-[#2563EB]/30 shadow-xs shrink-0"
                 />
-                <div>
-                  <h4 className="text-base font-extrabold text-[#1E293B]">
+                <div className="flex-1 text-center sm:text-left space-y-1">
+                  <h4 className="text-lg font-extrabold text-[#1E293B]">
                     {selectedStudentForProfile.first_name} {selectedStudentForProfile.last_name}
                   </h4>
                   <p className="font-mono text-[#2563EB] font-bold text-xs">
@@ -738,39 +746,41 @@ const AdminReports = () => {
                 </div>
               </div>
 
-              {/* Profile Details Grid */}
+              {/* 2-Column Info Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-0.5">
                   <span className="text-[10px] text-[#64748B] font-bold block uppercase">Email Address</span>
-                  <p className="font-medium text-[#1E293B] truncate">{selectedStudentForProfile.email}</p>
+                  <p className="font-medium text-[#1E293B] truncate">{selectedStudentForProfile.email || "N/A"}</p>
                 </div>
-
                 <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-0.5">
                   <span className="text-[10px] text-[#64748B] font-bold block uppercase">Mobile Number</span>
-                  <p className="font-mono text-[#1E293B] font-bold">{selectedStudentForProfile.mobile}</p>
+                  <p className="font-mono text-[#1E293B] font-bold">{selectedStudentForProfile.mobile || "N/A"}</p>
                 </div>
-
                 <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-0.5">
                   <span className="text-[10px] text-[#64748B] font-bold block uppercase">Gender & Date of Birth</span>
-                  <p className="font-medium text-[#1E293B]">{selectedStudentForProfile.gender} • {selectedStudentForProfile.date_of_birth}</p>
+                  <p className="font-medium text-[#1E293B]">{selectedStudentForProfile.gender || "N/A"} • {selectedStudentForProfile.date_of_birth || "N/A"}</p>
                 </div>
-
                 <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-0.5">
-                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">Blood Group & Admission Date</span>
+                  <span className="text-[10px] text-[#64748B] font-bold block uppercase">Blood Group & Admission</span>
                   <p className="font-medium text-[#1E293B]">Blood Group: {selectedStudentForProfile.blood_group || "O+"} • Adm: {selectedStudentForProfile.admission_date || "2025-07-15"}</p>
                 </div>
-
                 <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-0.5 sm:col-span-2">
                   <span className="text-[10px] text-[#64748B] font-bold block uppercase">Parent / Guardian Information</span>
                   <p className="font-bold text-[#1E293B]">{selectedStudentForProfile.parent_name || "Parent Name"}</p>
                   <p className="font-mono text-[#14B8A6] font-bold">{selectedStudentForProfile.parent_mobile} • {selectedStudentForProfile.parent_email || "parent@gmail.com"}</p>
                 </div>
-
                 <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-0.5 sm:col-span-2">
                   <span className="text-[10px] text-[#64748B] font-bold block uppercase">Residential Address</span>
-                  <p className="font-medium text-[#1E293B]">{selectedStudentForProfile.address}</p>
+                  <p className="font-medium text-[#1E293B]">{selectedStudentForProfile.address || "N/A"}</p>
                 </div>
               </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end pt-3 border-t border-[#E2E8F0] shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setSelectedStudentForProfile(null)}>
+                Close
+              </Button>
             </div>
           </div>
         </div>

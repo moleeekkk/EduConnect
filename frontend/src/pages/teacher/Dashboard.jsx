@@ -10,7 +10,7 @@ const TeacherDashboard = () => {
   const loggedUser = userStr ? JSON.parse(userStr) : null;
 
   const [dashData, setDashData] = useState({
-    employee_id: loggedUser?.identifier || "",
+    faculty_id: loggedUser?.identifier || "",
     first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : "Faculty",
     last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : "Member",
     designation: "Assistant Professor",
@@ -52,7 +52,7 @@ const TeacherDashboard = () => {
   }, []);
 
   const teacher = {
-    employee_id: dashData.employee_id,
+    faculty_id: dashData.faculty_id || dashData.facultyId,
     first_name: dashData.first_name,
     last_name: dashData.last_name,
     designation: dashData.designation,

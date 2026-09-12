@@ -76,14 +76,25 @@ const AdminTeacherSubjectAllocation = () => {
     return dept ? dept.department_code || dept.program_code || dept.code : "MCA";
   };
 
-  const getSemesterLabel = (semId) => {
-    if (!semId) return "Semester 1";
-    const sem = semesters.find(
-      (s) =>
-        String(s.semester_id || s.semesterId || s.id) === String(semId) ||
-        String(s.semester_number || s.number) === String(semId)
-    );
-    return sem ? sem.semester_name || `Semester ${sem.semester_number || sem.number}` : `Semester ${semId}`;
+  const getSemesterLabel = (semId, semNo) => {
+    if (!semId && !semNo) return "Semester 1";
+    if (semId) {
+      const sem = semesters.find(
+        (s) =>
+          String(s.semester_id || s.semesterId || s.id).toLowerCase() === String(semId).toLowerCase() ||
+          String(s.semester_number || s.number) === String(semId)
+      );
+      if (sem) return sem.semester_name || `Semester ${sem.semester_number || sem.number}`;
+    }
+    if (semNo) {
+      const sem = semesters.find((s) => String(s.semester_number || s.number) === String(semNo));
+      if (sem) return sem.semester_name || `Semester ${sem.semester_number || sem.number}`;
+      return `Semester ${semNo}`;
+    }
+    if (semId && (!isNaN(semId) && String(semId).length <= 2)) {
+      return `Semester ${semId}`;
+    }
+    return "Semester 1";
   };
 
   // Helper to check if teacher is allocated to subject
@@ -227,7 +238,7 @@ const AdminTeacherSubjectAllocation = () => {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       const name = `${t.first_name || t.firstName || ""} ${t.last_name || t.lastName || ""}`.toLowerCase();
-      const empId = (t.employee_id || t.employeeId || "").toLowerCase();
+      const empId = (t.faculty_id || t.facultyId || "").toLowerCase();
       const email = (t.email || "").toLowerCase();
       if (!name.includes(q) && !empId.includes(q) && !email.includes(q)) {
         return false;
@@ -335,7 +346,7 @@ const AdminTeacherSubjectAllocation = () => {
                   placeholder={
                     viewMode === "subject"
                       ? "Search subject code or name..."
-                      : "Search teacher name or employee ID..."
+                      : "Search teacher name or Faculty ID..."
                   }
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -483,7 +494,7 @@ const AdminTeacherSubjectAllocation = () => {
             filteredTeachers.map((t) => {
               const tId = t.teacher_id || t.teacherId || t.id;
               const tName = `${t.first_name || t.firstName || ""} ${t.last_name || t.lastName || ""}`.trim() || "Faculty Member";
-              const empId = t.employee_id || t.employeeId || "EMP000";
+              const empId = t.faculty_id || t.facultyId || "FAC000";
               const assignedSubjs = getAssignedSubjects(tId);
 
               return (
@@ -581,7 +592,7 @@ const AdminTeacherSubjectAllocation = () => {
             <div className="shrink-0">
               <input
                 type="text"
-                placeholder="Filter faculty member by name or employee ID..."
+                placeholder="Filter faculty member by name or Faculty ID..."
                 value={modalSearch}
                 onChange={(e) => setModalSearch(e.target.value)}
                 className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs outline-none focus:border-[#2563EB]"
@@ -595,7 +606,7 @@ const AdminTeacherSubjectAllocation = () => {
                   if (!modalSearch.trim()) return true;
                   const q = modalSearch.toLowerCase().trim();
                   const tName = `${t.first_name || t.firstName || ""} ${t.last_name || t.lastName || ""}`.toLowerCase();
-                  const empId = (t.employee_id || t.employeeId || "").toLowerCase();
+                  const empId = (t.faculty_id || t.facultyId || "").toLowerCase();
                   return tName.includes(q) || empId.includes(q);
                 })
                 .map((t) => {
@@ -603,7 +614,7 @@ const AdminTeacherSubjectAllocation = () => {
                   const sId = manageSubjectModal.subject_id || manageSubjectModal.subjectId || manageSubjectModal.id;
                   const allocated = isAllocated(tId, sId);
                   const tName = `${t.first_name || t.firstName || ""} ${t.last_name || t.lastName || ""}`.trim() || "Faculty Member";
-                  const empId = t.employee_id || t.employeeId || "EMP000";
+                  const empId = t.faculty_id || t.facultyId || "FAC000";
                   const actionKey = `${tId}-${sId}`;
                   const isLoadingThis = actionLoadingId === actionKey;
 
@@ -681,7 +692,7 @@ const AdminTeacherSubjectAllocation = () => {
             <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3 shrink-0">
               <div>
                 <span className="text-xs font-bold text-[#64748B] bg-slate-100 px-2 py-0.5 rounded">
-                  {manageTeacherModal.employee_id || manageTeacherModal.employeeId}
+                  {manageTeacherModal.faculty_id || manageTeacherModal.facultyId}
                 </span>
                 <h3 className="text-base font-extrabold text-[#1E293B] pt-1">
                   Assign Subjects to {manageTeacherModal.first_name || manageTeacherModal.firstName} {manageTeacherModal.last_name || manageTeacherModal.lastName}

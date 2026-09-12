@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { HelpCircle, Plus, Edit, Trash2, CheckCircle2, ListPlus, BookOpen, X } from "lucide-react";
 import Button from "../../components/common/Button";
 import { teacherApi, adminApi } from "../../services/api";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const TeacherQuizPractice = () => {
   const [quizzes, setQuizzes] = useState([]);
@@ -57,53 +58,68 @@ const TeacherQuizPractice = () => {
   };
 
   const handleOpenEditModal = (quiz) => {
-    setEditingQuizId(quiz.quiz_id);
+    setEditingQuizId(quiz.quiz_id || quiz.id);
     setTitle(quiz.title);
     setDesc(quiz.description);
     setSubjectId(quiz.subject_id || "subj-101");
-    setLearnerType(quiz.learner_type);
+    setLearnerType(quiz.learner_type || quiz.category || "Fast");
     setShowAddModal(true);
   };
 
   const handleDeleteQuiz = (id) => {
     if (window.confirm("Are you sure you want to delete this practice quiz and its questions?")) {
-      setQuizzes(quizzes.filter((q) => q.quiz_id !== id));
+      setQuizzes(quizzes.filter((q) => (q.quiz_id || q.id) !== id));
       setMcqs(mcqs.filter((m) => m.quiz_id !== id));
+      notifySuccess("Quiz deleted!");
     }
   };
 
-  const handleSaveQuiz = (e) => {
+  const handleSaveQuiz = async (e) => {
     e.preventDefault();
-    if (editingQuizId) {
-      // Edit Quiz
-      setQuizzes(
-        quizzes.map((q) =>
-          q.quiz_id === editingQuizId
-            ? {
-                ...q,
-                title,
-                description: desc,
-                subject_id: subjectId,
-                learner_type: learnerType,
-                updated_at: new Date().toISOString(),
-              }
-            : q
-        )
-      );
-    } else {
-      // Create Quiz
-      const created = {
-        quiz_id: `quiz-00${quizzes.length + 1}`,
-        teacher_subject_id: "ts-001",
-        subject_id: subjectId,
-        title,
-        description: desc,
-        learner_type: learnerType,
-        total_questions: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      setQuizzes([...quizzes, created]);
+    const payload = {
+      title,
+      description: desc,
+      subject_id: subjectId,
+      learner_type: learnerType,
+      category: learnerType,
+      total_questions: 0,
+    };
+
+    try {
+      if (editingQuizId) {
+        setQuizzes(
+          quizzes.map((q) =>
+            (q.quiz_id || q.id) === editingQuizId
+              ? {
+                  ...q,
+                  title,
+                  description: desc,
+                  subject_id: subjectId,
+                  learner_type: learnerType,
+                  updated_at: new Date().toISOString(),
+                }
+              : q
+          )
+        );
+        notifySuccess(`Practice Quiz '${title}' updated!`);
+      } else {
+        const createdRes = await teacherApi.createQuiz(payload);
+        const createdObj = (createdRes && createdRes.quiz_id) ? createdRes : {
+          quiz_id: `quiz-00${quizzes.length + 1}`,
+          teacher_subject_id: "ts-001",
+          subject_id: subjectId,
+          title,
+          description: desc,
+          learner_type: learnerType,
+          total_questions: 0,
+          created_at: new Date().toISOString(),
+        };
+        setQuizzes([...quizzes, createdObj]);
+        notifySuccess(`Practice Quiz '${title}' created and saved to database!`);
+      }
+    } catch (err) {
+      console.error("Error saving practice quiz:", err);
+      notifyError("Failed to save quiz to database.");
     }
 
     setShowAddModal(false);

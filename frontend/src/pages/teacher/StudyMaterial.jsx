@@ -267,7 +267,7 @@ const TeacherStudyMaterial = () => {
                 />
                 {selectedFileName && (
                   <p className="text-[11px] text-[#14B8A6] font-semibold font-mono truncate">
-                    Selected Document: {getDisplayFileName(selectedFileName, selectedFileData, newTitle)}
+                    Selected Document: {getDisplayFileName(selectedFileName, null, title)}
                   </p>
                 )}
               </div>
