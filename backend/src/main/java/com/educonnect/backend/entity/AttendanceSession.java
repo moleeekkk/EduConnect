@@ -18,26 +18,36 @@ public class AttendanceSession {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "session_id")
+    @Column(name = "attendance_session_id")
     private UUID sessionId;
 
-    @Column(name = "teacher_subject_id", nullable = false)
-    private UUID teacherSubjectId;
+    public UUID getAttendanceSessionId() {
+        return sessionId;
+    }
+
+    public void setAttendanceSessionId(UUID attendanceSessionId) {
+        this.sessionId = attendanceSessionId;
+    }
+
+    @Column(name = "subject_id", nullable = false)
+    private UUID subjectId;
+
+    public UUID getTeacherSubjectId() {
+        return subjectId;
+    }
+
+    public void setTeacherSubjectId(UUID teacherSubjectId) {
+        this.subjectId = teacherSubjectId;
+    }
 
     @Column(name = "session_date", nullable = false)
     private LocalDate sessionDate;
-
-    @Column(name = "lecture_no", nullable = false)
-    private Integer lectureNo;
 
     @Column(name = "start_time", nullable = false)
     private LocalTime startTime;
 
     @Column(name = "end_time", nullable = false)
     private LocalTime endTime;
-
-    @Column(name = "topic", length = 255)
-    private String topic;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

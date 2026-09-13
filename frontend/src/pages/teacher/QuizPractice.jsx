@@ -11,13 +11,19 @@ const TeacherQuizPractice = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+      const userStr = localStorage.getItem("educonnect_user");
+      const loggedUser = userStr ? JSON.parse(userStr) : null;
+      const identifier = loggedUser?.identifier || loggedUser?.email || loggedUser?.userId;
+
       try {
         const [quizData, subData] = await Promise.all([
           teacherApi.getQuizzes(),
-          adminApi.getSubjects(),
+          teacherApi.getAssignedSubjects(identifier),
         ]);
         if (Array.isArray(quizData)) {
           setQuizzes(quizData);
+          const allMcqs = quizData.flatMap((q) => q.mcqs || q.questions || []);
+          setMcqs(allMcqs);
         }
         if (Array.isArray(subData)) {
           setSubjects(subData);
@@ -35,7 +41,7 @@ const TeacherQuizPractice = () => {
 
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
-  const [subjectId, setSubjectId] = useState("subj-101");
+  const [subjectId, setSubjectId] = useState("");
   const [learnerType, setLearnerType] = useState("Fast");
 
   // Add MCQ Question Modal States
@@ -52,25 +58,49 @@ const TeacherQuizPractice = () => {
     setEditingQuizId(null);
     setTitle("");
     setDesc("");
-    setSubjectId("subj-101");
+    setSubjectId(subjects[0]?.subject_id || subjects[0]?.id || "");
     setLearnerType("Fast");
     setShowAddModal(true);
   };
 
   const handleOpenEditModal = (quiz) => {
     setEditingQuizId(quiz.quiz_id || quiz.id);
-    setTitle(quiz.title);
-    setDesc(quiz.description);
-    setSubjectId(quiz.subject_id || "subj-101");
+    setTitle(quiz.title || "");
+    setDesc(quiz.description || "");
+    setSubjectId(quiz.subject_id || "");
     setLearnerType(quiz.learner_type || quiz.category || "Fast");
     setShowAddModal(true);
   };
 
-  const handleDeleteQuiz = (id) => {
+  const handleOpenManageQuestions = async (quiz) => {
+    setActiveQuizForMcq(quiz);
+    const quizId = quiz.quiz_id || quiz.id;
+    if (quizId) {
+      try {
+        const qMcqs = await teacherApi.getQuizQuestions(quizId);
+        if (Array.isArray(qMcqs)) {
+          setMcqs((prev) => [
+            ...prev.filter((m) => String(m.quiz_id || m.quizId) !== String(quizId)),
+            ...qMcqs,
+          ]);
+        }
+      } catch (err) {
+        console.error("Error fetching quiz questions:", err);
+      }
+    }
+  };
+
+  const handleDeleteQuiz = async (id) => {
     if (window.confirm("Are you sure you want to delete this practice quiz and its questions?")) {
-      setQuizzes(quizzes.filter((q) => (q.quiz_id || q.id) !== id));
-      setMcqs(mcqs.filter((m) => m.quiz_id !== id));
-      notifySuccess("Quiz deleted!");
+      try {
+        await teacherApi.deleteQuiz(id);
+        setQuizzes((prev) => prev.filter((q) => String(q.quiz_id || q.id) !== String(id)));
+        setMcqs((prev) => prev.filter((m) => String(m.quiz_id || m.quizId) !== String(id)));
+        notifySuccess("Practice Quiz deleted from database!");
+      } catch (err) {
+        console.error("Error deleting practice quiz:", err);
+        notifyError("Failed to delete quiz from database.");
+      }
     }
   };
 
@@ -82,40 +112,23 @@ const TeacherQuizPractice = () => {
       subject_id: subjectId,
       learner_type: learnerType,
       category: learnerType,
-      total_questions: 0,
     };
 
     try {
       if (editingQuizId) {
-        setQuizzes(
-          quizzes.map((q) =>
-            (q.quiz_id || q.id) === editingQuizId
-              ? {
-                  ...q,
-                  title,
-                  description: desc,
-                  subject_id: subjectId,
-                  learner_type: learnerType,
-                  updated_at: new Date().toISOString(),
-                }
-              : q
-          )
-        );
-        notifySuccess(`Practice Quiz '${title}' updated!`);
+        const updated = await teacherApi.updateQuiz(editingQuizId, payload);
+        if (updated) {
+          setQuizzes((prev) =>
+            prev.map((q) => (String(q.quiz_id || q.id) === String(editingQuizId) ? { ...q, ...updated } : q))
+          );
+          notifySuccess(`Practice Quiz '${title}' updated in database!`);
+        }
       } else {
         const createdRes = await teacherApi.createQuiz(payload);
-        const createdObj = (createdRes && createdRes.quiz_id) ? createdRes : {
-          quiz_id: `quiz-00${quizzes.length + 1}`,
-          teacher_subject_id: "ts-001",
-          subject_id: subjectId,
-          title,
-          description: desc,
-          learner_type: learnerType,
-          total_questions: 0,
-          created_at: new Date().toISOString(),
-        };
-        setQuizzes([...quizzes, createdObj]);
-        notifySuccess(`Practice Quiz '${title}' created and saved to database!`);
+        if (createdRes) {
+          setQuizzes((prev) => [...prev, createdRes]);
+          notifySuccess(`Practice Quiz '${title}' created and saved to database!`);
+        }
       }
     } catch (err) {
       console.error("Error saving practice quiz:", err);
@@ -127,13 +140,12 @@ const TeacherQuizPractice = () => {
   };
 
   // Add MCQ Question to Quiz
-  const handleAddMcqQuestion = (e) => {
+  const handleAddMcqQuestion = async (e) => {
     e.preventDefault();
     if (!activeQuizForMcq) return;
 
+    const quizId = activeQuizForMcq.quiz_id || activeQuizForMcq.id;
     const newMcqObj = {
-      mcq_id: `mcq-00${mcqs.length + 1}`,
-      quiz_id: activeQuizForMcq.quiz_id,
       question: newQuestion,
       option_a: optA,
       option_b: optB,
@@ -141,20 +153,29 @@ const TeacherQuizPractice = () => {
       option_d: optD,
       correct_answer: correctAns,
       explanation: explanation,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     };
 
-    setMcqs([...mcqs, newMcqObj]);
-
-    // Update Question Count in Quiz
-    setQuizzes(
-      quizzes.map((q) =>
-        q.quiz_id === activeQuizForMcq.quiz_id
-          ? { ...q, total_questions: (q.total_questions || 0) + 1 }
-          : q
-      )
-    );
+    try {
+      const addedMcq = await teacherApi.addQuizQuestion(quizId, newMcqObj);
+      if (addedMcq) {
+        setMcqs((prev) => [...prev, addedMcq]);
+        setQuizzes((prev) =>
+          prev.map((q) =>
+            String(q.quiz_id || q.id) === String(quizId)
+              ? {
+                  ...q,
+                  total_questions: (q.total_questions || 0) + 1,
+                  mcqs: [...(q.mcqs || []), addedMcq],
+                }
+              : q
+          )
+        );
+        notifySuccess("MCQ question saved to database successfully!");
+      }
+    } catch (err) {
+      console.error("Error adding MCQ question:", err);
+      notifyError("Failed to save MCQ question to database.");
+    }
 
     // Reset Form
     setNewQuestion("");
@@ -166,16 +187,28 @@ const TeacherQuizPractice = () => {
     setExplanation("");
   };
 
-  const handleDeleteMcq = (mcqId) => {
-    setMcqs(mcqs.filter((m) => m.mcq_id !== mcqId));
-    if (activeQuizForMcq) {
-      setQuizzes(
-        quizzes.map((q) =>
-          q.quiz_id === activeQuizForMcq.quiz_id
-            ? { ...q, total_questions: Math.max(0, (q.total_questions || 1) - 1) }
+  const handleDeleteMcq = async (mcqId) => {
+    if (!activeQuizForMcq) return;
+    const quizId = activeQuizForMcq.quiz_id || activeQuizForMcq.id;
+
+    try {
+      const updatedQuestions = await teacherApi.deleteQuizQuestion(quizId, mcqId);
+      setMcqs((prev) => prev.filter((m) => String(m.mcq_id || m.id) !== String(mcqId)));
+      setQuizzes((prev) =>
+        prev.map((q) =>
+          String(q.quiz_id || q.id) === String(quizId)
+            ? {
+                ...q,
+                total_questions: Math.max(0, (q.total_questions || 1) - 1),
+                mcqs: updatedQuestions,
+              }
             : q
         )
       );
+      notifySuccess("MCQ question deleted from database!");
+    } catch (err) {
+      console.error("Error deleting MCQ question:", err);
+      notifyError("Failed to delete MCQ question.");
     }
   };
 
@@ -195,30 +228,46 @@ const TeacherQuizPractice = () => {
       {/* Quizzes Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {quizzes.map((quiz) => {
-          const quizMcqCount = mcqs.filter((m) => m.quiz_id === quiz.quiz_id).length;
-          const subj = subjects.find((s) => s.subject_id === quiz.subject_id || s.id === quiz.subject_id);
+          const quizId = quiz.quiz_id || quiz.id;
+          const quizMcqsList = mcqs.filter((m) => String(m.quiz_id || m.quizId) === String(quizId));
+          const quizMcqCount = quizMcqsList.length > 0 ? quizMcqsList.length : (quiz.total_questions || 0);
+          const subj = subjects.find((s) => String(s.subject_id || s.id) === String(quiz.subject_id));
+          const subjectName = subj ? (subj.subject_name || subj.name) : (quiz.subject_name || "");
+          const subjectCode = subj ? (subj.subject_code || subj.code) : (quiz.subject_code || "");
 
           return (
-            <div key={quiz.quiz_id || quiz.id} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs flex flex-col justify-between space-y-4">
-              <div className="space-y-2 text-xs">
+            <div key={quizId} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-4">
+              <div className="space-y-3 text-xs">
+                {/* Header Badges */}
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <span
                     className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                      quiz.learner_type === "Fast"
+                      (quiz.learner_type || quiz.category) === "Fast"
                         ? "bg-[#2563EB]/10 text-[#2563EB]"
                         : "bg-[#14B8A6]/10 text-[#14B8A6]"
                     }`}
                   >
-                    Category: {quiz.learner_type} Learner
+                    Category: {quiz.learner_type || quiz.category || "Fast"} Learner
                   </span>
-                  <span className="font-mono text-[#2563EB] bg-[#2563EB]/10 px-2 py-0.5 rounded font-bold text-[10px]">
-                    {subj ? (subj.subject_code || subj.code) : "MCA"}
-                  </span>
-                  <span className="font-bold text-[#64748B] text-[11px]">{quizMcqCount} Questions</span>
+
+                  {(subjectName || subjectCode) && (
+                    <span className="font-mono text-[#2563EB] bg-[#2563EB]/10 px-2.5 py-0.5 rounded-full font-bold text-[10px] flex items-center gap-1">
+                      <BookOpen className="w-3 h-3" />
+                      {subjectName ? `${subjectName} (${subjectCode})` : subjectCode}
+                    </span>
+                  )}
                 </div>
 
-                <h3 className="text-sm font-bold text-[#1E293B]">{quiz.title}</h3>
-                <p className="text-[#64748B]">{quiz.description}</p>
+                <div>
+                  <h3 className="text-sm font-bold text-[#1E293B]">{quiz.title}</h3>
+                  <p className="text-[#64748B] mt-0.5">{quiz.description}</p>
+                </div>
+
+                {/* Info Bar */}
+                <div className="pt-2 border-t border-[#E2E8F0] flex items-center justify-between text-[11px] text-[#64748B]">
+                  <span className="font-bold text-[#2563EB]">{quizMcqCount} Questions Added</span>
+                  <span className="font-medium text-[#14B8A6]">{quiz.time_limit_minutes || 15} Mins Limit</span>
+                </div>
               </div>
 
               <div className="border-t border-[#E2E8F0] pt-3 flex flex-wrap items-center justify-between gap-2">
@@ -226,7 +275,7 @@ const TeacherQuizPractice = () => {
                   variant="accent"
                   size="sm"
                   icon={ListPlus}
-                  onClick={() => setActiveQuizForMcq(quiz)}
+                  onClick={() => handleOpenManageQuestions(quiz)}
                   className="text-xs"
                 >
                   Manage Questions ({quizMcqCount})
@@ -246,7 +295,7 @@ const TeacherQuizPractice = () => {
                     variant="danger"
                     size="sm"
                     icon={Trash2}
-                    onClick={() => handleDeleteQuiz(quiz.quiz_id)}
+                    onClick={() => handleDeleteQuiz(quizId)}
                     className="text-xs !bg-[#EF4444]/10 !text-[#EF4444] hover:!bg-[#EF4444] hover:!text-white border-transparent"
                   >
                     Delete
@@ -353,30 +402,33 @@ const TeacherQuizPractice = () => {
             {/* Existing Questions List */}
             <div className="space-y-3">
               <h4 className="text-xs font-bold text-[#1E293B] uppercase tracking-wider">Current Practice Questions</h4>
-              {mcqs.filter((m) => m.quiz_id === activeQuizForMcq.quiz_id).length === 0 ? (
+              {mcqs.filter((m) => String(m.quiz_id || m.quizId) === String(activeQuizForMcq.quiz_id || activeQuizForMcq.id)).length === 0 ? (
                 <p className="text-xs text-[#64748B] italic">No questions added yet. Use the form below to add questions.</p>
               ) : (
                 <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                   {mcqs
-                    .filter((m) => m.quiz_id === activeQuizForMcq.quiz_id)
-                    .map((mcq, idx) => (
-                      <div key={mcq.mcq_id} className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] text-xs flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-bold text-[#1E293B]">{idx + 1}. {mcq.question}</p>
-                          <p className="text-[11px] text-[#64748B] mt-0.5">
-                            A: {mcq.option_a} | B: {mcq.option_b} | C: {mcq.option_c} | D: {mcq.option_d}
-                          </p>
-                          <span className="text-[10px] font-bold text-[#22C55E]">Correct: Option {mcq.correct_answer}</span>
+                    .filter((m) => String(m.quiz_id || m.quizId) === String(activeQuizForMcq.quiz_id || activeQuizForMcq.id))
+                    .map((mcq, idx) => {
+                      const mcqId = mcq.mcq_id || mcq.id;
+                      return (
+                        <div key={mcqId} className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] text-xs flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-bold text-[#1E293B]">{idx + 1}. {mcq.question}</p>
+                            <p className="text-[11px] text-[#64748B] mt-0.5">
+                              A: {mcq.option_a} | B: {mcq.option_b} | C: {mcq.option_c} | D: {mcq.option_d}
+                            </p>
+                            <span className="text-[10px] font-bold text-[#22C55E]">Correct: Option {mcq.correct_answer}</span>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteMcq(mcqId)}
+                            className="text-[#EF4444] hover:bg-[#EF4444]/10 p-1 rounded transition-colors shrink-0"
+                            title="Delete Question"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-                        <button
-                          onClick={() => handleDeleteMcq(mcq.mcq_id)}
-                          className="text-[#EF4444] hover:bg-[#EF4444]/10 p-1 rounded transition-colors shrink-0"
-                          title="Delete Question"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                 </div>
               )}
             </div>

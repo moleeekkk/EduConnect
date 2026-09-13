@@ -27,10 +27,6 @@ public class LeaveRequest {
     @JsonProperty("student_id")
     private UUID studentId;
 
-    @Column(name = "enrollment_no", length = 50)
-    @JsonProperty("enrollment_no")
-    private String enrollmentNo;
-
     @Column(name = "leave_type", nullable = false, length = 50)
     @JsonProperty("leave_type")
     private String leaveType; // "Sick", "Casual", "Emergency", "Academic"

@@ -3,6 +3,8 @@ package com.educonnect.backend.service;
 import com.educonnect.backend.entity.Assignment;
 import com.educonnect.backend.entity.AssignmentSubmission;
 import com.educonnect.backend.entity.Student;
+import com.educonnect.backend.entity.Subject;
+import com.educonnect.backend.entity.TeacherSubject;
 import com.educonnect.backend.repository.AssignmentRepository;
 import com.educonnect.backend.repository.AssignmentSubmissionRepository;
 import com.educonnect.backend.repository.AttendanceRecordRepository;
@@ -42,6 +44,9 @@ public class StudentService {
     private final com.educonnect.backend.repository.StudentDoubtRepository studentDoubtRepository;
     private final com.educonnect.backend.repository.StudyMaterialRepository studyMaterialRepository;
     private final com.educonnect.backend.repository.QuizRepository quizRepository;
+    private final com.educonnect.backend.repository.AttendanceSessionRepository attendanceSessionRepository;
+    private final com.educonnect.backend.repository.TeacherSubjectRepository teacherSubjectRepository;
+    private final TeacherService teacherService;
 
     @Transactional(readOnly = true)
     public List<Student> getAllStudents() {
@@ -67,7 +72,10 @@ public class StudentService {
         }
         if (student.getEnrollmentNo() == null || student.getEnrollmentNo().trim().isEmpty()) {
             student.setEnrollmentNo("25CI" + (System.currentTimeMillis() % 100000));
-        } else if (studentRepository.existsByEnrollmentNo(student.getEnrollmentNo())) {
+        } else {
+            student.setEnrollmentNo(student.getEnrollmentNo().trim().toUpperCase());
+        }
+        if (studentRepository.existsByEnrollmentNo(student.getEnrollmentNo())) {
             student.setEnrollmentNo(student.getEnrollmentNo() + "-" + (System.currentTimeMillis() % 1000));
         }
         if (student.getEmail() == null || student.getEmail().trim().isEmpty()) {
@@ -173,18 +181,206 @@ public class StudentService {
         return data;
     }
 
+    @Transactional(readOnly = true)
     public List<Map<String, Object>> getStudentAttendance(String studentIdOrEnrollment) {
-        return Collections.emptyList();
+        Optional<Student> studentOpt = Optional.empty();
+        if (studentIdOrEnrollment != null && !studentIdOrEnrollment.trim().isEmpty()) {
+            String clean = studentIdOrEnrollment.trim();
+            try {
+                studentOpt = studentRepository.findById(UUID.fromString(clean));
+            } catch (Exception ignored) {}
+            if (studentOpt.isEmpty()) {
+                studentOpt = studentRepository.findByEnrollmentNo(clean);
+            }
+            if (studentOpt.isEmpty()) {
+                studentOpt = studentRepository.findByEmail(clean.toLowerCase());
+            }
+        }
+        if (studentOpt.isEmpty()) {
+            List<Student> all = studentRepository.findAll();
+            if (!all.isEmpty()) studentOpt = Optional.of(all.get(0));
+        }
+
+        UUID studentId = studentOpt.map(Student::getStudentId).orElse(null);
+
+        // Map of sessionId -> AttendanceRecord for this student
+        Map<UUID, com.educonnect.backend.entity.AttendanceRecord> studentRecordBySession = new HashMap<>();
+        if (studentId != null) {
+            List<com.educonnect.backend.entity.AttendanceRecord> records = attendanceRecordRepository.findByStudentId(studentId);
+            for (com.educonnect.backend.entity.AttendanceRecord r : records) {
+                if (r.getSessionId() != null) {
+                    studentRecordBySession.put(r.getSessionId(), r);
+                }
+            }
+        }
+
+        List<Map<String, Object>> resultList = new ArrayList<>();
+        Set<String> processedSessionIds = new HashSet<>();
+
+        // Universal Subject Resolver
+        java.util.function.Function<UUID, Optional<Subject>> resolveSubject = (rawId) -> {
+            if (rawId == null) return Optional.empty();
+            Optional<Subject> direct = subjectRepository.findById(rawId);
+            if (direct.isPresent()) return direct;
+            Optional<TeacherSubject> tsOpt = teacherSubjectRepository.findById(rawId);
+            if (tsOpt.isPresent() && tsOpt.get().getSubjectId() != null) {
+                return subjectRepository.findById(tsOpt.get().getSubjectId());
+            }
+            return Optional.empty();
+        };
+
+        // 1. Process records explicitly stored in attendance_records for this studentId
+        if (studentId != null) {
+            List<com.educonnect.backend.entity.AttendanceRecord> records = attendanceRecordRepository.findByStudentId(studentId);
+            for (com.educonnect.backend.entity.AttendanceRecord rec : records) {
+                if (rec.getSessionId() == null) continue;
+                String sessIdStr = rec.getSessionId().toString();
+
+                Map<String, Object> map = new HashMap<>();
+                map.put("attendance_id", rec.getAttendanceId() != null ? rec.getAttendanceId().toString() : "");
+                map.put("student_id", rec.getStudentId() != null ? rec.getStudentId().toString() : "");
+                map.put("session_id", sessIdStr);
+                map.put("attendance_session_id", sessIdStr);
+                map.put("attendance_status", rec.getAttendanceStatus() != null ? rec.getAttendanceStatus() : "Present");
+                map.put("status", rec.getAttendanceStatus() != null ? rec.getAttendanceStatus() : "Present");
+
+                attendanceSessionRepository.findById(rec.getSessionId()).ifPresent(sess -> {
+                    map.put("session_date", sess.getSessionDate() != null ? sess.getSessionDate().toString() : "");
+                    map.put("date", sess.getSessionDate() != null ? sess.getSessionDate().toString() : "");
+                    map.put("start_time", sess.getStartTime() != null ? sess.getStartTime().toString() : "");
+                    map.put("end_time", sess.getEndTime() != null ? sess.getEndTime().toString() : "");
+
+                    if (sess.getSubjectId() != null) {
+                        resolveSubject.apply(sess.getSubjectId()).ifPresent(sub -> {
+                            map.put("subject_id", sub.getSubjectId() != null ? sub.getSubjectId().toString() : "");
+                            map.put("subject_name", sub.getSubjectName());
+                            map.put("subject_code", sub.getSubjectCode());
+                        });
+                    }
+                });
+
+                processedSessionIds.add(sessIdStr);
+                resultList.add(map);
+            }
+        }
+
+        // 2. Process all AttendanceSession entries in database to ensure complete session coverage
+        List<com.educonnect.backend.entity.AttendanceSession> allSessions = attendanceSessionRepository.findAll();
+        for (com.educonnect.backend.entity.AttendanceSession sess : allSessions) {
+            if (sess.getSessionId() == null) continue;
+            String sessIdStr = sess.getSessionId().toString();
+            if (processedSessionIds.contains(sessIdStr)) continue;
+            if (sess.getSubjectId() == null) continue;
+
+            Optional<Subject> subOpt = resolveSubject.apply(sess.getSubjectId());
+            String subIdStr = "";
+            String subNameStr = "";
+            String subCodeStr = "";
+
+            if (subOpt.isPresent()) {
+                Subject sub = subOpt.get();
+                subIdStr = sub.getSubjectId() != null ? sub.getSubjectId().toString() : "";
+                subNameStr = sub.getSubjectName();
+                subCodeStr = sub.getSubjectCode();
+            }
+
+            String status = "Present";
+            String attId = "";
+
+            if (studentRecordBySession.containsKey(sess.getSessionId())) {
+                com.educonnect.backend.entity.AttendanceRecord r = studentRecordBySession.get(sess.getSessionId());
+                status = r.getAttendanceStatus() != null && !r.getAttendanceStatus().trim().isEmpty() ? r.getAttendanceStatus().trim() : "Present";
+                attId = r.getAttendanceId() != null ? r.getAttendanceId().toString() : "";
+            } else {
+                List<com.educonnect.backend.entity.AttendanceRecord> recs = attendanceRecordRepository.findBySessionId(sess.getSessionId());
+                if (!recs.isEmpty()) {
+                    boolean foundInRecs = false;
+                    for (com.educonnect.backend.entity.AttendanceRecord r : recs) {
+                        if (studentId != null && r.getStudentId() != null && (studentId.equals(r.getStudentId()) || studentId.toString().equalsIgnoreCase(r.getStudentId().toString()))) {
+                            status = r.getAttendanceStatus() != null && !r.getAttendanceStatus().trim().isEmpty()
+                                    ? r.getAttendanceStatus().trim()
+                                    : "Present";
+                            attId = r.getAttendanceId() != null ? r.getAttendanceId().toString() : "";
+                            foundInRecs = true;
+                            break;
+                        }
+                    }
+                    if (!foundInRecs) {
+                        // Use status of first record in session if available, else Present
+                        status = recs.get(0).getAttendanceStatus() != null ? recs.get(0).getAttendanceStatus() : "Present";
+                    }
+                }
+            }
+
+            Map<String, Object> map = new HashMap<>();
+            map.put("attendance_id", attId.isEmpty() ? UUID.randomUUID().toString() : attId);
+            map.put("student_id", studentId != null ? studentId.toString() : "");
+            map.put("session_id", sessIdStr);
+            map.put("attendance_session_id", sessIdStr);
+            map.put("attendance_status", status);
+            map.put("status", status);
+            map.put("session_date", sess.getSessionDate() != null ? sess.getSessionDate().toString() : "");
+            map.put("date", sess.getSessionDate() != null ? sess.getSessionDate().toString() : "");
+            map.put("start_time", sess.getStartTime() != null ? sess.getStartTime().toString() : "");
+            map.put("end_time", sess.getEndTime() != null ? sess.getEndTime().toString() : "");
+            map.put("subject_id", subIdStr);
+            map.put("subject_name", subNameStr);
+            map.put("subject_code", subCodeStr);
+
+            processedSessionIds.add(sessIdStr);
+            resultList.add(map);
+        }
+
+        return resultList;
     }
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getStudentAssignments(String enrollmentNo) {
-        Optional<Student> studentOpt = studentRepository.findByEnrollmentNo(enrollmentNo);
+        Optional<Student> studentOpt = Optional.empty();
+        if (enrollmentNo != null && !enrollmentNo.trim().isEmpty()) {
+            String clean = enrollmentNo.trim();
+            try {
+                studentOpt = studentRepository.findById(UUID.fromString(clean));
+            } catch (Exception ignored) {}
+
+            if (studentOpt.isEmpty()) {
+                studentOpt = studentRepository.findByEnrollmentNo(clean);
+            }
+
+            if (studentOpt.isEmpty()) {
+                studentOpt = studentRepository.findByEmail(clean.toLowerCase());
+            }
+        }
+
+        if (studentOpt.isEmpty()) {
+            List<Student> allStus = studentRepository.findAll();
+            if (!allStus.isEmpty()) studentOpt = Optional.of(allStus.get(0));
+        }
+
         UUID studentId = studentOpt.map(Student::getStudentId).orElse(null);
+        UUID stuDeptId = studentOpt.map(Student::getDepartmentId).orElse(null);
+        UUID stuSemId = studentOpt.map(Student::getSemesterId).orElse(null);
 
         List<Assignment> assignments = assignmentRepository.findAll();
         List<Map<String, Object>> list = new ArrayList<>();
         for (Assignment a : assignments) {
+            // Department & Semester Filter based on Subject ID
+            if (a.getSubjectId() != null) {
+                Optional<Subject> subOpt = subjectRepository.findById(a.getSubjectId());
+                if (subOpt.isPresent()) {
+                    Subject sub = subOpt.get();
+                    if (stuDeptId != null && sub.getDepartmentId() != null) {
+                        if (!stuDeptId.equals(sub.getDepartmentId())) {
+                            continue; // Skip assignment from different department (e.g. BCA vs MCA)
+                        }
+                    }
+                    if (stuSemId != null && sub.getSemesterId() != null) {
+                        if (!stuSemId.equals(sub.getSemesterId())) {
+                            continue; // Skip assignment from different semester
+                        }
+                    }
+                }
+            }
             Map<String, Object> map = new HashMap<>();
             map.put("assignment_id", a.getAssignmentId() != null ? a.getAssignmentId().toString() : "");
             map.put("teacher_subject_id", a.getTeacherSubjectId() != null ? a.getTeacherSubjectId().toString() : "");
@@ -240,6 +436,11 @@ public class StudentService {
                 map.put("submission_status", status);
             } else {
                 map.put("submitted", false);
+                String unsubStatus = "Pending";
+                if (a.getDueDate() != null && LocalDate.now().isAfter(a.getDueDate())) {
+                    unsubStatus = "Missed";
+                }
+                map.put("submission_status", unsubStatus);
             }
 
             list.add(map);
@@ -465,15 +666,47 @@ public class StudentService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> getWeeklyTestsForStudent(String enrollmentNo) {
+        Optional<Student> studentOpt = Optional.empty();
+        if (enrollmentNo != null && !enrollmentNo.trim().isEmpty()) {
+            studentOpt = studentRepository.findByEnrollmentNo(enrollmentNo.trim());
+        }
+
+        UUID studentDeptId = studentOpt.map(Student::getDepartmentId).orElse(null);
+        UUID studentSemId = studentOpt.map(Student::getSemesterId).orElse(null);
+
         List<WeeklyTest> tests = weeklyTestRepository.findAll();
         List<Map<String, Object>> testList = new ArrayList<>();
         for (WeeklyTest wt : tests) {
+            // Department Filter: if test specifies department, only show to student in that department
+            if (wt.getDepartmentId() != null && studentDeptId != null && !wt.getDepartmentId().equals(studentDeptId)) {
+                continue;
+            }
+            // Semester Filter: if test specifies semester, only show to student in that semester
+            if (wt.getSemesterId() != null && studentSemId != null && !wt.getSemesterId().equals(studentSemId)) {
+                continue;
+            }
+            // Subject-level Department/Semester check fallback
+            if (wt.getSubjectId() != null && (studentDeptId != null || studentSemId != null)) {
+                Optional<Subject> sOpt = subjectRepository.findById(wt.getSubjectId());
+                if (sOpt.isPresent()) {
+                    Subject sub = sOpt.get();
+                    if (studentDeptId != null && sub.getDepartmentId() != null && !sub.getDepartmentId().equals(studentDeptId)) {
+                        continue;
+                    }
+                    if (studentSemId != null && sub.getSemesterId() != null && !sub.getSemesterId().equals(studentSemId)) {
+                        continue;
+                    }
+                }
+            }
+
             Map<String, Object> map = new HashMap<>();
             String testIdStr = wt.getWeeklyTestId() != null ? wt.getWeeklyTestId().toString() : "";
             map.put("weekly_test_id", testIdStr);
             map.put("weekly_exam_id", testIdStr);
             map.put("teacher_subject_id", wt.getTeacherSubjectId() != null ? wt.getTeacherSubjectId().toString() : "");
             map.put("subject_id", wt.getSubjectId() != null ? wt.getSubjectId().toString() : "");
+            map.put("department_id", wt.getDepartmentId() != null ? wt.getDepartmentId().toString() : "");
+            map.put("semester_id", wt.getSemesterId() != null ? wt.getSemesterId().toString() : "");
             map.put("title", wt.getTitle() != null ? wt.getTitle() : "");
             map.put("description", wt.getDescription() != null ? wt.getDescription() : "");
             String dateStr = wt.getTestDate() != null ? wt.getTestDate().toString() : "";
@@ -487,24 +720,21 @@ public class StudentService {
         }
 
         List<Map<String, Object>> resultList = new ArrayList<>();
-        if (enrollmentNo != null && !enrollmentNo.trim().isEmpty()) {
-            Optional<Student> studentOpt = studentRepository.findByEnrollmentNo(enrollmentNo.trim());
-            if (studentOpt.isPresent()) {
-                List<WeeklyTestResult> dbResults = weeklyTestResultRepository.findByStudentId(studentOpt.get().getStudentId());
-                for (WeeklyTestResult r : dbResults) {
-                    Map<String, Object> rMap = new HashMap<>();
-                    String resIdStr = r.getWeeklyTestResultId() != null ? r.getWeeklyTestResultId().toString() : "";
-                    String testIdStr = r.getWeeklyTestId() != null ? r.getWeeklyTestId().toString() : "";
-                    rMap.put("weekly_test_result_id", resIdStr);
-                    rMap.put("weekly_exam_result_id", resIdStr);
-                    rMap.put("weekly_test_id", testIdStr);
-                    rMap.put("weekly_exam_id", testIdStr);
-                    rMap.put("student_id", r.getStudentId() != null ? r.getStudentId().toString() : "");
-                    rMap.put("obtained_marks", r.getObtainedMarks());
-                    rMap.put("grade", r.getGrade() != null ? r.getGrade() : "-");
-                    rMap.put("remarks", r.getRemarks() != null ? r.getRemarks() : "");
-                    resultList.add(rMap);
-                }
+        if (studentOpt.isPresent()) {
+            List<WeeklyTestResult> dbResults = weeklyTestResultRepository.findByStudentId(studentOpt.get().getStudentId());
+            for (WeeklyTestResult r : dbResults) {
+                Map<String, Object> rMap = new HashMap<>();
+                String resIdStr = r.getWeeklyTestResultId() != null ? r.getWeeklyTestResultId().toString() : "";
+                String testIdStr = r.getWeeklyTestId() != null ? r.getWeeklyTestId().toString() : "";
+                rMap.put("weekly_test_result_id", resIdStr);
+                rMap.put("weekly_exam_result_id", resIdStr);
+                rMap.put("weekly_test_id", testIdStr);
+                rMap.put("weekly_exam_id", testIdStr);
+                rMap.put("student_id", r.getStudentId() != null ? r.getStudentId().toString() : "");
+                rMap.put("obtained_marks", r.getObtainedMarks());
+                rMap.put("grade", r.getGrade() != null ? r.getGrade() : "-");
+                rMap.put("remarks", r.getRemarks() != null ? r.getRemarks() : "");
+                resultList.add(rMap);
             }
         }
 
@@ -518,8 +748,21 @@ public class StudentService {
     @Transactional(readOnly = true)
     public List<com.educonnect.backend.entity.LeaveRequest> getLeaveRequests(String enrollmentNo) {
         if (enrollmentNo != null && !enrollmentNo.trim().isEmpty()) {
-            List<com.educonnect.backend.entity.LeaveRequest> list = leaveRequestRepository.findByEnrollmentNo(enrollmentNo.trim());
-            if (!list.isEmpty()) return list;
+            String clean = enrollmentNo.trim();
+            Optional<Student> sOpt = Optional.empty();
+            try {
+                sOpt = studentRepository.findById(UUID.fromString(clean));
+            } catch (Exception ignored) {}
+            if (sOpt.isEmpty()) {
+                sOpt = studentRepository.findByEnrollmentNo(clean);
+            }
+            if (sOpt.isEmpty()) {
+                sOpt = studentRepository.findByEmail(clean.toLowerCase());
+            }
+            if (sOpt.isPresent() && sOpt.get().getStudentId() != null) {
+                List<com.educonnect.backend.entity.LeaveRequest> list = leaveRequestRepository.findByStudentId(sOpt.get().getStudentId());
+                if (!list.isEmpty()) return list;
+            }
         }
         return leaveRequestRepository.findAll();
     }
@@ -527,12 +770,25 @@ public class StudentService {
     @Transactional
     public com.educonnect.backend.entity.LeaveRequest submitLeaveRequest(String enrollmentNo, Map<String, Object> reqData) {
         String finalEnroll = (enrollmentNo != null && !enrollmentNo.trim().isEmpty()) ? enrollmentNo.trim() : "2024MCA001";
-        Optional<Student> sOpt = studentRepository.findByEnrollmentNo(finalEnroll);
+        Optional<Student> sOpt = Optional.empty();
+        try {
+            sOpt = studentRepository.findById(UUID.fromString(finalEnroll));
+        } catch (Exception ignored) {}
+        if (sOpt.isEmpty()) {
+            sOpt = studentRepository.findByEnrollmentNo(finalEnroll);
+        }
+        if (sOpt.isEmpty()) {
+            sOpt = studentRepository.findByEmail(finalEnroll.toLowerCase());
+        }
+        if (sOpt.isEmpty()) {
+            List<Student> all = studentRepository.findAll();
+            if (!all.isEmpty()) sOpt = Optional.of(all.get(0));
+        }
+
         UUID studentId = sOpt.map(Student::getStudentId).orElse(null);
 
         com.educonnect.backend.entity.LeaveRequest lr = new com.educonnect.backend.entity.LeaveRequest();
         lr.setStudentId(studentId);
-        lr.setEnrollmentNo(finalEnroll);
         lr.setLeaveType(reqData.get("leave_type") != null ? (String) reqData.get("leave_type") : "Sick");
         
         try {
@@ -551,26 +807,51 @@ public class StudentService {
         return leaveRequestRepository.save(lr);
     }
 
+    private Optional<Student> resolveStudentEntity(String identifier, Map<String, Object> reqData) {
+        String reqStudentId = reqData != null ? (String) reqData.get("student_id") : null;
+        if (reqStudentId == null && reqData != null) reqStudentId = (String) reqData.get("studentId");
+
+        String[] candidates = new String[]{reqStudentId, identifier, "2024MCA001"};
+        for (String candidate : candidates) {
+            if (candidate == null || candidate.trim().isEmpty()) continue;
+            String clean = candidate.trim();
+            try {
+                Optional<Student> opt = studentRepository.findById(UUID.fromString(clean));
+                if (opt.isPresent()) return opt;
+            } catch (Exception ignored) {}
+
+            Optional<Student> opt = studentRepository.findByEnrollmentNo(clean);
+            if (opt.isPresent()) return opt;
+
+            opt = studentRepository.findAll().stream()
+                    .filter(s -> (s.getEnrollmentNo() != null && s.getEnrollmentNo().equalsIgnoreCase(clean)) ||
+                                 (s.getEmail() != null && s.getEmail().equalsIgnoreCase(clean)))
+                    .findFirst();
+            if (opt.isPresent()) return opt;
+        }
+
+        List<Student> all = studentRepository.findAll();
+        if (!all.isEmpty()) return Optional.of(all.get(0));
+        return Optional.empty();
+    }
+
     @Transactional(readOnly = true)
-    public List<com.educonnect.backend.entity.StudentDoubt> getStudentDoubts(String enrollmentNo) {
-        if (enrollmentNo != null && !enrollmentNo.trim().isEmpty()) {
-            List<com.educonnect.backend.entity.StudentDoubt> list = studentDoubtRepository.findByEnrollmentNo(enrollmentNo.trim());
+    public List<com.educonnect.backend.entity.StudentDoubt> getStudentDoubts(String identifier) {
+        Optional<Student> sOpt = resolveStudentEntity(identifier, null);
+        if (sOpt.isPresent()) {
+            List<com.educonnect.backend.entity.StudentDoubt> list = studentDoubtRepository.findByStudentId(sOpt.get().getStudentId());
             if (!list.isEmpty()) return list;
         }
         return studentDoubtRepository.findAll();
     }
 
     @Transactional
-    public com.educonnect.backend.entity.StudentDoubt askDoubt(String enrollmentNo, Map<String, Object> reqData) {
-        String finalEnroll = (enrollmentNo != null && !enrollmentNo.trim().isEmpty()) ? enrollmentNo.trim() : "2024MCA001";
-        Optional<Student> sOpt = studentRepository.findByEnrollmentNo(finalEnroll);
+    public com.educonnect.backend.entity.StudentDoubt askDoubt(String identifier, Map<String, Object> reqData) {
+        Optional<Student> sOpt = resolveStudentEntity(identifier, reqData);
         UUID studentId = sOpt.map(Student::getStudentId).orElse(null);
-        String sName = sOpt.map(s -> (s.getFirstName() + " " + s.getLastName()).trim()).orElse("Alex Johnson");
 
         com.educonnect.backend.entity.StudentDoubt sd = new com.educonnect.backend.entity.StudentDoubt();
         sd.setStudentId(studentId);
-        sd.setEnrollmentNo(finalEnroll);
-        sd.setStudentName(sName);
 
         String subjName = (String) reqData.get("subject_name");
         if (subjName == null) subjName = (String) reqData.get("subjectName");
@@ -597,14 +878,191 @@ public class StudentService {
         return studentDoubtRepository.save(sd);
     }
 
-    @Transactional(readOnly = true)
-    public List<com.educonnect.backend.entity.StudyMaterial> getStudyMaterials() {
-        return studyMaterialRepository.findAll();
+    @Transactional
+    public com.educonnect.backend.entity.StudentDoubt updateDoubt(UUID id, Map<String, Object> reqData) {
+        Optional<com.educonnect.backend.entity.StudentDoubt> opt = studentDoubtRepository.findById(id);
+        if (opt.isPresent()) {
+            com.educonnect.backend.entity.StudentDoubt sd = opt.get();
+            String subjName = (String) reqData.get("subject_name");
+            if (subjName == null) subjName = (String) reqData.get("subjectName");
+            if (subjName != null && !subjName.trim().isEmpty()) {
+                sd.setSubjectName(subjName.trim());
+            }
+
+            String qText = (String) reqData.get("question");
+            if (qText == null || qText.trim().isEmpty()) {
+                String title = (String) reqData.get("title");
+                String desc = (String) reqData.get("description");
+                if (title != null && desc != null && !desc.trim().isEmpty()) {
+                    qText = title.trim() + ": " + desc.trim();
+                } else if (title != null) {
+                    qText = title.trim();
+                } else if (desc != null) {
+                    qText = desc.trim();
+                }
+            }
+            if (qText != null && !qText.trim().isEmpty()) {
+                sd.setQuestion(qText.trim());
+            }
+
+            return studentDoubtRepository.save(sd);
+        }
+        return null;
+    }
+
+    private UUID[] resolveStudentDeptAndSem(String identifier) {
+        Optional<Student> studentOpt = Optional.empty();
+        String clean = (identifier != null && !identifier.trim().isEmpty()) ? identifier.trim() : "2024MCA001";
+
+        try {
+            studentOpt = studentRepository.findById(UUID.fromString(clean));
+        } catch (Exception ignored) {}
+
+        if (studentOpt.isEmpty()) {
+            studentOpt = studentRepository.findByEnrollmentNo(clean);
+        }
+
+        if (studentOpt.isEmpty()) {
+            studentOpt = studentRepository.findAll().stream()
+                    .filter(s -> s.getEnrollmentNo() != null && s.getEnrollmentNo().equalsIgnoreCase(clean))
+                    .findFirst();
+        }
+
+        if (studentOpt.isEmpty()) {
+            studentOpt = studentRepository.findByEmail(clean.toLowerCase());
+        }
+
+        UUID deptId = studentOpt.map(Student::getDepartmentId).orElse(null);
+        UUID semId = studentOpt.map(Student::getSemesterId).orElse(null);
+
+        // Fallback: If deptId is null, attempt to infer from department code matching identifier (e.g. BCA vs MCA)
+        if (deptId == null) {
+            String upper = clean.toUpperCase();
+            if (upper.contains("BCA")) {
+                deptId = departmentRepository.findAll().stream()
+                        .filter(d -> d.getDepartmentCode() != null && d.getDepartmentCode().toUpperCase().contains("BCA"))
+                        .map(com.educonnect.backend.entity.Department::getDepartmentId)
+                        .findFirst()
+                        .orElse(null);
+            } else if (upper.contains("MCA")) {
+                deptId = departmentRepository.findAll().stream()
+                        .filter(d -> d.getDepartmentCode() != null && d.getDepartmentCode().toUpperCase().contains("MCA"))
+                        .map(com.educonnect.backend.entity.Department::getDepartmentId)
+                        .findFirst()
+                        .orElse(null);
+            }
+        }
+
+        if (semId == null && deptId != null) {
+            List<com.educonnect.backend.entity.Semester> sems = semesterRepository.findByDepartmentIdOrderBySemesterNumberAsc(deptId);
+            if (!sems.isEmpty()) {
+                semId = sems.get(0).getSemesterId();
+            }
+        }
+
+        return new UUID[]{deptId, semId};
     }
 
     @Transactional(readOnly = true)
-    public List<com.educonnect.backend.entity.Quiz> getQuizzes() {
-        return quizRepository.findAll();
+    public List<Map<String, Object>> getStudyMaterials(String enrollmentNo) {
+        UUID[] deptSem = resolveStudentDeptAndSem(enrollmentNo);
+        UUID stuDeptId = deptSem[0];
+        UUID stuSemId = deptSem[1];
+
+        List<Map<String, Object>> allMaterials = teacherService.getStudyMaterials();
+        List<Map<String, Object>> filteredList = new ArrayList<>();
+
+        for (Map<String, Object> smMap : allMaterials) {
+            String subjIdStr = smMap.get("subject_id") != null ? smMap.get("subject_id").toString()
+                    : (smMap.get("subjectId") != null ? smMap.get("subjectId").toString() : null);
+
+            if (subjIdStr != null && !subjIdStr.trim().isEmpty()) {
+                try {
+                    UUID subjectId = UUID.fromString(subjIdStr.trim());
+                    Optional<Subject> subOpt = subjectRepository.findById(subjectId);
+                    if (subOpt.isPresent()) {
+                        Subject sub = subOpt.get();
+                        UUID subDeptId = sub.getDepartmentId();
+                        UUID subSemId = sub.getSemesterId();
+
+                        // 1. Department Visibility Filter:
+                        // If subject belongs to a specific department, student MUST be in that exact department.
+                        if (subDeptId != null) {
+                            if (stuDeptId == null || !stuDeptId.equals(subDeptId)) {
+                                continue; // Skip: Student is not in the same department (e.g. BCA vs MCA)
+                            }
+                        }
+
+                        // 2. Semester Visibility Filter:
+                        // If subject belongs to a specific semester, student MUST be in that exact semester.
+                        if (subSemId != null) {
+                            if (stuSemId == null || !stuSemId.equals(subSemId)) {
+                                continue; // Skip: Student is not in the same semester (e.g. Sem 1 vs Sem 3)
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            filteredList.add(smMap);
+        }
+
+        return filteredList;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getStudyMaterials() {
+        return getStudyMaterials("2024MCA001");
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getQuizzesForStudent(String enrollmentNo) {
+        String finalEnroll = (enrollmentNo != null && !enrollmentNo.trim().isEmpty()) ? enrollmentNo.trim() : "2024MCA001";
+        Optional<Student> studentOpt = studentRepository.findByEnrollmentNo(finalEnroll);
+        if (studentOpt.isEmpty()) {
+            List<Student> all = studentRepository.findAll();
+            if (!all.isEmpty()) studentOpt = Optional.of(all.get(0));
+        }
+
+        UUID studentDeptId = studentOpt.map(Student::getDepartmentId).orElse(null);
+        UUID studentSemId = studentOpt.map(Student::getSemesterId).orElse(null);
+
+        List<Map<String, Object>> allQuizzes = teacherService.getQuizzes();
+        List<Map<String, Object>> filteredList = new ArrayList<>();
+
+        for (Map<String, Object> quizMap : allQuizzes) {
+            List<?> mcqs = (List<?>) quizMap.get("mcqs");
+            if (mcqs == null || mcqs.isEmpty()) {
+                List<?> questions = (List<?>) quizMap.get("questions");
+                if (questions == null || questions.isEmpty()) {
+                    continue;
+                }
+            }
+
+            String subjIdStr = (String) quizMap.get("subject_id");
+            if (subjIdStr != null && !subjIdStr.trim().isEmpty()) {
+                try {
+                    UUID subjectId = UUID.fromString(subjIdStr.trim());
+                    Optional<Subject> subOpt = subjectRepository.findById(subjectId);
+                    if (subOpt.isPresent()) {
+                        Subject sub = subOpt.get();
+                        if (studentDeptId != null && sub.getDepartmentId() != null && !sub.getDepartmentId().equals(studentDeptId)) {
+                            continue;
+                        }
+                        if (studentSemId != null && sub.getSemesterId() != null && !sub.getSemesterId().equals(studentSemId)) {
+                            continue;
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+            filteredList.add(quizMap);
+        }
+        return filteredList;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getQuizzes() {
+        return getQuizzesForStudent("2024MCA001");
     }
 
     @Transactional(readOnly = true)
@@ -639,6 +1097,131 @@ public class StudentService {
         );
         map.put("subjects", subjects);
         return map;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getSubjectsForStudent(String identifier) {
+        Optional<Student> studentOpt = Optional.empty();
+        if (identifier != null && !identifier.trim().isEmpty()) {
+            String clean = identifier.trim();
+            try {
+                studentOpt = studentRepository.findById(UUID.fromString(clean));
+            } catch (Exception ignored) {}
+            if (studentOpt.isEmpty()) {
+                studentOpt = studentRepository.findByEnrollmentNo(clean);
+            }
+            if (studentOpt.isEmpty()) {
+                studentOpt = studentRepository.findByEmail(clean.toLowerCase());
+            }
+        }
+
+        if (studentOpt.isEmpty()) {
+            List<Student> all = studentRepository.findAll();
+            for (Student s : all) {
+                if (s.getEnrollmentNo() != null && s.getEnrollmentNo().toUpperCase().contains("MCA")) {
+                    studentOpt = Optional.of(s);
+                    break;
+                }
+            }
+            if (studentOpt.isEmpty() && !all.isEmpty()) {
+                studentOpt = Optional.of(all.get(0));
+            }
+        }
+
+        if (studentOpt.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Student student = studentOpt.get();
+        UUID studentDeptId = student.getDepartmentId();
+        UUID studentSemId = student.getSemesterId();
+
+        boolean isMcaStudent = false;
+        String enroll = student.getEnrollmentNo() != null ? student.getEnrollmentNo().toUpperCase() : "";
+        String email = student.getEmail() != null ? student.getEmail().toLowerCase() : "";
+        if (enroll.contains("MCA") || email.contains("mca")) {
+            isMcaStudent = true;
+        }
+
+        if (studentDeptId != null) {
+            Optional<com.educonnect.backend.entity.Department> deptOpt = departmentRepository.findById(studentDeptId);
+            if (deptOpt.isPresent()) {
+                String dName = deptOpt.get().getDepartmentName() != null ? deptOpt.get().getDepartmentName().toUpperCase() : "";
+                String dCode = deptOpt.get().getDepartmentCode() != null ? deptOpt.get().getDepartmentCode().toUpperCase() : "";
+                if (dName.contains("MCA") || dName.contains("COMPUTER APPLICATION") || dCode.contains("MCA")) {
+                    isMcaStudent = true;
+                }
+            }
+        }
+
+        Integer semNum = null;
+        if (studentSemId != null) {
+            Optional<com.educonnect.backend.entity.Semester> semOpt = semesterRepository.findById(studentSemId);
+            if (semOpt.isPresent()) {
+                semNum = semOpt.get().getSemesterNumber();
+            }
+        }
+        if (semNum == null) {
+            semNum = 1;
+        }
+
+        List<Subject> allSubjects = subjectRepository.findAll();
+        List<Map<String, Object>> resultList = new ArrayList<>();
+
+        for (Subject sub : allSubjects) {
+            if (sub.getDepartmentId() != null) {
+                Optional<com.educonnect.backend.entity.Department> subDeptOpt = departmentRepository.findById(sub.getDepartmentId());
+                if (subDeptOpt.isPresent()) {
+                    String subDeptCode = subDeptOpt.get().getDepartmentCode() != null ? subDeptOpt.get().getDepartmentCode().toUpperCase() : "";
+                    String subDeptName = subDeptOpt.get().getDepartmentName() != null ? subDeptOpt.get().getDepartmentName().toUpperCase() : "";
+                    if (isMcaStudent) {
+                        if (subDeptCode.contains("BTECH") || subDeptName.contains("BTECH") || subDeptName.contains("BACHELOR OF TECHNOLOGY") || subDeptCode.contains("CSE") || subDeptName.contains("CIVIL") || subDeptName.contains("MECHANICAL")) {
+                            continue;
+                        }
+                    }
+                }
+            }
+
+            if (studentDeptId != null && sub.getDepartmentId() != null && !sub.getDepartmentId().equals(studentDeptId)) {
+                continue;
+            }
+
+            if (sub.getSemesterId() != null) {
+                Optional<com.educonnect.backend.entity.Semester> subSemOpt = semesterRepository.findById(sub.getSemesterId());
+                if (subSemOpt.isPresent() && subSemOpt.get().getSemesterNumber() != null) {
+                    if (!semNum.equals(subSemOpt.get().getSemesterNumber())) {
+                        continue;
+                    }
+                }
+            } else if (studentSemId != null && !sub.getSemesterId().equals(studentSemId)) {
+                continue;
+            }
+
+            Map<String, Object> map = new HashMap<>();
+            map.put("subject_id", sub.getSubjectId() != null ? sub.getSubjectId().toString() : "");
+            map.put("id", sub.getSubjectId() != null ? sub.getSubjectId().toString() : "");
+            map.put("subject_name", sub.getSubjectName());
+            map.put("name", sub.getSubjectName());
+            map.put("subject_code", sub.getSubjectCode());
+            map.put("code", sub.getSubjectCode());
+            map.put("credits", sub.getCredits());
+            map.put("department_id", sub.getDepartmentId() != null ? sub.getDepartmentId().toString() : "");
+            map.put("semester_id", sub.getSemesterId() != null ? sub.getSemesterId().toString() : "");
+            resultList.add(map);
+        }
+
+        if (resultList.isEmpty() && isMcaStudent && semNum == 1) {
+            List<Map<String, Object>> mcaSem1Default = List.of(
+                Map.of("subject_id", "mca-101", "id", "mca-101", "subject_name", "Programming in C & Data Structures", "name", "Programming in C & Data Structures", "subject_code", "MCA101", "code", "MCA101", "credits", 4),
+                Map.of("subject_id", "mca-102", "id", "mca-102", "subject_name", "Database Management Systems", "name", "Database Management Systems", "subject_code", "MCA102", "code", "MCA102", "credits", 4),
+                Map.of("subject_id", "mca-103", "id", "mca-103", "subject_name", "Computer Organization & Architecture", "name", "Computer Organization & Architecture", "subject_code", "MCA103", "code", "MCA103", "credits", 3),
+                Map.of("subject_id", "mca-104", "id", "mca-104", "subject_name", "Discrete Mathematics", "name", "Discrete Mathematics", "subject_code", "MCA104", "code", "MCA104", "credits", 3),
+                Map.of("subject_id", "mca-105", "id", "mca-105", "subject_name", "Software Engineering Foundations", "name", "Software Engineering Foundations", "subject_code", "MCA105", "code", "MCA105", "credits", 3)
+            );
+            return mcaSem1Default;
+        }
+
+        return resultList;
     }
 
     @Transactional(readOnly = true)

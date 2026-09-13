@@ -187,7 +187,7 @@ const StudentAssignments = () => {
       )}
 
       {/* Assignment List Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
         {assignments.map((asgn) => {
           const submission = submissions.find(
             (s) => String(s.assignment_id) === String(asgn.assignment_id) || (s.title && s.title === asgn.title)
@@ -209,47 +209,47 @@ const StudentAssignments = () => {
           return (
             <div
               key={asgn.assignment_id}
-              className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all duration-200"
+              className="bg-white rounded-xl border border-[#E2E8F0] p-3.5 shadow-xs flex flex-col justify-between space-y-2.5 hover:shadow-md transition-all duration-200"
             >
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {/* Header: Marks & Due Date */}
-                <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#2563EB]/10 text-[#2563EB] font-bold text-[11px]">
-                    Total Marks: {asgn.total_marks}
+                <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2 text-[10px]">
+                  <span className="px-2 py-0.5 rounded-full bg-[#2563EB]/10 text-[#2563EB] font-extrabold">
+                    Total: {asgn.total_marks} Marks
                   </span>
-                  <span className="font-mono text-[#64748B] text-[11px] font-semibold">Due Date: {asgn.due_date}</span>
+                  <span className="font-mono text-[#64748B] font-semibold">Due: {asgn.due_date}</span>
                 </div>
 
                 {/* Title & Description */}
                 <div>
-                  <h3 className="text-base font-extrabold text-[#1E293B] leading-snug">{asgn.title}</h3>
-                  <p className="text-xs text-[#64748B] leading-relaxed line-clamp-3 mt-1.5">{asgn.description}</p>
+                  <h3 className="text-xs font-extrabold text-[#1E293B] leading-snug truncate" title={asgn.title}>{asgn.title}</h3>
+                  <p className="text-[11px] text-[#64748B] leading-relaxed line-clamp-2 mt-1">{asgn.description}</p>
                 </div>
 
                 {/* Reference Attachment Pill - Clickable Teacher Attachment */}
                 {asgn.attachment && (
-                  <div className="pt-1">
+                  <div className="pt-0.5">
                     <button
                       onClick={() => handleViewDocument(asgn.attachment, asgn.title)}
-                      className="inline-flex items-center gap-1.5 text-[11px] font-mono text-[#2563EB] bg-[#2563EB]/10 hover:bg-[#2563EB] hover:text-white px-3 py-1 rounded-lg border border-[#2563EB]/20 font-bold cursor-pointer transition-all"
+                      className="inline-flex items-center gap-1 text-[10px] font-mono text-[#2563EB] bg-[#2563EB]/10 hover:bg-[#2563EB] hover:text-white px-2 py-0.5 rounded-md border border-[#2563EB]/20 font-bold cursor-pointer transition-all truncate max-w-full"
                       title="Click file name to view teacher reference document in a new tab"
                     >
-                      <Paperclip className="w-3.5 h-3.5" /> Teacher File: {getDisplayFileName(asgn.file_name, asgn.attachment, asgn.title)}
+                      <Paperclip className="w-3 h-3 flex-shrink-0" /> <span className="truncate">Ref: {getDisplayFileName(asgn.file_name, asgn.attachment, asgn.title)}</span>
                     </button>
                   </div>
                 )}
 
                 {/* Submitted File View Section if Student Submitted */}
                 {isSubmitted && subAttachment && (
-                  <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] flex items-center justify-between gap-2">
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] font-bold text-[#64748B] uppercase block">Your Uploaded File</span>
+                  <div className="p-2 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] flex items-center justify-between gap-1.5 text-[11px]">
+                    <div className="space-y-0.5 min-w-0">
+                      <span className="text-[9px] font-bold text-[#64748B] uppercase block">Your File</span>
                       <button
                         onClick={() => handleViewDocument(subAttachment, "My Submission Document")}
-                        className="font-mono font-bold text-[#2563EB] text-xs hover:underline cursor-pointer flex items-center gap-1 mt-0.5"
+                        className="font-mono font-bold text-[#2563EB] text-[10px] hover:underline cursor-pointer flex items-center gap-1 truncate"
                         title="Click file name to view document in a new tab"
                       >
-                        <Paperclip className="w-3.5 h-3.5" /> {getDisplayFileName(subFileName, subAttachment, "My_Submission")}
+                        <Paperclip className="w-3 h-3 flex-shrink-0" /> <span className="truncate">{getDisplayFileName(subFileName, subAttachment, "My_Submission")}</span>
                       </button>
                     </div>
                   </div>
@@ -257,58 +257,52 @@ const StudentAssignments = () => {
               </div>
 
               {/* Status & Action */}
-              <div className="border-t border-[#E2E8F0] pt-3 flex items-center justify-between text-xs">
+              <div className="border-t border-[#E2E8F0] pt-2 flex items-center justify-between gap-2 text-xs">
                 <div>
                   {isGraded ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/20 font-bold text-[10px]">
-                      <Award className="w-3.5 h-3.5" /> Graded {obtainedMarks !== null ? `(${obtainedMarks}/${asgn.total_marks})` : ""}
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/20 font-bold text-[9px]">
+                      <Award className="w-3 h-3" /> Graded {obtainedMarks !== null ? `(${obtainedMarks}/${asgn.total_marks})` : ""}
                     </span>
                   ) : isSubmitted ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20 font-bold text-[10px]">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Submitted ({subStatus})
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20 font-bold text-[9px]">
+                      <CheckCircle2 className="w-3 h-3" /> Submitted ({subStatus})
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#F97316]/10 text-[#F97316] border border-[#F97316]/20 font-bold text-[10px]">
-                      <Clock className="w-3.5 h-3.5" /> Pending Upload
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#F97316]/10 text-[#F97316] border border-[#F97316]/20 font-bold text-[9px]">
+                      <Clock className="w-3 h-3" /> Pending Upload
                     </span>
                   )}
                 </div>
 
-                <Button
-                  variant={isSubmitted ? "outline" : "accent"}
-                  size="sm"
-                  onClick={() => setSelectedAssignment(asgn)}
-                  className="text-xs"
-                >
-                  {isSubmitted ? "Re-upload / View Status" : "Submit File"}
-                </Button>
+                {!isGraded && (
+                  <Button
+                    variant={isSubmitted ? "outline" : "accent"}
+                    size="sm"
+                    onClick={() => setSelectedAssignment(asgn)}
+                    className="text-[11px] py-1 px-2.5"
+                  >
+                    {isSubmitted ? "Re-upload" : "Submit File"}
+                  </Button>
+                )}
               </div>
 
-              {/* Faculty Evaluation & Remarks Section */}
+              {/* Faculty Evaluation & Remarks Section - Redesigned to show only feedback and marks */}
               {isGraded && (
-                <div className="p-3.5 bg-[#2563EB]/5 rounded-xl border border-[#2563EB]/20 text-xs space-y-2">
-                  <div className="flex items-center justify-between border-b border-[#2563EB]/15 pb-2">
-                    <span className="font-extrabold text-[#1E293B] flex items-center gap-1.5 text-xs">
-                      <Award className="w-4 h-4 text-[#2563EB]" /> Faculty Evaluation & Grade
+                <div className="p-2.5 bg-[#2563EB]/5 rounded-lg border border-[#2563EB]/20 text-[11px] space-y-1.5">
+                  <div className="flex items-center justify-between font-semibold">
+                    <span className="text-[#64748B] text-[10px] font-bold">Marks:</span>
+                    <span className="font-extrabold text-[#2563EB] font-mono text-[11px]">
+                      {obtainedMarks !== null && obtainedMarks !== undefined ? `${obtainedMarks} / ${asgn.total_marks}` : `Max: ${asgn.total_marks}`}
                     </span>
-                    {obtainedMarks !== null && obtainedMarks !== undefined && (
-                      <span className="px-2.5 py-0.5 rounded-full bg-[#2563EB] text-white font-bold text-[11px] font-mono">
-                        Score: {obtainedMarks} / {asgn.total_marks}
-                      </span>
-                    )}
                   </div>
 
-                  {feedback ? (
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-[#64748B] font-bold uppercase tracking-wider block flex items-center gap-1">
-                        <MessageSquareText className="w-3 h-3 text-[#2563EB]" /> Teacher Remarks / Feedback:
-                      </span>
-                      <p className="text-xs text-[#1E293B] bg-white p-2.5 rounded-lg border border-[#E2E8F0] leading-relaxed font-medium">
+                  {feedback && (
+                    <div className="space-y-0.5 pt-1 border-t border-[#2563EB]/15">
+                      <span className="text-[9px] text-[#64748B] font-bold uppercase tracking-wider block">Feedback:</span>
+                      <p className="text-[11px] text-[#1E293B] bg-white p-2 rounded border border-[#E2E8F0] leading-relaxed font-medium">
                         "{feedback}"
                       </p>
                     </div>
-                  ) : (
-                    <p className="text-[11px] text-[#64748B] italic">Evaluated by faculty.</p>
                   )}
                 </div>
               )}
@@ -358,22 +352,16 @@ const StudentAssignments = () => {
 
                   {/* If Graded by Teacher, Show Faculty Grade & Remarks Box inside Modal */}
                   {(obtMarks !== null || fb) && (
-                    <div className="p-3.5 bg-[#2563EB]/5 rounded-xl border border-[#2563EB]/20 space-y-2 text-xs">
-                      <div className="flex items-center justify-between border-b border-[#2563EB]/15 pb-2">
-                        <span className="text-[11px] font-extrabold text-[#1E293B] uppercase tracking-wider flex items-center gap-1.5">
-                          <Award className="w-4 h-4 text-[#2563EB]" /> Faculty Evaluation & Grade
+                    <div className="p-3.5 bg-[#2563EB]/5 rounded-xl border border-[#2563EB]/20 space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#64748B] text-[10px] font-bold">Marks:</span>
+                        <span className="font-extrabold text-[#2563EB] font-mono text-[11px]">
+                          {obtMarks !== null ? `${obtMarks} / ${selectedAssignment.total_marks}` : `Max: ${selectedAssignment.total_marks}`}
                         </span>
-                        {obtMarks !== null && (
-                          <span className="px-2.5 py-0.5 rounded-full bg-[#2563EB] text-white font-bold text-[10px] font-mono">
-                            Score: {obtMarks} / {selectedAssignment.total_marks}
-                          </span>
-                        )}
                       </div>
                       {fb && (
-                        <div className="space-y-1">
-                          <span className="text-[10px] text-[#64748B] font-semibold flex items-center gap-1">
-                            <MessageSquareText className="w-3 h-3 text-[#2563EB]" /> Teacher Remarks:
-                          </span>
+                        <div className="space-y-0.5 pt-1 border-t border-[#2563EB]/15">
+                          <span className="text-[9px] text-[#64748B] font-bold uppercase tracking-wider block">Feedback:</span>
                           <p className="text-xs text-[#1E293B] bg-white p-2 rounded-lg border border-[#E2E8F0] font-medium leading-relaxed">
                             "{fb}"
                           </p>
@@ -382,7 +370,7 @@ const StudentAssignments = () => {
                     </div>
                   )}
 
-                  {/* If Student Already Submitted, Show Previously Uploaded File Box */}
+                  {/* If Student Already Submitted, Show Previously Uploaded File Box without View/Download buttons */}
                   {prevAttachment && (
                     <div className="p-3.5 bg-[#2563EB]/5 rounded-xl border border-[#2563EB]/20 space-y-2 text-xs">
                       <div className="flex items-center justify-between">
@@ -392,35 +380,16 @@ const StudentAssignments = () => {
                         </span>
                       </div>
 
-                      <div className="flex items-center justify-between gap-2 pt-0.5">
+                      <div className="pt-0.5">
                         <button
                           type="button"
                           onClick={() => handleViewDocument(prevAttachment, "Previously Uploaded File")}
-                          className="font-mono font-bold text-[#2563EB] text-xs hover:underline cursor-pointer flex items-center gap-1.5 truncate max-w-[200px]"
+                          className="font-mono font-bold text-[#2563EB] text-xs hover:underline cursor-pointer flex items-center gap-1.5 truncate max-w-full"
                           title="Click file name to view document in a new tab"
                         >
                           <Paperclip className="w-3.5 h-3.5 shrink-0" />
                           <span className="truncate">{getDisplayFileName(prevFileName, prevAttachment, "My_Submission")}</span>
                         </button>
-
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => handleViewDocument(prevAttachment, "Previously Uploaded File")}
-                            className="px-2 py-1 bg-white border border-[#E2E8F0] rounded-lg text-[11px] font-semibold text-[#2563EB] hover:bg-[#2563EB] hover:text-white transition-all flex items-center gap-1 cursor-pointer"
-                            title="View document in new tab"
-                          >
-                            <Eye className="w-3 h-3" /> View
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => downloadFile(prevAttachment, prevFileName || "My_Submission")}
-                            className="px-2 py-1 bg-white border border-[#E2E8F0] rounded-lg text-[11px] font-semibold text-[#64748B] hover:bg-slate-100 transition-all flex items-center gap-1 cursor-pointer"
-                            title="Download file"
-                          >
-                            <Download className="w-3 h-3" /> Download
-                          </button>
-                        </div>
                       </div>
                       {subDate && (
                         <p className="text-[10px] text-[#64748B] font-mono">Uploaded on: {subDate}</p>

@@ -286,6 +286,21 @@ public class AdminController {
         return ResponseEntity.ok(adminService.getReports());
     }
 
+    @GetMapping("/profile")
+    public ResponseEntity<Map<String, Object>> getAdminProfile(@RequestParam(required = false) String email) {
+        return ResponseEntity.ok(adminService.getAdminProfile(email));
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<Map<String, Object>> updateAdminProfile(@RequestBody Map<String, Object> reqData) {
+        return ResponseEntity.ok(adminService.updateAdminProfile(reqData));
+    }
+
+    @PutMapping("/change-password")
+    public ResponseEntity<Map<String, Object>> changeAdminPassword(@RequestBody Map<String, Object> reqData) {
+        return ResponseEntity.ok(adminService.changeAdminPassword(reqData));
+    }
+
     @GetMapping("/settings")
     public ResponseEntity<Map<String, Object>> getSystemSettings() {
         return ResponseEntity.ok(adminService.getSystemSettings());

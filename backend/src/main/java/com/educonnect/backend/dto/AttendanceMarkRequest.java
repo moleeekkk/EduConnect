@@ -14,21 +14,29 @@ import java.util.UUID;
 @Builder
 public class AttendanceMarkRequest {
 
-    @JsonProperty("teacherSubjectId")
-    @JsonAlias({"teacher_subject_id", "subject_id", "subjectId"})
-    private UUID teacherSubjectId;
+    @JsonProperty("subjectId")
+    @JsonAlias({"subject_id", "teacherSubjectId", "teacher_subject_id"})
+    private UUID subjectId;
+
+    public UUID getTeacherSubjectId() {
+        return subjectId;
+    }
+
+    public void setTeacherSubjectId(UUID teacherSubjectId) {
+        this.subjectId = teacherSubjectId;
+    }
 
     @JsonProperty("sessionDate")
     @JsonAlias({"session_date", "date"})
     private String sessionDate;
 
-    @JsonProperty("lectureNo")
-    @JsonAlias({"lecture_number", "lecture_no", "lectureNo"})
-    private Integer lectureNo;
+    @JsonProperty("startTime")
+    @JsonAlias({"start_time", "startTime"})
+    private String startTime;
 
-    @JsonProperty("topic")
-    @JsonAlias({"topic_covered", "topicCovered"})
-    private String topic;
+    @JsonProperty("endTime")
+    @JsonAlias({"end_time", "endTime"})
+    private String endTime;
 
     @JsonProperty("studentStatuses")
     @JsonAlias({"records", "student_statuses"})
@@ -46,9 +54,7 @@ public class AttendanceMarkRequest {
         private UUID studentId;
 
         @JsonProperty("status")
+        @JsonAlias({"attendance_status", "attendanceStatus", "status"})
         private String status; // "Present", "Absent", "Late"
-
-        @JsonProperty("remarks")
-        private String remarks;
     }
 }

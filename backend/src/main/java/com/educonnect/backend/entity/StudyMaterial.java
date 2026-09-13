@@ -34,9 +34,9 @@ public class StudyMaterial {
     @JsonProperty("resource_type")
     private String resourceType; // "Study Material", "Syllabus", "Question Bank", "Lab Manual"
 
-    @Column(name = "subject_name", length = 150)
-    @JsonProperty("subject_name")
-    private String subjectName;
+    @Column(name = "subject_id")
+    @JsonProperty("subject_id")
+    private UUID subjectId;
 
     @Column(name = "file_name", length = 255)
     @JsonProperty("file_name")

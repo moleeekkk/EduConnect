@@ -97,6 +97,19 @@ const AdminTeacherSubjectAllocation = () => {
     return "Semester 1";
   };
 
+  // Filter available semesters based on selected department
+  const getAvailableSemesters = (deptId) => {
+    if (!semesters || semesters.length === 0) return [];
+    if (!deptId || deptId === "all") return semesters;
+
+    const filtered = semesters.filter((s) => {
+      const sDept = s.department_id || s.departmentId;
+      return String(sDept) === String(deptId);
+    });
+
+    return filtered.length > 0 ? filtered : semesters;
+  };
+
   // Helper to check if teacher is allocated to subject
   const isAllocated = (teacherId, subjectId) => {
     return allocations.some(
@@ -203,22 +216,18 @@ const AdminTeacherSubjectAllocation = () => {
     const deptId = subj.department_id || subj.departmentId || subj.program_id;
     const semId = subj.semester_id || subj.semesterId;
 
-    if (selectedDepartment !== "all" && deptId) {
-      if (
-        String(deptId) !== String(selectedDepartment) &&
-        getDepartmentCode(deptId) !== getDepartmentCode(selectedDepartment)
-      ) {
-        return false;
-      }
+    if (selectedDepartment !== "all") {
+      if (!deptId) return false;
+      const matchesId = String(deptId).toLowerCase() === String(selectedDepartment).toLowerCase();
+      const matchesCode = getDepartmentCode(deptId).toLowerCase() === getDepartmentCode(selectedDepartment).toLowerCase();
+      if (!matchesId && !matchesCode) return false;
     }
 
-    if (selectedSemester !== "all" && semId) {
-      if (
-        String(semId) !== String(selectedSemester) &&
-        getSemesterLabel(semId) !== getSemesterLabel(selectedSemester)
-      ) {
-        return false;
-      }
+    if (selectedSemester !== "all") {
+      if (!semId) return false;
+      const matchesId = String(semId).toLowerCase() === String(selectedSemester).toLowerCase();
+      const matchesLabel = getSemesterLabel(semId).toLowerCase() === getSemesterLabel(selectedSemester).toLowerCase();
+      if (!matchesId && !matchesLabel) return false;
     }
 
     if (searchQuery.trim()) {
@@ -270,9 +279,7 @@ const AdminTeacherSubjectAllocation = () => {
           <h1 className="text-xl font-bold text-[#1E293B] flex items-center gap-2">
             <Layers className="w-6 h-6 text-[#2563EB]" /> Teacher-Subject Allocation Matrix
           </h1>
-          <p className="text-xs text-[#64748B] mt-0.5">
-            Manage Many-to-Many course assignments: assign subjects to faculty members across departments & semesters
-          </p>
+
         </div>
 
         {/* Quick Stats Badges */}
@@ -300,7 +307,20 @@ const AdminTeacherSubjectAllocation = () => {
             <div className="flex-1 min-w-[170px]">
               <select
                 value={selectedDepartment}
-                onChange={(e) => setSelectedDepartment(e.target.value)}
+                onChange={(e) => {
+                  const newDept = e.target.value;
+                  setSelectedDepartment(newDept);
+                  if (newDept !== "all") {
+                    const validSems = getAvailableSemesters(newDept);
+                    if (
+                      !validSems.some(
+                        (s) => String(s.semester_id || s.id) === selectedSemester
+                      )
+                    ) {
+                      setSelectedSemester("all");
+                    }
+                  }
+                }}
                 className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs font-semibold text-[#1E293B] outline-none focus:border-[#2563EB] cursor-pointer"
               >
                 <option value="all">All Departments ({departments.length})</option>
@@ -324,8 +344,12 @@ const AdminTeacherSubjectAllocation = () => {
                 onChange={(e) => setSelectedSemester(e.target.value)}
                 className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs font-semibold text-[#1E293B] outline-none focus:border-[#2563EB] cursor-pointer"
               >
-                <option value="all">All Semesters</option>
-                {semesters.map((sem) => {
+                <option value="all">
+                  {selectedDepartment === "all"
+                    ? `All Semesters (${semesters.length})`
+                    : `Semesters for Dept (${getAvailableSemesters(selectedDepartment).length})`}
+                </option>
+                {getAvailableSemesters(selectedDepartment).map((sem) => {
                   const sId = sem.semester_id || sem.id;
                   const label =
                     sem.semester_name || `Semester ${sem.semester_number || sem.number}`;
@@ -368,21 +392,19 @@ const AdminTeacherSubjectAllocation = () => {
           <div className="flex items-center bg-[#F8FAFC] p-1 rounded-xl border border-[#E2E8F0] shrink-0 self-start lg:self-center">
             <button
               onClick={() => setViewMode("subject")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                viewMode === "subject"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${viewMode === "subject"
                   ? "bg-white text-[#2563EB] shadow-xs"
                   : "text-[#64748B] hover:text-[#1E293B]"
-              }`}
+                }`}
             >
               <BookOpen className="w-3.5 h-3.5" /> Subject View ({filteredSubjects.length})
             </button>
             <button
               onClick={() => setViewMode("teacher")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                viewMode === "teacher"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${viewMode === "teacher"
                   ? "bg-white text-[#2563EB] shadow-xs"
                   : "text-[#64748B] hover:text-[#1E293B]"
-              }`}
+                }`}
             >
               <Users className="w-3.5 h-3.5" /> Faculty View ({filteredTeachers.length})
             </button>
@@ -630,19 +652,17 @@ const AdminTeacherSubjectAllocation = () => {
                           manageSubjectModal.subject_name || manageSubjectModal.name
                         )
                       }
-                      className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
-                        allocated
+                      className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${allocated
                           ? "bg-[#2563EB]/5 border-[#2563EB]/30"
                           : "bg-white border-[#E2E8F0] hover:border-slate-300"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <div
-                          className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
-                            allocated
+                          className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${allocated
                               ? "bg-[#2563EB] border-[#2563EB] text-white"
                               : "border-slate-300 bg-white"
-                          }`}
+                            }`}
                         >
                           {allocated && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                         </div>
@@ -658,11 +678,10 @@ const AdminTeacherSubjectAllocation = () => {
                         <Loader2 className="w-4 h-4 animate-spin text-[#2563EB]" />
                       ) : (
                         <span
-                          className={`text-[11px] font-bold px-2 py-0.5 rounded ${
-                            allocated
+                          className={`text-[11px] font-bold px-2 py-0.5 rounded ${allocated
                               ? "bg-[#2563EB]/10 text-[#2563EB]"
                               : "text-[#64748B]"
-                          }`}
+                            }`}
                         >
                           {allocated ? "Assigned" : "+ Click to Assign"}
                         </span>
@@ -743,19 +762,17 @@ const AdminTeacherSubjectAllocation = () => {
                       onClick={() =>
                         !isLoadingThis && handleToggleAllocation(tId, sId, tName, name)
                       }
-                      className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
-                        allocated
+                      className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${allocated
                           ? "bg-[#2563EB]/5 border-[#2563EB]/30"
                           : "bg-white border-[#E2E8F0] hover:border-slate-300"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <div
-                          className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
-                            allocated
+                          className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${allocated
                               ? "bg-[#2563EB] border-[#2563EB] text-white"
                               : "border-slate-300 bg-white"
-                          }`}
+                            }`}
                         >
                           {allocated && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                         </div>
@@ -776,11 +793,10 @@ const AdminTeacherSubjectAllocation = () => {
                         <Loader2 className="w-4 h-4 animate-spin text-[#2563EB]" />
                       ) : (
                         <span
-                          className={`text-[11px] font-bold px-2 py-0.5 rounded ${
-                            allocated
+                          className={`text-[11px] font-bold px-2 py-0.5 rounded ${allocated
                               ? "bg-[#2563EB]/10 text-[#2563EB]"
                               : "text-[#64748B]"
-                          }`}
+                            }`}
                         >
                           {allocated ? "Assigned" : "+ Click to Assign"}
                         </span>

@@ -10,5 +10,4 @@ import java.util.UUID;
 @Repository
 public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, UUID> {
     List<LeaveRequest> findByStudentId(UUID studentId);
-    List<LeaveRequest> findByEnrollmentNo(String enrollmentNo);
 }

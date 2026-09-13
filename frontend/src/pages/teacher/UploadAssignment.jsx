@@ -15,6 +15,7 @@ const defaultSubmissions = [
     student_id: "stu-001",
     student_name: "Maulik Dabhi",
     enrollment_no: "25CI2110016",
+    email: "maulik.dabhi@educonnect.ac.in",
     submission_date: "2026-08-10 14:30",
     attachment: "maulik_asgn1_final.zip",
     obtained_marks: 46,
@@ -27,6 +28,7 @@ const defaultSubmissions = [
     student_id: "stu-002",
     student_name: "Aanya Sharma",
     enrollment_no: "25CI2110017",
+    email: "aanya.sharma@educonnect.ac.in",
     submission_date: "2026-08-11 09:15",
     attachment: "aanya_microservices_v2.pdf",
     obtained_marks: 42,
@@ -39,6 +41,7 @@ const defaultSubmissions = [
     student_id: "stu-003",
     student_name: "Rohan Verma",
     enrollment_no: "25CI2110018",
+    email: "rohan.verma@educonnect.ac.in",
     submission_date: "-",
     attachment: null,
     obtained_marks: null,
@@ -51,6 +54,7 @@ const defaultSubmissions = [
     student_id: "stu-001",
     student_name: "Maulik Dabhi",
     enrollment_no: "25CI2110016",
+    email: "maulik.dabhi@educonnect.ac.in",
     submission_date: "2026-08-14 11:00",
     attachment: "maulik_devops_docker.zip",
     obtained_marks: 48,
@@ -63,6 +67,7 @@ const defaultSubmissions = [
     student_id: "stu-002",
     student_name: "Aanya Sharma",
     enrollment_no: "25CI2110017",
+    email: "aanya.sharma@educonnect.ac.in",
     submission_date: "2026-08-16 18:45",
     attachment: "aanya_devops_doc.pdf",
     obtained_marks: 38,
@@ -75,6 +80,7 @@ const defaultSubmissions = [
     student_id: "stu-003",
     student_name: "Rohan Verma",
     enrollment_no: "25CI2110018",
+    email: "rohan.verma@educonnect.ac.in",
     submission_date: "-",
     attachment: null,
     obtained_marks: null,
@@ -109,8 +115,12 @@ const TeacherUploadAssignment = () => {
   const [gradeMarks, setGradeMarks] = useState(45);
   const [gradeFeedback, setGradeFeedback] = useState("Good work");
   const [reminderSentId, setReminderSentId] = useState(null);
+  const [reminderSub, setReminderSub] = useState(null);
+  const [reminderNote, setReminderNote] = useState("");
+  const [isSendingReminder, setIsSendingReminder] = useState(false);
 
   const [refFileData, setRefFileData] = useState(null);
+  const [dbStudentsList, setDbStudentsList] = useState([]);
 
   const handleViewDocument = (fileUrl, title = "Document Preview") => {
     openFileInNewTab(fileUrl, title);
@@ -123,10 +133,15 @@ const TeacherUploadAssignment = () => {
       const identifier = loggedUser?.identifier || loggedUser?.email || loggedUser?.userId;
 
       try {
-        const [subData, asgnData] = await Promise.all([
+        const [subData, asgnData, stuData] = await Promise.all([
           teacherApi.getAssignedSubjects(identifier),
           teacherApi.getAssignments(identifier),
+          teacherApi.getStudents(),
         ]);
+
+        if (Array.isArray(stuData)) {
+          setDbStudentsList(stuData);
+        }
 
         if (Array.isArray(subData)) {
           setAssignedSubjects(subData);
@@ -315,34 +330,122 @@ const TeacherUploadAssignment = () => {
     setSelectedSub(null);
   };
 
-  const sendReminder = (subId) => {
-    setReminderSentId(subId);
-    notifySuccess("Email reminder sent to student!");
-    setTimeout(() => setReminderSentId(null), 3000);
+  const getRegisteredStudentEmail = (sub) => {
+    if (!sub) return "";
+
+    // 1. Direct email on sub object if present and valid
+    if (sub.email && String(sub.email).includes("@")) {
+      return sub.email;
+    }
+
+    // 2. Lookup in database students list loaded from API
+    if (dbStudentsList.length > 0) {
+      const match = dbStudentsList.find(
+        (s) =>
+          (s.student_id && sub.student_id && String(s.student_id) === String(sub.student_id)) ||
+          (s.enrollment_no && sub.enrollment_no && String(s.enrollment_no).toLowerCase() === String(sub.enrollment_no).toLowerCase()) ||
+          (s.first_name && sub.student_name && `${s.first_name} ${s.last_name || ""}`.trim().toLowerCase() === String(sub.student_name).trim().toLowerCase())
+      );
+      if (match && match.email && match.email.includes("@")) {
+        return match.email;
+      }
+    }
+
+    // 3. Lookup in local storage saved users / current user
+    try {
+      const savedUserStr = localStorage.getItem("educonnect_user");
+      if (savedUserStr) {
+        const u = JSON.parse(savedUserStr);
+        if (
+          u.role === "student" &&
+          ((u.enrollment_no && sub.enrollment_no && String(u.enrollment_no).toLowerCase() === String(sub.enrollment_no).toLowerCase()) ||
+           (u.name && sub.student_name && String(u.name).toLowerCase() === String(sub.student_name).toLowerCase()))
+        ) {
+          if (u.email && u.email.includes("@")) return u.email;
+        }
+      }
+      const savedUsersStr = localStorage.getItem("educonnect_users");
+      if (savedUsersStr) {
+        const users = JSON.parse(savedUsersStr);
+        const match = users.find(
+          (u) =>
+            (u.enrollment_no && sub.enrollment_no && String(u.enrollment_no).toLowerCase() === String(sub.enrollment_no).toLowerCase()) ||
+            (u.student_id && sub.student_id && String(u.student_id) === String(sub.student_id)) ||
+            (u.name && sub.student_name && String(u.name).toLowerCase() === String(sub.student_name).toLowerCase())
+        );
+        if (match && match.email && match.email.includes("@")) return match.email;
+      }
+    } catch (e) {}
+
+    // 4. Default official institutional email derived from enrollment number
+    if (sub.enrollment_no) {
+      return `${sub.enrollment_no.toLowerCase()}@educonnect.ac.in`;
+    }
+
+    return "student@educonnect.ac.in";
   };
 
-  // Helper to determine exact submission status (Timely, Late, or Missed)
-  const getEffectiveSubmissionStatus = (sub, asgn) => {
-    if (!sub || sub.submitted === false || (!sub.attachment && sub.submission_status === "Missed")) {
-      return "Missed";
-    }
-    if (sub.submission_status === "Late") return "Late";
-    if (sub.submission_status === "Timely") return "Timely";
+  const handleOpenReminderModal = (sub) => {
+    setReminderSub(sub);
+    setReminderNote(`Dear ${sub.student_name},\n\nThis is an official reminder to submit your assignment '${viewSubmissionsAssignment?.title || "Assignment"}' (Due Date: ${viewSubmissionsAssignment?.due_date || "Pending"}). Please upload your completed assignment document as soon as possible.`);
+  };
 
-    // Fallback: Compare submission date with due date if status is not explicitly set
+  const handleSendReminderEmail = async (e) => {
+    if (e) e.preventDefault();
+    if (!reminderSub) return;
+    setIsSendingReminder(true);
+    try {
+      const studentEmail = getRegisteredStudentEmail(reminderSub);
+      await teacherApi.sendParentEmail({
+        email: studentEmail,
+        recipient_email: studentEmail,
+        student_name: reminderSub.student_name,
+        subject: `Assignment Submission Reminder: ${viewSubmissionsAssignment?.title || "Assignment"}`,
+        message: reminderNote,
+        body: reminderNote,
+      });
+      notifySuccess(`Reminder email with custom note dispatched to registered email ${studentEmail} (${reminderSub.student_name})!`);
+      setReminderSentId(reminderSub.submission_id);
+      setReminderSub(null);
+    } catch (err) {
+      console.error("Error sending email reminder:", err);
+      notifyError("Failed to send email reminder to student.");
+    } finally {
+      setIsSendingReminder(false);
+    }
+  };
+
+  // Helper to determine exact submission status (Timely, Late, Missed, or Pending)
+  const getEffectiveSubmissionStatus = (sub, asgn) => {
+    const isSubmitted = sub && sub.submitted !== false && (sub.attachment || sub.student_attachment);
     const dueDateStr = asgn?.due_date || sub?.due_date;
-    const subDateStr = sub?.submission_date;
-    if (dueDateStr && subDateStr && subDateStr !== "-") {
+
+    if (isSubmitted) {
+      if (dueDateStr && sub.submission_date && sub.submission_date !== "-") {
+        try {
+          const due = new Date(dueDateStr);
+          due.setHours(23, 59, 59, 999);
+          const subDate = new Date(sub.submission_date);
+          if (subDate > due) {
+            return "Late";
+          }
+        } catch (e) {}
+      }
+      return "Timely";
+    }
+
+    // Unsubmitted student: check if due date is extended or in the future
+    if (dueDateStr) {
       try {
         const due = new Date(dueDateStr);
         due.setHours(23, 59, 59, 999);
-        const subDate = new Date(subDateStr);
-        if (subDate > due) {
-          return "Late";
+        const now = new Date();
+        if (now <= due) {
+          return "Pending"; // Due date extended or in future -> NOT Missed!
         }
       } catch (e) {}
     }
-    return "Timely";
+    return "Missed";
   };
 
   // Helper to compute stats per assignment
@@ -356,7 +459,7 @@ const TeacherUploadAssignment = () => {
         const st = getEffectiveSubmissionStatus(s, asgnObj);
         if (st === "Late") late++;
         else if (st === "Timely") timely++;
-        else missed++;
+        else if (st === "Missed") missed++;
       });
       return { timely, late, missed, total: asgnSubs.length };
     }
@@ -429,110 +532,111 @@ const TeacherUploadAssignment = () => {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
           {assignments.map((asgn) => {
             const stats = getAssignmentStats(asgn.assignment_id, asgn);
             return (
               <div
                 key={asgn.assignment_id}
-                className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all duration-200"
+                className="bg-white rounded-xl border border-[#E2E8F0] p-3.5 shadow-2xs hover:shadow-xs flex flex-col justify-between space-y-3 hover:border-[#0F172A]/30 transition-all duration-200"
               >
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {/* Card Header: Title, Marks, Due Date & Actions */}
-                  <div className="flex items-start justify-between gap-3 border-b border-[#E2E8F0] pb-3">
-                    <div className="space-y-1">
-                      <h3 className="text-base font-extrabold text-[#1E293B] leading-snug">{asgn.title}</h3>
-                      <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                        <span className="px-2.5 py-0.5 rounded-full bg-[#2563EB]/10 text-[#2563EB] font-bold">
-                          Max Marks: {asgn.total_marks}
+                  <div className="flex items-start justify-between gap-2 border-b border-[#E2E8F0] pb-2">
+                    <div className="space-y-0.5 min-w-0 flex-1">
+                      <h3 className="text-xs font-bold text-[#1E293B] leading-tight truncate" title={asgn.title}>{asgn.title}</h3>
+                      <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                        <span className="px-2 py-0.2 rounded-md bg-[#2563EB]/10 text-[#2563EB] font-bold">
+                          {asgn.total_marks} Marks
                         </span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-[#64748B] font-mono font-semibold">
+                        <span className="px-2 py-0.2 rounded-md bg-slate-100 text-[#64748B] font-mono font-semibold">
                           Due: {asgn.due_date}
                         </span>
                       </div>
                     </div>
 
                     {/* Action Buttons: Edit & Delete */}
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-0.5 shrink-0">
                       <button
                         onClick={() => handleOpenEditModal(asgn)}
-                        className="p-1.5 rounded-lg text-[#14B8A6] hover:bg-[#14B8A6]/10 transition-colors cursor-pointer"
+                        className="p-1 rounded-md text-[#14B8A6] hover:bg-[#14B8A6]/10 transition-colors cursor-pointer"
                         title="Edit Assignment"
                       >
-                        <Edit className="w-4 h-4" />
+                        <Edit className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleDeleteAssignment(asgn.assignment_id)}
-                        className="p-1.5 rounded-lg text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors cursor-pointer"
+                        className="p-1 rounded-md text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors cursor-pointer"
                         title="Delete Assignment"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
 
                   {/* Instructions / Description */}
-                  <p className="text-xs text-[#64748B] leading-relaxed line-clamp-3">{asgn.description}</p>
+                  <p className="text-[11px] text-[#64748B] leading-snug line-clamp-2">{asgn.description}</p>
 
-                  {/* Ref File Attachment Pill - Clickable Teacher Attachment */}
+                  {/* Ref File Attachment Pill */}
                   {asgn.attachment && (
-                    <div className="pt-1">
+                    <div>
                       <button
                         onClick={() => handleViewDocument(asgn.attachment, asgn.title)}
-                        className="inline-flex items-center gap-1.5 font-mono font-bold text-xs text-[#14B8A6] bg-[#14B8A6]/10 hover:bg-[#14B8A6] hover:text-white px-3 py-1 rounded-lg border border-[#14B8A6]/20 transition-all cursor-pointer"
+                        className="inline-flex items-center gap-1 font-mono font-semibold text-[10px] text-[#14B8A6] bg-[#14B8A6]/10 hover:bg-[#14B8A6] hover:text-white px-2.5 py-0.5 rounded-md border border-[#14B8A6]/20 transition-all cursor-pointer truncate max-w-full"
                         title="Click to view document in a new tab"
                       >
-                        <Paperclip className="w-3.5 h-3.5" /> Ref File: {getDisplayFileName(asgn.file_name, asgn.attachment, asgn.title)}
+                        <Paperclip className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{getDisplayFileName(asgn.file_name, asgn.attachment, asgn.title)}</span>
                       </button>
                     </div>
                   )}
 
                   {/* Submission Breakdown Interactive Badges Grid */}
-                  <div className="pt-2">
-                    <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider block mb-2">
-                      Submissions Breakdown (Click to view student list)
+                  <div className="pt-1">
+                    <span className="text-[9px] font-bold text-[#64748B] uppercase tracking-wider block mb-1.5">
+                      Submissions Breakdown
                     </span>
-                    <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                    <div className="grid grid-cols-3 gap-1.5 text-center">
                       <button
                         onClick={() => handleOpenSubmissionsModal(asgn, "timely")}
-                        className="p-2 rounded-lg bg-[#22C55E]/10 border border-[#22C55E]/20 text-[#22C55E] hover:bg-[#22C55E] hover:text-white transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5"
+                        className="p-1.5 rounded-lg bg-[#22C55E]/10 border border-[#22C55E]/20 text-[#22C55E] hover:bg-[#22C55E] hover:text-white transition-all cursor-pointer flex flex-col items-center justify-center"
                         title="View Timely Submitted Students"
                       >
-                        <span className="font-extrabold text-sm">{stats.timely}</span>
-                        <span className="text-[10px] font-bold uppercase">Timely</span>
+                        <span className="font-extrabold text-xs">{stats.timely}</span>
+                        <span className="text-[9px] font-bold uppercase">Timely</span>
                       </button>
 
                       <button
                         onClick={() => handleOpenSubmissionsModal(asgn, "late")}
-                        className="p-2 rounded-lg bg-[#F97316]/10 border border-[#F97316]/20 text-[#F97316] hover:bg-[#F97316] hover:text-white transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5"
+                        className="p-1.5 rounded-lg bg-[#F97316]/10 border border-[#F97316]/20 text-[#F97316] hover:bg-[#F97316] hover:text-white transition-all cursor-pointer flex flex-col items-center justify-center"
                         title="View Late Submitted Students"
                       >
-                        <span className="font-extrabold text-sm">{stats.late}</span>
-                        <span className="text-[10px] font-bold uppercase">Late</span>
+                        <span className="font-extrabold text-xs">{stats.late}</span>
+                        <span className="text-[9px] font-bold uppercase">Late</span>
                       </button>
 
                       <button
                         onClick={() => handleOpenSubmissionsModal(asgn, "missed")}
-                        className="p-2 rounded-lg bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] hover:bg-[#EF4444] hover:text-white transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5"
+                        className="p-1.5 rounded-lg bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] hover:bg-[#EF4444] hover:text-white transition-all cursor-pointer flex flex-col items-center justify-center"
                         title="View Missed / Pending Students"
                       >
-                        <span className="font-extrabold text-sm">{stats.missed}</span>
-                        <span className="text-[10px] font-bold uppercase">Missed</span>
+                        <span className="font-extrabold text-xs">{stats.missed}</span>
+                        <span className="text-[9px] font-bold uppercase">Missed</span>
                       </button>
                     </div>
                   </div>
                 </div>
 
                 {/* Primary Card Button */}
-                <div className="pt-3 border-t border-[#E2E8F0]">
+                <div className="pt-2 border-t border-[#E2E8F0]">
                   <Button
                     variant="accent"
                     size="sm"
                     icon={Eye}
                     onClick={() => handleOpenSubmissionsModal(asgn, "timely")}
-                    className="w-full text-xs"
+                    className="w-full text-[11px] py-1"
                   >
-                    View Student Submissions Pop-up
+                    View Submissions Pop-up
                   </Button>
                 </div>
               </div>
@@ -702,10 +806,10 @@ const TeacherUploadAssignment = () => {
                           variant="outline"
                           size="sm"
                           icon={Mail}
-                          onClick={() => sendReminder(sub.submission_id)}
+                          onClick={() => handleOpenReminderModal(sub)}
                           className="text-xs w-full text-[#EF4444] border-[#EF4444]/30 hover:bg-[#EF4444]/10"
                         >
-                          {reminderSentId === sub.submission_id ? "Reminder Sent! ✓" : "Send Email Reminder"}
+                          {reminderSentId === sub.submission_id ? "Reminder Sent! ✓" : "Send Email Reminder with Note"}
                         </Button>
                       )}
                     </div>
@@ -975,6 +1079,58 @@ const TeacherUploadAssignment = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* EMAIL REMINDER WITH CUSTOM NOTE POP-UP MODAL */}
+      {reminderSub && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-8 animate-fade-in">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
+              <div className="flex items-center gap-2">
+                <Mail className="w-5 h-5 text-[#EF4444]" />
+                <h3 className="text-base font-extrabold text-[#1E293B]">Send Email Reminder</h3>
+              </div>
+              <button
+                onClick={() => setReminderSub(null)}
+                className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSendReminderEmail} className="space-y-3.5 text-xs">
+              <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
+                <p className="text-[10px] text-[#64748B] font-bold uppercase">Recipient Student</p>
+                <p className="font-extrabold text-[#1E293B] text-sm">{reminderSub.student_name}</p>
+                <p className="font-mono text-[11px] text-[#2563EB] font-bold">
+                  Enrollment: {reminderSub.enrollment_no} • Registered Email: {getRegisteredStudentEmail(reminderSub)}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[#64748B] mb-1 font-semibold">Teacher's Note / Custom Message *</label>
+                <textarea
+                  rows={4}
+                  required
+                  value={reminderNote}
+                  onChange={(e) => setReminderNote(e.target.value)}
+                  placeholder="Enter custom message to student..."
+                  className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-white font-medium text-[#1E293B] outline-none focus:border-[#2563EB] text-xs leading-relaxed"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
+                <Button variant="outline" size="sm" type="button" onClick={() => setReminderSub(null)}>
+                  Cancel
+                </Button>
+                <Button variant="accent" size="sm" type="submit" icon={Send} disabled={isSendingReminder} className="bg-[#EF4444] hover:bg-[#DC2626]">
+                  {isSendingReminder ? "Dispatching..." : "Dispatch Email Reminder"}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

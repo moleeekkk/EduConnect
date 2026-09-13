@@ -76,10 +76,8 @@ class TeacherControllerTest {
     @Test
     void testMarkAttendance() throws Exception {
         AttendanceMarkRequest req = AttendanceMarkRequest.builder()
-                .teacherSubjectId(UUID.randomUUID())
+                .subjectId(UUID.randomUUID())
                 .sessionDate("2026-09-11")
-                .lectureNo(1)
-                .topic("Spring Boot Testing")
                 .build();
         Map<String, Object> res = Map.of("success", true, "message", "Attendance saved");
         when(teacherService.markAttendance(any())).thenReturn(res);

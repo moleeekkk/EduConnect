@@ -16,7 +16,10 @@ const StudentStudyMaterial = () => {
   useEffect(() => {
     const fetchMaterials = async () => {
       try {
-        const data = await studentApi.getStudyMaterials();
+        const userStr = localStorage.getItem("educonnect_user");
+        const loggedUser = userStr ? JSON.parse(userStr) : null;
+        const enrollmentNo = loggedUser?.enrollmentNo || loggedUser?.enrollment_no || "2024MCA001";
+        const data = await studentApi.getStudyMaterials(enrollmentNo);
         if (Array.isArray(data)) {
           setMaterials(data);
         }
@@ -39,31 +42,52 @@ const StudentStudyMaterial = () => {
       {/* Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {materials.map((item) => {
-          const fileName = getDisplayFileName(item.file_name, item.file_path, item.title);
+          const resId = item.resourceId || item.resource_id;
+          const fn = item.fileName || item.file_name;
+          const fp = item.filePath || item.file_path;
+          const fileName = getDisplayFileName(fn, fp, item.title);
+          const fileUrl = fp || "/resources/study_material_doc.pdf";
+          const resType = item.resourceType || item.resource_type || "Study Material";
+          const uploadedDate = item.uploadedDate || item.uploaded_date || (item.createdAt ? String(item.createdAt).split("T")[0] : new Date().toISOString().split("T")[0]);
+          const subjBadge = item.subject_code || item.subjectCode || item.subject_name || item.subjectName;
+
           return (
             <div
-              key={item.resource_id}
+              key={resId}
               className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all duration-200"
             >
               <div className="space-y-3">
                 {/* Header Badge & Date */}
-                <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#14B8A6]/10 text-[#14B8A6] font-bold text-[11px] border border-[#14B8A6]/20">
-                    {item.resource_type}
-                  </span>
-                  <span className="font-mono text-[#64748B] text-[11px] font-semibold">{item.uploaded_date}</span>
+                <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3 gap-2">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#14B8A6]/10 text-[#14B8A6] font-bold text-[11px] border border-[#14B8A6]/20">
+                      {resType}
+                    </span>
+                    {subjBadge && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-[#2563EB]/10 text-[#2563EB] font-bold text-[11px] border border-[#2563EB]/20">
+                        {subjBadge}
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-mono text-[#64748B] text-[11px] font-semibold">{uploadedDate}</span>
                 </div>
 
                 {/* Title & Description */}
                 <div>
-                  <h3 className="text-base font-extrabold text-[#1E293B] leading-snug">{item.title}</h3>
+                  <h3
+                    onClick={() => handleViewDocument(fileUrl, item.title)}
+                    className="text-base font-extrabold text-[#1E293B] hover:text-[#2563EB] leading-snug cursor-pointer transition-colors"
+                    title="Click title or file name to view file"
+                  >
+                    {item.title}
+                  </h3>
                   <p className="text-xs text-[#64748B] leading-relaxed line-clamp-3 mt-1.5">{item.description}</p>
                 </div>
 
                 {/* File Attachment Pill - Clickable File Name */}
                 <div className="pt-1">
                   <button
-                    onClick={() => handleViewDocument(item.file_path, item.title)}
+                    onClick={() => handleViewDocument(fileUrl, item.title)}
                     className="inline-flex items-center gap-1.5 text-[11px] font-mono text-[#2563EB] bg-[#2563EB]/10 hover:bg-[#2563EB] hover:text-white px-3 py-1 rounded-lg border border-[#2563EB]/20 font-bold cursor-pointer transition-all truncate max-w-full"
                     title="Click file name to open document in a new tab"
                   >
@@ -78,7 +102,7 @@ const StudentStudyMaterial = () => {
                   variant="outline"
                   size="sm"
                   icon={Download}
-                  onClick={() => downloadFile(item.file_path, fileName)}
+                  onClick={() => downloadFile(fileUrl, fileName)}
                   className="text-xs"
                 >
                   Download

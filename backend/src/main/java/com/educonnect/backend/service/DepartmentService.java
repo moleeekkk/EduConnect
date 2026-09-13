@@ -170,6 +170,12 @@ public class DepartmentService {
         if (subject.getSubjectType() == null) {
             subject.setSubjectType("Core Theory");
         }
+        if (subject.getTotalHours() == null) {
+            subject.setTotalHours(60);
+        }
+        if (subject.getDescription() == null) {
+            subject.setDescription("");
+        }
         if (subject.getIsActive() == null) {
             subject.setIsActive(true);
         }
@@ -184,6 +190,8 @@ public class DepartmentService {
             if (updatedSubj.getDepartmentId() != null) existing.setDepartmentId(updatedSubj.getDepartmentId());
             if (updatedSubj.getSemesterId() != null) existing.setSemesterId(updatedSubj.getSemesterId());
             if (updatedSubj.getCredits() != null) existing.setCredits(updatedSubj.getCredits());
+            if (updatedSubj.getTotalHours() != null) existing.setTotalHours(updatedSubj.getTotalHours());
+            if (updatedSubj.getDescription() != null) existing.setDescription(updatedSubj.getDescription());
             if (updatedSubj.getSubjectType() != null) existing.setSubjectType(updatedSubj.getSubjectType());
             if (updatedSubj.getIsActive() != null) existing.setIsActive(updatedSubj.getIsActive());
             return subjectRepository.save(existing);

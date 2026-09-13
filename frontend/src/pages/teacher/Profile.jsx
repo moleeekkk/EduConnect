@@ -10,20 +10,20 @@ const TeacherProfile = () => {
   const loggedUser = userStr ? JSON.parse(userStr) : null;
 
   const [profile, setProfile] = useState({
-    teacher_id: loggedUser?.userId || "teach-001",
+    teacher_id: loggedUser?.userId || "",
     faculty_id: loggedUser?.identifier || "",
-    first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : "Faculty",
-    last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : "Member",
-    email: loggedUser?.identifier || "teacher@educonnect.ac.in",
-    mobile: "+91 98111 22334",
-    gender: "Female",
-    date_of_birth: "1985-04-12",
-    address: "Faculty Quarters Enclave",
-    qualification: "Ph.D. in Computer Science",
-    designation: "Assistant Professor",
+    first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : "",
+    last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : "",
+    email: loggedUser?.identifier,
+    mobile: "",
+    gender: "e",
+    date_of_birth: "",
+    address: "",
+    qualification: "",
+    designation: "",
     experience: 5,
-    joining_date: "2018-06-15",
-    profile_photo: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
+    joining_date: "",
+    profile_photo: "",
     is_active: true,
   });
   const [isEditing, setIsEditing] = useState(false);
@@ -73,8 +73,8 @@ const TeacherProfile = () => {
     setChangingPass(true);
     try {
       await teacherApi.changePassword({
-        email: profile.email,
-        teacher_id: profile.teacher_id,
+        email: profile.email || loggedUser?.identifier || loggedUser?.email,
+        teacher_id: profile.teacher_id || loggedUser?.userId,
         current_password: passForm.current_password,
         new_password: passForm.new_password,
       });
@@ -146,7 +146,7 @@ const TeacherProfile = () => {
             title="Click to change profile photo"
           >
             <img
-              src={profile.profile_photo || "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80"}
+              src={profile.profile_photo}
               alt={`${profile.first_name} ${profile.last_name}`}
               className="w-16 h-16 rounded-full object-cover border-2 border-[#14B8A6] shadow-xs group-hover:opacity-80 transition-all"
             />

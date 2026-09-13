@@ -283,7 +283,7 @@ const StudentManagement = () => {
   const handleOpenStudentEdit = (stu) => {
     setEditStudent(stu);
     setStudentForm({
-      enrollment_no: stu.enrollment_no || stu.enrollmentNo || "",
+      enrollment_no: (stu.enrollment_no || stu.enrollmentNo || "").toUpperCase(),
       first_name: stu.first_name || stu.firstName || "",
       last_name: stu.last_name || stu.lastName || "",
       surname: stu.surname || "",
@@ -341,7 +341,7 @@ const StudentManagement = () => {
     try {
       const payload = {
         enrollment_no: studentForm.enrollment_no && String(studentForm.enrollment_no).trim() !== ""
-          ? String(studentForm.enrollment_no).trim()
+          ? String(studentForm.enrollment_no).trim().toUpperCase()
           : `25CI${Math.floor(10000 + Math.random() * 90000)}`,
         first_name: studentForm.first_name ? String(studentForm.first_name).trim() : "Student",
         last_name: studentForm.last_name ? String(studentForm.last_name).trim() : "",
@@ -928,7 +928,7 @@ const StudentManagement = () => {
                     type="text"
                     placeholder="e.g. 25CI211001"
                     value={studentForm.enrollment_no}
-                    onChange={(e) => setStudentForm({ ...studentForm, enrollment_no: e.target.value })}
+                    onChange={(e) => setStudentForm({ ...studentForm, enrollment_no: e.target.value.toUpperCase() })}
                     className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg font-mono font-bold text-[#2563EB]"
                   />
                 </div>

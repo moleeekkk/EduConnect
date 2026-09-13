@@ -86,6 +86,19 @@ public class TeacherController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/attendance/sessions")
+    public ResponseEntity<List<Map<String, Object>>> getAttendanceSessions(
+            @RequestParam(required = false) String teacherId,
+            @RequestParam(required = false) String email) {
+        String identifier = email != null && !email.trim().isEmpty() ? email : teacherId;
+        return ResponseEntity.ok(teacherService.getTeacherAttendanceSessions(identifier));
+    }
+
+    @GetMapping("/attendance/sessions/{sessionId}")
+    public ResponseEntity<Map<String, Object>> getAttendanceSessionDetails(@PathVariable UUID sessionId) {
+        return ResponseEntity.ok(teacherService.getAttendanceSessionDetails(sessionId));
+    }
+
     @GetMapping("/grades")
     public ResponseEntity<List<Map<String, Object>>> getPendingGrades(
             @RequestParam(required = false, defaultValue = "teach-demo-id") String teacherId) {
@@ -190,7 +203,7 @@ public class TeacherController {
     }
 
     @GetMapping("/study-materials")
-    public ResponseEntity<List<com.educonnect.backend.entity.StudyMaterial>> getStudyMaterials() {
+    public ResponseEntity<List<Map<String, Object>>> getStudyMaterials() {
         return ResponseEntity.ok(teacherService.getStudyMaterials());
     }
 
@@ -200,15 +213,60 @@ public class TeacherController {
         return ResponseEntity.ok(teacherService.uploadStudyMaterial(reqData));
     }
 
+    @PutMapping("/study-materials/{id}")
+    public ResponseEntity<com.educonnect.backend.entity.StudyMaterial> updateStudyMaterial(
+            @PathVariable UUID id,
+            @RequestBody Map<String, Object> reqData) {
+        return ResponseEntity.ok(teacherService.updateStudyMaterial(id, reqData));
+    }
+
+    @DeleteMapping("/study-materials/{id}")
+    public ResponseEntity<Map<String, String>> deleteStudyMaterial(@PathVariable UUID id) {
+        teacherService.deleteStudyMaterial(id);
+        return ResponseEntity.ok(Map.of("message", "Study material deleted successfully"));
+    }
+
     @GetMapping("/quizzes")
-    public ResponseEntity<List<com.educonnect.backend.entity.Quiz>> getQuizzes() {
+    public ResponseEntity<List<Map<String, Object>>> getQuizzes() {
         return ResponseEntity.ok(teacherService.getQuizzes());
     }
 
     @PostMapping("/quizzes")
-    public ResponseEntity<com.educonnect.backend.entity.Quiz> createQuiz(
+    public ResponseEntity<Map<String, Object>> createQuiz(
             @RequestBody Map<String, Object> reqData) {
         return ResponseEntity.ok(teacherService.createQuiz(reqData));
+    }
+
+    @PutMapping("/quizzes/{id}")
+    public ResponseEntity<Map<String, Object>> updateQuiz(
+            @PathVariable UUID id,
+            @RequestBody Map<String, Object> reqData) {
+        return ResponseEntity.ok(teacherService.updateQuiz(id, reqData));
+    }
+
+    @DeleteMapping("/quizzes/{id}")
+    public ResponseEntity<Map<String, String>> deleteQuiz(@PathVariable UUID id) {
+        teacherService.deleteQuiz(id);
+        return ResponseEntity.ok(Map.of("message", "Quiz deleted successfully"));
+    }
+
+    @GetMapping("/quizzes/{id}/questions")
+    public ResponseEntity<List<Map<String, Object>>> getQuizQuestions(@PathVariable UUID id) {
+        return ResponseEntity.ok(teacherService.getQuizQuestions(id));
+    }
+
+    @PostMapping("/quizzes/{id}/questions")
+    public ResponseEntity<Map<String, Object>> addQuizQuestion(
+            @PathVariable UUID id,
+            @RequestBody Map<String, Object> reqData) {
+        return ResponseEntity.ok(teacherService.addQuizQuestion(id, reqData));
+    }
+
+    @DeleteMapping("/quizzes/{id}/questions/{mcqId}")
+    public ResponseEntity<List<Map<String, Object>>> deleteQuizQuestion(
+            @PathVariable UUID id,
+            @PathVariable String mcqId) {
+        return ResponseEntity.ok(teacherService.deleteQuizQuestion(id, mcqId));
     }
 
     @PostMapping("/parent-email")

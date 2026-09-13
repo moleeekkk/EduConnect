@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Search, Bell, User, LogOut, ChevronDown, Sparkles, GraduationCap, Menu, PanelLeftClose, PanelLeftOpen, CalendarRange } from "lucide-react";
+import { Search, Bell, User, LogOut, ChevronDown, Sparkles, GraduationCap, Menu, PanelLeftClose, PanelLeftOpen, CalendarRange, UserCircle } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useBatch } from "../../context/BatchContext";
+import { adminApi, teacherApi } from "../../services/api";
 
 const Navbar = ({
   role = "Student",
@@ -20,8 +21,70 @@ const Navbar = ({
 
   const userStr = localStorage.getItem("educonnect_user");
   const loggedUser = userStr ? JSON.parse(userStr) : null;
-  const displayName = loggedUser?.name || userName || (role === "Admin" ? "Super Administrator" : role === "Teacher" ? "Faculty Member" : "Student User");
-  const displayDetail = loggedUser?.identifier || userDetail || (role === "Admin" ? "admin@educonnect.ac.in" : "");
+  const [userProfile, setUserProfile] = useState(null);
+
+  const [profilePhoto, setProfilePhoto] = useState(
+    loggedUser?.profile_photo || loggedUser?.profilePhoto || loggedUser?.avatar || ""
+  );
+
+  // Fetch admin or teacher profile photo & details on mount & listen for profile updates
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      const userStr = localStorage.getItem("educonnect_user");
+      const logged = userStr ? JSON.parse(userStr) : null;
+      const identifier = logged?.identifier || logged?.email || logged?.userId;
+
+      try {
+        if (role === "Admin") {
+          const data = await adminApi.getProfile();
+          if (data) {
+            setUserProfile(data);
+            if (data.profile_photo || data.profilePhoto) {
+              setProfilePhoto(data.profile_photo || data.profilePhoto);
+            }
+          }
+        } else if (role === "Teacher") {
+          const data = await teacherApi.getProfile(identifier);
+          if (data && (data.first_name || data.email)) {
+            setUserProfile(data);
+            if (data.profile_photo || data.profilePhoto) {
+              setProfilePhoto(data.profile_photo || data.profilePhoto);
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Navbar profile fetch error:", e);
+      }
+    };
+
+    fetchUserProfile();
+
+    const handleProfileUpdate = () => {
+      fetchUserProfile();
+      const updatedUserStr = localStorage.getItem("educonnect_user");
+      if (updatedUserStr) {
+        try {
+          const parsed = JSON.parse(updatedUserStr);
+          if (parsed?.profile_photo || parsed?.profilePhoto) {
+            setProfilePhoto(parsed.profile_photo || parsed.profilePhoto);
+          }
+        } catch (ignored) {}
+      }
+    };
+
+    window.addEventListener("profile_updated", handleProfileUpdate);
+    return () => {
+      window.removeEventListener("profile_updated", handleProfileUpdate);
+    };
+  }, [role]);
+
+  const displayName = userProfile?.first_name 
+    ? `${userProfile.first_name} ${userProfile.last_name || ""}`.trim()
+    : loggedUser?.name || userName || (role === "Admin" ? "Super Administrator" : role === "Teacher" ? "Faculty Member" : "Student User");
+
+  const displayDetail = role === "Teacher" && (userProfile?.faculty_id || userProfile?.designation)
+    ? `${userProfile.faculty_id || ""} ${userProfile.designation ? "• " + userProfile.designation : ""}`.trim()
+    : loggedUser?.identifier || userDetail || (role === "Admin" ? "admin@educonnect.ac.in" : "");
 
   // Automatically close dropdown when user clicks another module or navigates
   useEffect(() => {
@@ -114,8 +177,22 @@ const Navbar = ({
             onClick={() => setShowDropdown(!showDropdown)}
             className="flex items-center gap-2 sm:gap-3 p-1.5 rounded-xl hover:bg-[#F8FAFC] transition-colors cursor-pointer border border-transparent hover:border-[#E2E8F0]"
           >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#2563EB] to-[#14B8A6] text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
-              {displayName ? displayName.split(" ").map((n) => n[0]).join("") : "U"}
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#2563EB] to-[#14B8A6] text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0 overflow-hidden border border-[#E2E8F0]">
+              {profilePhoto && profilePhoto.trim() !== "" ? (
+                <img
+                  src={profilePhoto}
+                  alt={displayName}
+                  className="w-full h-full object-cover rounded-xl"
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                  }}
+                />
+              ) : null}
+              {(!profilePhoto || profilePhoto.trim() === "") && (
+                <span>
+                  {displayName ? displayName.split(" ").map((n) => n[0]).join("") : "U"}
+                </span>
+              )}
             </div>
             <div className="hidden md:block text-left">
               <p className="text-xs font-bold text-[#1E293B] leading-tight">{displayName}</p>
@@ -131,6 +208,28 @@ const Navbar = ({
                 <p className="text-xs font-bold text-[#1E293B]">{displayName}</p>
                 <p className="text-[10px] text-[#64748B]">{role} Portal</p>
               </div>
+              {role === "Admin" && (
+                <button
+                  onClick={() => {
+                    setShowDropdown(false);
+                    navigate("/admin/profile");
+                  }}
+                  className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs text-[#1E293B] font-medium rounded-xl hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+                >
+                  <UserCircle className="w-4 h-4 text-[#2563EB]" /> My Profile
+                </button>
+              )}
+              {role === "Teacher" && (
+                <button
+                  onClick={() => {
+                    setShowDropdown(false);
+                    navigate("/teacher/profile");
+                  }}
+                  className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs text-[#1E293B] font-medium rounded-xl hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+                >
+                  <UserCircle className="w-4 h-4 text-[#14B8A6]" /> My Profile
+                </button>
+              )}
               <button
                 onClick={() => {
                   setShowDropdown(false);

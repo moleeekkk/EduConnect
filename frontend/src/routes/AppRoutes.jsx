@@ -18,8 +18,6 @@ import AdminLayout from "../layouts/AdminLayout";
 import StudentDashboard from "../pages/student/Dashboard";
 import StudentProfile from "../pages/student/Profile";
 import StudentAttendance from "../pages/student/Attendance";
-import StudentMarksheet from "../pages/student/Marksheet";
-import StudentTimetable from "../pages/student/Timetable";
 import StudentAssignments from "../pages/student/Assignments";
 import StudentWeeklyTests from "../pages/student/WeeklyTests";
 import StudentQuizPractice from "../pages/student/QuizPractice";
@@ -71,9 +69,6 @@ const AppRoutes = () => {
         <Route path="dashboard" element={<StudentDashboard />} />
         <Route path="profile" element={<StudentProfile />} />
         <Route path="attendance" element={<StudentAttendance />} />
-        <Route path="marksheet" element={<StudentMarksheet />} />
-        <Route path="results" element={<StudentMarksheet />} />
-        <Route path="timetable" element={<StudentTimetable />} />
         <Route path="assignments" element={<StudentAssignments />} />
         <Route path="weekly-tests" element={<StudentWeeklyTests />} />
         <Route path="quiz-practice" element={<StudentQuizPractice />} />

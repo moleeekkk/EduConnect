@@ -276,15 +276,13 @@ const TeacherManageStudents = () => {
                       </span>
                     </td>
                     <td className="p-3.5 text-right">
-                      <Button
-                        variant="outline"
-                        size="xs"
-                        icon={Eye}
+                      <button
                         onClick={() => setViewStudent(stu)}
-                        className="text-xs text-[#2563EB] border-[#2563EB]/30 hover:bg-[#2563EB]/10 cursor-pointer"
+                        title="View Student Details"
+                        className="p-1.5 rounded-lg text-[#2563EB] hover:bg-[#2563EB]/10 border border-[#2563EB]/20 transition-colors cursor-pointer inline-flex items-center justify-center"
                       >
-                        View Profile
-                      </Button>
+                        <Eye className="w-4 h-4" />
+                      </button>
                     </td>
                   </tr>
                 ))

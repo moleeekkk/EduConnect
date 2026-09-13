@@ -32,6 +32,14 @@ public class WeeklyTest {
     @JsonProperty("subject_id")
     private UUID subjectId;
 
+    @Column(name = "department_id")
+    @JsonProperty("department_id")
+    private UUID departmentId;
+
+    @Column(name = "semester_id")
+    @JsonProperty("semester_id")
+    private UUID semesterId;
+
     @Column(name = "title", nullable = false, columnDefinition = "TEXT")
     @JsonProperty("title")
     private String title;

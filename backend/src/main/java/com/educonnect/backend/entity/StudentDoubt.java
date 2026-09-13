@@ -26,14 +26,6 @@ public class StudentDoubt {
     @JsonProperty("student_id")
     private UUID studentId;
 
-    @Column(name = "enrollment_no", length = 50)
-    @JsonProperty("enrollment_no")
-    private String enrollmentNo;
-
-    @Column(name = "student_name", length = 100)
-    @JsonProperty("student_name")
-    private String studentName;
-
     @Column(name = "subject_name", nullable = false, length = 150)
     @JsonProperty("subject_name")
     private String subjectName;

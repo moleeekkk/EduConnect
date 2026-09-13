@@ -8,6 +8,8 @@ const TeacherWeeklyTests = () => {
   const [tests, setTests] = useState([]);
   const [results, setResults] = useState([]);
   const [students, setStudents] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [semesters, setSemesters] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTestId, setEditingTestId] = useState(null);
   const [viewResultsModal, setViewResultsModal] = useState(null);
@@ -15,9 +17,11 @@ const TeacherWeeklyTests = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [testsData, stuData] = await Promise.all([
+        const [testsData, stuData, deptData, semData] = await Promise.all([
           teacherApi.getWeeklyTests(),
           teacherApi.getStudents(),
+          teacherApi.getDepartments(),
+          teacherApi.getSemesters(),
         ]);
         if (Array.isArray(testsData)) {
           setTests(testsData);
@@ -30,6 +34,12 @@ const TeacherWeeklyTests = () => {
         }
         if (Array.isArray(stuData)) {
           setStudents(stuData);
+        }
+        if (Array.isArray(deptData)) {
+          setDepartments(deptData);
+        }
+        if (Array.isArray(semData)) {
+          setSemesters(semData);
         }
       } catch (err) {
         console.error("Teacher weekly tests load error:", err);
@@ -44,6 +54,15 @@ const TeacherWeeklyTests = () => {
   const [startTime, setStartTime] = useState("10:00");
   const [endTime, setEndTime] = useState("11:00");
   const [totalMarks, setTotalMarks] = useState(25);
+  const [selectedDeptId, setSelectedDeptId] = useState("");
+  const [selectedSemId, setSelectedSemId] = useState("");
+
+  const availableSemesters = semesters.filter((sem) => {
+    if (!selectedDeptId) return true;
+    const semDeptId = sem.department_id || sem.departmentId;
+    if (!semDeptId) return true;
+    return String(semDeptId) === String(selectedDeptId);
+  });
 
   const handleOpenAddModal = () => {
     setEditingTestId(null);
@@ -53,6 +72,8 @@ const TeacherWeeklyTests = () => {
     setStartTime("10:00");
     setEndTime("11:00");
     setTotalMarks(25);
+    setSelectedDeptId("");
+    setSelectedSemId("");
     setShowAddModal(true);
   };
 
@@ -66,6 +87,8 @@ const TeacherWeeklyTests = () => {
     setStartTime(test.start_time ? test.start_time.substring(0, 5) : "10:00");
     setEndTime(test.end_time ? test.end_time.substring(0, 5) : "11:00");
     setTotalMarks(test.total_marks);
+    setSelectedDeptId(test.department_id || test.departmentId || "");
+    setSelectedSemId(test.semester_id || test.semesterId || "");
     setShowAddModal(true);
   };
 
@@ -95,6 +118,8 @@ const TeacherWeeklyTests = () => {
       start_time: formattedStartTime,
       end_time: formattedEndTime,
       total_marks: Number(totalMarks),
+      department_id: selectedDeptId || null,
+      semester_id: selectedSemId || null,
     };
 
     try {
@@ -196,6 +221,21 @@ const TeacherWeeklyTests = () => {
                   <span className="font-bold text-[#14B8A6]">Total Marks: {test.total_marks}</span>
                 </div>
 
+                {(test.department_name || test.department_code || test.semester_name || test.semester_code) && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {(test.department_name || test.department_code) && (
+                      <span className="px-2 py-0.5 rounded-md bg-[#F8FAFC] border border-[#E2E8F0] text-[#2563EB] text-[10px] font-bold">
+                        Dept: {test.department_code || test.department_name}
+                      </span>
+                    )}
+                    {(test.semester_name || test.semester_code) && (
+                      <span className="px-2 py-0.5 rounded-md bg-[#F8FAFC] border border-[#E2E8F0] text-[#14B8A6] text-[10px] font-bold">
+                        {test.semester_name || `Semester ${test.semester_code}`}
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 <h3 className="text-sm font-bold text-[#1E293B]">{test.title}</h3>
                 <p className="text-[#64748B]">{test.description}</p>
 
@@ -278,6 +318,42 @@ const TeacherWeeklyTests = () => {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Target Department</label>
+                  <select
+                    value={selectedDeptId}
+                    onChange={(e) => {
+                      setSelectedDeptId(e.target.value);
+                      setSelectedSemId("");
+                    }}
+                    className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-semibold text-[#1E293B] outline-none focus:border-[#2563EB] text-xs cursor-pointer"
+                  >
+                    <option value="">-- All Departments --</option>
+                    {departments.map((d) => (
+                      <option key={d.department_id || d.departmentId} value={d.department_id || d.departmentId}>
+                        {d.department_code || d.department_name} ({d.department_name})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[#64748B] mb-1 font-semibold">Target Semester</label>
+                  <select
+                    value={selectedSemId}
+                    onChange={(e) => setSelectedSemId(e.target.value)}
+                    className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-semibold text-[#1E293B] outline-none focus:border-[#2563EB] text-xs cursor-pointer"
+                  >
+                    <option value="">-- All Semesters --</option>
+                    {availableSemesters.map((s) => (
+                      <option key={s.semester_id || s.semesterId} value={s.semester_id || s.semesterId}>
+                        {s.semester_name || `Semester ${s.semester_no || s.semesterNo}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
                   <label className="block text-[#64748B] mb-1 font-medium">Test Date (test_date)</label>
                   <input
                     type="date"
@@ -345,8 +421,18 @@ const TeacherWeeklyTests = () => {
                 <h3 className="text-base font-bold text-[#1E293B]">
                   Class Test Results & Grading ({viewResultsModal.title})
                 </h3>
-                <p className="text-xs text-[#64748B]">
-                  Total Marks: {viewResultsModal.total_marks} • Test Date: {viewResultsModal.test_date || viewResultsModal.exam_date}
+                <p className="text-xs text-[#64748B] flex flex-wrap items-center gap-2 mt-1">
+                  <span>Total Marks: {viewResultsModal.total_marks} • Test Date: {viewResultsModal.test_date || viewResultsModal.exam_date}</span>
+                  {(viewResultsModal.department_name || viewResultsModal.department_code) && (
+                    <span className="px-2 py-0.5 rounded bg-[#2563EB]/10 text-[#2563EB] font-bold text-[10px]">
+                      Dept: {viewResultsModal.department_code || viewResultsModal.department_name}
+                    </span>
+                  )}
+                  {(viewResultsModal.semester_name || viewResultsModal.semester_code) && (
+                    <span className="px-2 py-0.5 rounded bg-[#14B8A6]/10 text-[#14B8A6] font-bold text-[10px]">
+                      {viewResultsModal.semester_name || `Semester ${viewResultsModal.semester_code}`}
+                    </span>
+                  )}
                 </p>
               </div>
               <button
@@ -370,7 +456,14 @@ const TeacherWeeklyTests = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E2E8F0]">
-                  {results.map((r) => {
+                  {results.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="p-6 text-center text-[#64748B] italic">
+                        No students found matching the selected department and semester.
+                      </td>
+                    </tr>
+                  ) : (
+                    results.map((r) => {
                     const om = r.obtained_marks;
                     let grade = r.grade || "-";
                     if (om !== null && om !== "" && !isNaN(om)) {
@@ -410,7 +503,8 @@ const TeacherWeeklyTests = () => {
                         </td>
                       </tr>
                     );
-                  })}
+                  })
+                  )}
                 </tbody>
               </table>
             </div>

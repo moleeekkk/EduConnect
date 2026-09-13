@@ -27,8 +27,10 @@ public class StudentController {
 
     @GetMapping("/attendance")
     public ResponseEntity<List<Map<String, Object>>> getStudentAttendance(
-            @RequestParam(required = false, defaultValue = "2024MCA001") String enrollmentNo) {
-        List<Map<String, Object>> attendance = studentService.getStudentAttendance(enrollmentNo);
+            @RequestParam(required = false) String enrollmentNo,
+            @RequestParam(required = false) String studentId) {
+        String identifier = (studentId != null && !studentId.trim().isEmpty()) ? studentId : enrollmentNo;
+        List<Map<String, Object>> attendance = studentService.getStudentAttendance(identifier);
         return ResponseEntity.ok(attendance);
     }
 
@@ -101,14 +103,23 @@ public class StudentController {
         return ResponseEntity.ok(studentService.askDoubt(enrollmentNo, reqData));
     }
 
+    @PutMapping("/doubts/{id}")
+    public ResponseEntity<com.educonnect.backend.entity.StudentDoubt> updateDoubt(
+            @PathVariable UUID id,
+            @RequestBody Map<String, Object> reqData) {
+        return ResponseEntity.ok(studentService.updateDoubt(id, reqData));
+    }
+
     @GetMapping("/study-materials")
-    public ResponseEntity<List<com.educonnect.backend.entity.StudyMaterial>> getStudyMaterials() {
-        return ResponseEntity.ok(studentService.getStudyMaterials());
+    public ResponseEntity<List<Map<String, Object>>> getStudyMaterials(
+            @RequestParam(required = false, defaultValue = "2024MCA001") String enrollmentNo) {
+        return ResponseEntity.ok(studentService.getStudyMaterials(enrollmentNo));
     }
 
     @GetMapping("/quizzes")
-    public ResponseEntity<List<com.educonnect.backend.entity.Quiz>> getQuizzes() {
-        return ResponseEntity.ok(studentService.getQuizzes());
+    public ResponseEntity<List<Map<String, Object>>> getQuizzes(
+            @RequestParam(required = false, defaultValue = "2024MCA001") String enrollmentNo) {
+        return ResponseEntity.ok(studentService.getQuizzesForStudent(enrollmentNo));
     }
 
     @GetMapping("/timetable")
@@ -126,6 +137,12 @@ public class StudentController {
     @GetMapping("/syllabus")
     public ResponseEntity<List<Map<String, Object>>> getSyllabus() {
         return ResponseEntity.ok(studentService.getSyllabus());
+    }
+
+    @GetMapping("/subjects")
+    public ResponseEntity<List<Map<String, Object>>> getStudentSubjects(
+            @RequestParam(required = false, defaultValue = "2024MCA001") String enrollmentNo) {
+        return ResponseEntity.ok(studentService.getSubjectsForStudent(enrollmentNo));
     }
 
     @GetMapping("/digital-id")

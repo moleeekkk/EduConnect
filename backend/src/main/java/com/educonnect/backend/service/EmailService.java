@@ -1,19 +1,19 @@
 package com.educonnect.backend.service;
 
 import jakarta.mail.internet.MimeMessage;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    @Autowired(required = false)
+    private JavaMailSender mailSender;
 
     @Value("${spring.mail.username:noreply@educonnect.ac.in}")
     private String fromEmail;
@@ -25,6 +25,10 @@ public class EmailService {
         log.info("==================================================");
 
         try {
+            if (mailSender == null) {
+                log.info("JavaMailSender is not configured or disabled. OTP code logged above.");
+                return true;
+            }
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
@@ -93,6 +97,10 @@ public class EmailService {
         log.info("==================================================");
 
         try {
+            if (mailSender == null) {
+                log.info("JavaMailSender is not configured or disabled. Password reset code logged above.");
+                return true;
+            }
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
@@ -150,6 +158,80 @@ public class EmailService {
             return true;
         } catch (Exception e) {
             log.warn("SMTP Reset Email delivery failed (using fallback logger): {}", e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean sendAssignmentReminderEmail(String toEmail, String studentName, String subject, String messageText) {
+        log.info("==================================================");
+        log.info("DISPATCHING ASSIGNMENT REMINDER EMAIL TO: {} ({})", toEmail, studentName);
+        log.info("SUBJECT: {}", subject);
+        log.info("MESSAGE BODY:\n{}", messageText);
+        log.info("==================================================");
+
+        try {
+            if (mailSender == null) {
+                log.info("JavaMailSender is not configured or disabled. Assignment reminder logged above.");
+                return true;
+            }
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(toEmail);
+            helper.setSubject(subject != null && !subject.trim().isEmpty() ? subject : "EduConnect - Assignment Submission Reminder");
+
+            String formattedMessage = messageText != null ? messageText.replace("\n", "<br/>") : "";
+
+            String htmlContent = """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b; }
+                        .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
+                        .header { text-align: center; padding-bottom: 20px; border-bottom: 1px solid #e2e8f0; }
+                        .brand { font-size: 24px; font-weight: 800; color: #1e293b; letter-spacing: normal; }
+                        .brand-blue { color: #2563eb; }
+                        .brand-sub { color: #64748b; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-top: 4px; }
+                        .content { padding: 24px 0; text-align: left; }
+                        .title { font-size: 15px; font-weight: 700; color: #1e293b; margin-bottom: 12px; }
+                        .subject-badge { display: inline-block; background: #ef4444; color: #ffffff; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; margin-bottom: 16px; text-transform: uppercase; }
+                        .message-box { background: #f8fafc; border-left: 4px solid #2563eb; border-radius: 8px; padding: 18px 20px; font-size: 13px; line-height: 1.6; color: #334155; margin: 16px 0; letter-spacing: normal; }
+                        .action-note { font-size: 12px; color: #64748b; margin-top: 20px; line-height: 1.5; }
+                        .footer { text-align: center; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; margin-top: 24px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <div class="brand">Edu<span class="brand-blue">Connect</span></div>
+                            <span class="brand-sub">Official Academic Notification</span>
+                        </div>
+                        <div class="content">
+                            <div class="subject-badge">📌 Assignment Reminder</div>
+                            <div class="title">Dear %s,</div>
+                            <div class="message-box">%s</div>
+                            <div class="action-note">
+                                Please log in to your <strong>EduConnect Student Portal</strong> to upload your completed assignment document as soon as possible.
+                            </div>
+                        </div>
+                        <div class="footer">
+                            <p>This is an automated notification from your course faculty via EduConnect System.</p>
+                            <p>© %d EduConnect Educational Management System. All rights reserved.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """.formatted(studentName, formattedMessage, java.time.Year.now().getValue());
+
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+            log.info("Assignment Reminder Email successfully sent to {}", toEmail);
+            return true;
+        } catch (Exception e) {
+            log.warn("SMTP Assignment Reminder Email delivery failed (using fallback logger): {}", e.getMessage());
             return false;
         }
     }

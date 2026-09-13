@@ -42,6 +42,14 @@ public class Subject {
     private Integer credits;
 
 
+    @Column(name = "total_hours")
+    @JsonProperty("total_hours")
+    private Integer totalHours;
+
+    @Column(name = "description", columnDefinition = "TEXT")
+    @JsonProperty("description")
+    private String description;
+
     @Column(name = "subject_type", nullable = false, length = 20)
     @JsonProperty("subject_type")
     private String subjectType; // Theory, Practical

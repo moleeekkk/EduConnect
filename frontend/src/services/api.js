@@ -88,8 +88,19 @@ export const authApi = {
 export const studentApi = {
   getDashboard: (enrollmentNo) =>
     handleRequest(() => api.get(`/student/dashboard?enrollmentNo=${enrollmentNo || "2024MCA001"}`), {}),
-  getAttendance: (enrollmentNo) =>
-    handleRequest(() => api.get(`/student/attendance?enrollmentNo=${enrollmentNo || "2024MCA001"}`), []),
+  getAttendance: (identifier) =>
+    handleRequest(() => {
+      let param = identifier;
+      if (!param) {
+        try {
+          const user = JSON.parse(localStorage.getItem("educonnect_user") || "{}");
+          param = user.student_id || user.studentId || user.enrollment_no || user.enrollmentNo || "2024MCA001";
+        } catch (e) {
+          param = "2024MCA001";
+        }
+      }
+      return api.get(`/student/attendance?enrollmentNo=${encodeURIComponent(param)}&studentId=${encodeURIComponent(param)}`);
+    }, []),
   getAssignments: (enrollmentNo) =>
     handleRequest(() => api.get(`/student/assignments?enrollmentNo=${enrollmentNo || "2024MCA001"}`), []),
   submitAssignment: (assignmentId, data) =>
@@ -110,16 +121,20 @@ export const studentApi = {
     handleRequest(() => api.get(`/student/doubts?enrollmentNo=${enrollmentNo || "2024MCA001"}`), []),
   askDoubt: (data) =>
     handleMutationRequest(() => api.post("/student/doubts", data)),
-  getStudyMaterials: () =>
-    handleRequest(() => api.get("/student/study-materials"), []),
-  getQuizzes: () =>
-    handleRequest(() => api.get("/student/quizzes"), []),
+  updateDoubt: (id, data) =>
+    handleMutationRequest(() => api.put(`/student/doubts/${id}`, data)),
+  getStudyMaterials: (enrollmentNo) =>
+    handleRequest(() => api.get(`/student/study-materials?enrollmentNo=${enrollmentNo || "2024MCA001"}`), []),
+  getQuizzes: (enrollmentNo) =>
+    handleRequest(() => api.get(`/student/quizzes?enrollmentNo=${enrollmentNo || "2024MCA001"}`), []),
   getWeeklyTests: (enrollmentNo) =>
     handleRequest(() => api.get(`/student/weekly-tests?enrollmentNo=${enrollmentNo || "2024MCA001"}`), {}),
   getTimetable: (enrollmentNo) =>
     handleRequest(() => api.get(`/student/timetable?enrollmentNo=${enrollmentNo || "2024MCA001"}`), []),
   getSyllabus: () =>
     handleRequest(() => api.get("/student/syllabus"), []),
+  getSubjects: (enrollmentNo) =>
+    handleRequest(() => api.get(`/student/subjects?enrollmentNo=${enrollmentNo || "2024MCA001"}`), []),
   getDigitalID: (enrollmentNo) =>
     handleRequest(() => api.get(`/student/digital-id?enrollmentNo=${enrollmentNo || "2024MCA001"}`), {}),
 };
@@ -130,6 +145,10 @@ export const teacherApi = {
     handleRequest(() => api.get(`/teacher/dashboard?teacherId=${teacherId || "teach-demo-id"}`), {}),
   markAttendance: (attendanceData) =>
     handleMutationRequest(() => api.post("/teacher/attendance/mark", attendanceData)),
+  getAttendanceSessions: (identifier) =>
+    handleRequest(() => api.get(`/teacher/attendance/sessions?email=${encodeURIComponent(identifier || "")}&teacherId=${encodeURIComponent(identifier || "")}`), []),
+  getAttendanceSessionDetails: (sessionId) =>
+    handleRequest(() => api.get(`/teacher/attendance/sessions/${sessionId}`), {}),
   getStudents: () =>
     handleRequest(() => api.get("/teacher/students"), []),
   getDepartments: () =>
@@ -160,16 +179,32 @@ export const teacherApi = {
     handleMutationRequest(() => api.put(`/teacher/leave-requests/${id}`, typeof status === "object" ? status : { status, remarks })),
   getDoubts: () =>
     handleRequest(() => api.get("/teacher/doubts"), []),
-  replyDoubt: (id, reply) =>
-    handleMutationRequest(() => api.post(`/teacher/doubts/${id}/reply`, { reply })),
+  replyDoubt: (id, data) =>
+    handleMutationRequest(() => api.post(`/teacher/doubts/${id}/reply`, typeof data === "object" ? data : { reply: data })),
+  sendParentEmail: (data) =>
+    handleMutationRequest(() => api.post("/teacher/parent-email", data)),
   getStudyMaterials: () =>
     handleRequest(() => api.get("/teacher/study-materials"), []),
   uploadStudyMaterial: (data) =>
     handleMutationRequest(() => api.post("/teacher/study-materials", data)),
+  updateStudyMaterial: (id, data) =>
+    handleMutationRequest(() => api.put(`/teacher/study-materials/${id}`, data)),
+  deleteStudyMaterial: (id) =>
+    handleMutationRequest(() => api.delete(`/teacher/study-materials/${id}`)),
   getQuizzes: () =>
     handleRequest(() => api.get("/teacher/quizzes"), []),
   createQuiz: (data) =>
     handleMutationRequest(() => api.post("/teacher/quizzes", data)),
+  updateQuiz: (id, data) =>
+    handleMutationRequest(() => api.put(`/teacher/quizzes/${id}`, data)),
+  deleteQuiz: (id) =>
+    handleMutationRequest(() => api.delete(`/teacher/quizzes/${id}`)),
+  getQuizQuestions: (id) =>
+    handleRequest(() => api.get(`/teacher/quizzes/${id}/questions`), []),
+  addQuizQuestion: (id, data) =>
+    handleMutationRequest(() => api.post(`/teacher/quizzes/${id}/questions`, data)),
+  deleteQuizQuestion: (id, mcqId) =>
+    handleMutationRequest(() => api.delete(`/teacher/quizzes/${id}/questions/${mcqId}`)),
   getWeeklyTests: () =>
     handleRequest(() => api.get("/teacher/weekly-tests"), []),
   createWeeklyTest: (data) =>
@@ -186,6 +221,8 @@ export const teacherApi = {
     handleRequest(() => api.get(`/teacher/profile?email=${encodeURIComponent(identifier || "")}&teacherId=${encodeURIComponent(identifier || "")}`), {}),
   updateProfile: (data) =>
     handleMutationRequest(() => api.put("/teacher/profile", data)),
+  changePassword: (data) =>
+    handleMutationRequest(() => api.post("/teacher/change-password", data)),
   sendParentEmail: (data) =>
     handleMutationRequest(() => api.post("/teacher/parent-email", data)),
 };
@@ -265,6 +302,10 @@ export const adminApi = {
     handleRequest(() => api.get("/admin/reports"), {}),
   getProfile: () =>
     handleRequest(() => api.get("/admin/profile"), {}),
+  updateProfile: (data) =>
+    handleMutationRequest(() => api.put("/admin/profile", data)),
+  changePassword: (data) =>
+    handleMutationRequest(() => api.put("/admin/change-password", data)),
   getSystemSettings: () =>
     handleRequest(() => api.get("/admin/settings"), {}),
   updateSystemSettings: (data) =>

@@ -26,9 +26,9 @@ public class Quiz {
     @JsonProperty("title")
     private String title;
 
-    @Column(name = "subject_name", length = 150)
-    @JsonProperty("subject_name")
-    private String subjectName;
+    @Column(name = "subject_id")
+    @JsonProperty("subject_id")
+    private UUID subjectId;
 
     @Column(name = "category", length = 50)
     @JsonProperty("category")

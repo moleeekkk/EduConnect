@@ -104,7 +104,7 @@ const AdminSubjectManagement = () => {
     const sem = semesters.find(
       (s) =>
         String(s.semester_id || s.semesterId || s.id).toLowerCase() ===
-          String(semId).toLowerCase() ||
+        String(semId).toLowerCase() ||
         String(s.semester_number || s.number) === String(semId)
     );
     if (sem)
@@ -171,33 +171,14 @@ const AdminSubjectManagement = () => {
   // Open Modal for Adding Subject
   const handleOpenAddSubject = () => {
     setEditSubject(null);
-
-    const defaultDept =
-      selectedDepartment !== "all"
-        ? selectedDepartment
-        : departments.length > 0
-        ? departments[0].department_id || departments[0].id
-        : "";
-
-    const availableSems = defaultDept ? getAvailableSemesters(defaultDept) : semesters;
-    const defaultSem =
-      selectedSemester !== "all" &&
-      availableSems.some(
-        (s) => String(s.semester_id || s.id) === String(selectedSemester)
-      )
-        ? selectedSemester
-        : availableSems.length > 0
-        ? availableSems[0].semester_id || availableSems[0].id
-        : "";
-
     setSubjectForm({
       subject_code: "",
       subject_name: "",
-      department_id: defaultDept,
-      semester_id: defaultSem,
-      credits: 4,
+      department_id: "",
+      semester_id: "",
+      credits: "",
       subject_type: "Core Theory",
-      total_hours: 60,
+      total_hours: "",
       description: "",
       is_active: true,
     });
@@ -210,27 +191,18 @@ const AdminSubjectManagement = () => {
     setSubjectForm({
       subject_code: subj.subject_code || subj.code || "",
       subject_name: subj.subject_name || subj.name || "",
-      department_id:
-        subj.department_id ||
-        subj.departmentId ||
-        subj.program_id ||
-        (departments.length > 0
-          ? departments[0].department_id || departments[0].id
-          : ""),
-      semester_id:
-        subj.semester_id ||
-        subj.semesterId ||
-        (semesters.length > 0 ? semesters[0].semester_id || semesters[0].id : ""),
-      credits: subj.credits || 4,
+      department_id: subj.department_id || subj.departmentId || subj.program_id || "",
+      semester_id: subj.semester_id || subj.semesterId || "",
+      credits: subj.credits !== undefined && subj.credits !== null ? subj.credits : 4,
       subject_type: subj.subject_type || "Core Theory",
-      total_hours: subj.total_hours || 60,
+      total_hours: subj.total_hours !== undefined && subj.total_hours !== null ? subj.total_hours : 60,
       description: subj.description || "",
       is_active:
         subj.is_active !== undefined
           ? subj.is_active
           : subj.isActive !== undefined
-          ? subj.isActive
-          : true,
+            ? subj.isActive
+            : true,
     });
     setShowSubjectModal(true);
   };
@@ -288,8 +260,7 @@ const AdminSubjectManagement = () => {
         subject_type: subjectForm.subject_type || "Core Theory",
         total_hours: parseInt(subjectForm.total_hours) || 60,
         description:
-          subjectForm.description.trim() ||
-          `Course covering ${subjectForm.subject_name} concepts and practical assignments.`,
+          subjectForm.description.trim(),
         is_active: Boolean(subjectForm.is_active),
       };
 
@@ -312,10 +283,10 @@ const AdminSubjectManagement = () => {
           res && (res.subject_id || res.subjectId || res.id)
             ? res
             : {
-                subject_id: "subj-" + Date.now(),
-                ...payload,
-                created_at: new Date().toISOString(),
-              };
+              subject_id: "subj-" + Date.now(),
+              ...payload,
+              created_at: new Date().toISOString(),
+            };
         setSubjects((prev) => [newSubjObj, ...prev]);
         notifySuccess(
           `Subject '${payload.subject_name}' added successfully for ${getSemesterLabel(
@@ -358,9 +329,7 @@ const AdminSubjectManagement = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
           <h1 className="text-xl font-bold text-[#1E293B]">Subject Management</h1>
-          <p className="text-xs text-[#64748B] mt-0.5">
-            Configure subjects, assign credits, and map courses to specific departments and semesters
-          </p>
+
         </div>
 
         <div className="flex items-center gap-3">
@@ -474,8 +443,7 @@ const AdminSubjectManagement = () => {
               <tr>
                 <th className="p-3.5">Subject Code</th>
                 <th className="p-3.5">Subject Name</th>
-                <th className="p-3.5">Department</th>
-                <th className="p-3.5">Semester</th>
+                <th className="p-3.5">Department (Semester)</th>
                 <th className="p-3.5">Credits</th>
                 <th className="p-3.5">Subject Type</th>
                 <th className="p-3.5">Status</th>
@@ -485,7 +453,7 @@ const AdminSubjectManagement = () => {
             <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
               {loading ? (
                 <tr>
-                  <td colSpan="8" className="p-8 text-center text-[#64748B]">
+                  <td colSpan="7" className="p-8 text-center text-[#64748B]">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="w-5 h-5 animate-spin text-[#2563EB]" />
                       <span>Fetching subjects from database...</span>
@@ -494,7 +462,7 @@ const AdminSubjectManagement = () => {
                 </tr>
               ) : filteredSubjects.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="p-8 text-center text-[#64748B] font-medium">
+                  <td colSpan="7" className="p-8 text-center text-[#64748B] font-medium">
                     No subjects found matching your criteria. Click{" "}
                     <strong className="text-[#2563EB]">"Add Subject"</strong> at top to
                     create a new course.
@@ -514,43 +482,31 @@ const AdminSubjectManagement = () => {
                     subj.is_active !== undefined
                       ? subj.is_active
                       : subj.isActive !== undefined
-                      ? subj.isActive
-                      : true;
+                        ? subj.isActive
+                        : true;
 
                   return (
                     <tr key={sId || code} className="hover:bg-[#F8FAFC]">
                       <td className="p-3.5 font-mono font-bold text-[#2563EB]">
-                        <span className="px-2.5 py-1 rounded-lg bg-[#2563EB]/10 border border-[#2563EB]/20">
-                          {code}
-                        </span>
-                      </td>
-                      <td className="p-3.5 font-bold text-[#1E293B] text-xs">
-                        {name}
-                      </td>
-                      <td className="p-3.5 font-semibold text-[#1E293B]">
-                        <span className="px-2 py-0.5 rounded bg-slate-100 text-[#475569] font-bold">
-                          {getDepartmentCode(deptId)}
-                        </span>
-                        <span className="text-[11px] text-[#64748B] ml-1.5 hidden sm:inline">
-                          ({getDepartmentName(deptId)})
-                        </span>
+                        {code}
                       </td>
                       <td className="p-3.5 font-semibold">
-                        <span className="px-2.5 py-0.5 rounded-full bg-[#14B8A6]/10 text-[#14B8A6] font-bold text-[11px] border border-[#14B8A6]/20">
-                          {getSemesterLabel(semId)}
-                        </span>
+                        {name}
                       </td>
-                      <td className="p-3.5 font-bold text-[#F59E0B]">
+                      <td className="p-3.5 font-semibold">
+                        {getDepartmentCode(deptId)}
+                        ({getSemesterLabel(semId)})
+                      </td>
+                      <td className="p-3.5 ">
                         {credits} Credits
                       </td>
                       <td className="p-3.5 font-medium text-[#64748B]">{type}</td>
                       <td className="p-3.5 font-semibold">
                         <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            isActive
-                              ? "bg-[#22C55E]/10 text-[#22C55E]"
-                              : "bg-[#EF4444]/10 text-[#EF4444]"
-                          }`}
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${isActive
+                            ? "bg-[#22C55E]/10 text-[#22C55E]"
+                            : "bg-[#EF4444]/10 text-[#EF4444]"
+                            }`}
                         >
                           {isActive ? "Active" : "Inactive"}
                         </span>
@@ -609,201 +565,199 @@ const AdminSubjectManagement = () => {
 
             <form onSubmit={handleSaveSubject} className="flex flex-col grow overflow-hidden space-y-4">
               <div className="overflow-y-auto pr-1 space-y-4 text-xs grow">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Department Selection */}
-                <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">
-                    Department <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={subjectForm.department_id || ""}
-                    onChange={(e) => {
-                      const newDept = e.target.value;
-                      const validSems = getAvailableSemesters(newDept);
-                      const firstSem =
-                        validSems.length > 0 ? validSems[0].semester_id || validSems[0].id : "";
-                      setSubjectForm({
-                        ...subjectForm,
-                        department_id: newDept,
-                        semester_id: firstSem,
-                      });
-                    }}
-                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] focus:bg-white rounded-lg font-semibold text-[#1E293B]"
-                    required
-                  >
-                    <option value="">-- Select Department --</option>
-                    {departments.map((dept) => {
-                      const dId = dept.department_id || dept.program_id || dept.id;
-                      return (
-                        <option key={dId} value={dId}>
-                          {dept.department_code || dept.code} - {dept.department_name || dept.name}
-                        </option>
-                      );
-                    })}
-                  </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Department Selection */}
+                  <div>
+                    <label className="block text-[#64748B] mb-1 font-semibold">
+                      Department <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={subjectForm.department_id || ""}
+                      onChange={(e) => {
+                        const newDept = e.target.value;
+                        setSubjectForm({
+                          ...subjectForm,
+                          department_id: newDept,
+                          semester_id: "",
+                        });
+                      }}
+                      className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] focus:bg-white rounded-lg font-semibold text-[#1E293B]"
+                      required
+                    >
+                      <option value="">-- Select Department --</option>
+                      {departments.map((dept) => {
+                        const dId = dept.department_id || dept.program_id || dept.id;
+                        return (
+                          <option key={dId} value={dId}>
+                            {dept.department_code || dept.code} - {dept.department_name || dept.name}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  {/* Particular Semester Selection */}
+                  <div>
+                    <label className="block text-[#64748B] mb-1 font-semibold">
+                      Target Semester <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={subjectForm.semester_id || ""}
+                      onChange={(e) =>
+                        setSubjectForm({ ...subjectForm, semester_id: e.target.value })
+                      }
+                      className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] focus:bg-white rounded-lg font-semibold text-[#1E293B]"
+                      required
+                    >
+                      <option value="">-- Select Semester --</option>
+                      {formAvailableSemesters.map((sem) => {
+                        const sId = sem.semester_id || sem.id;
+                        const label =
+                          sem.semester_name ||
+                          `Semester ${sem.semester_number || sem.number}`;
+                        return (
+                          <option key={sId} value={sId}>
+                            {label}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
                 </div>
 
-                {/* Particular Semester Selection */}
-                <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">
-                    Target Semester <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={subjectForm.semester_id || ""}
-                    onChange={(e) =>
-                      setSubjectForm({ ...subjectForm, semester_id: e.target.value })
-                    }
-                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] focus:bg-white rounded-lg font-semibold text-[#1E293B]"
-                    required
-                  >
-                    <option value="">-- Select Semester --</option>
-                    {formAvailableSemesters.map((sem) => {
-                      const sId = sem.semester_id || sem.id;
-                      const label =
-                        sem.semester_name ||
-                        `Semester ${sem.semester_number || sem.number}`;
-                      return (
-                        <option key={sId} value={sId}>
-                          {label}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-              </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Subject Code */}
+                  <div>
+                    <label className="block text-[#64748B] mb-1 font-semibold">
+                      Subject Code <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. MCA301"
+                      value={subjectForm.subject_code}
+                      onChange={(e) =>
+                        setSubjectForm({ ...subjectForm, subject_code: e.target.value })
+                      }
+                      className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] focus:bg-white rounded-lg font-mono font-bold text-[#2563EB]"
+                    />
+                  </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Subject Code */}
-                <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">
-                    Subject Code <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. MCA301"
-                    value={subjectForm.subject_code}
-                    onChange={(e) =>
-                      setSubjectForm({ ...subjectForm, subject_code: e.target.value })
-                    }
-                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] focus:bg-white rounded-lg font-mono font-bold text-[#2563EB]"
-                  />
+                  {/* Subject Name */}
+                  <div className="sm:col-span-2">
+                    <label className="block text-[#64748B] mb-1 font-semibold">
+                      Subject Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Advanced Web Development"
+                      value={subjectForm.subject_name}
+                      onChange={(e) =>
+                        setSubjectForm({ ...subjectForm, subject_name: e.target.value })
+                      }
+                      className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] focus:bg-white rounded-lg font-semibold text-[#1E293B]"
+                    />
+                  </div>
                 </div>
 
-                {/* Subject Name */}
-                <div className="sm:col-span-2">
-                  <label className="block text-[#64748B] mb-1 font-semibold">
-                    Subject Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Advanced Web Development"
-                    value={subjectForm.subject_name}
-                    onChange={(e) =>
-                      setSubjectForm({ ...subjectForm, subject_name: e.target.value })
-                    }
-                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] focus:bg-white rounded-lg font-semibold text-[#1E293B]"
-                  />
-                </div>
-              </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Credits */}
+                  <div>
+                    <label className="block text-[#64748B] mb-1 font-semibold">
+                      Credits
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      placeholder="e.g. 4"
+                      value={subjectForm.credits}
+                      onChange={(e) =>
+                        setSubjectForm({
+                          ...subjectForm,
+                          credits: e.target.value,
+                        })
+                      }
+                      className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] focus:bg-white rounded-lg font-bold text-[#F59E0B]"
+                    />
+                  </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Credits */}
+                  {/* Subject Type */}
+                  <div>
+                    <label className="block text-[#64748B] mb-1 font-semibold">
+                      Subject Type
+                    </label>
+                    <select
+                      value={subjectForm.subject_type}
+                      onChange={(e) =>
+                        setSubjectForm({ ...subjectForm, subject_type: e.target.value })
+                      }
+                      className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] focus:bg-white rounded-lg font-semibold text-[#1E293B]"
+                    >
+                      <option value="Core Theory">Core Theory</option>
+                      <option value="Practical Lab">Practical Lab</option>
+                      <option value="Elective">Elective</option>
+                      <option value="Project / Seminar">Project / Seminar</option>
+                    </select>
+                  </div>
+
+                  {/* Total Hours */}
+                  <div>
+                    <label className="block text-[#64748B] mb-1 font-semibold">
+                      Total Hours
+                    </label>
+                    <input
+                      type="number"
+                      min="10"
+                      max="200"
+                      placeholder="e.g. 60"
+                      value={subjectForm.total_hours}
+                      onChange={(e) =>
+                        setSubjectForm({
+                          ...subjectForm,
+                          total_hours: e.target.value,
+                        })
+                      }
+                      className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] focus:bg-white rounded-lg font-medium text-[#1E293B]"
+                    />
+                  </div>
+                </div>
+
+                {/* Description */}
                 <div>
                   <label className="block text-[#64748B] mb-1 font-semibold">
-                    Credits
+                    Course Description / Syllabus Overview
                   </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="10"
-                    required
-                    value={subjectForm.credits}
+                  <textarea
+                    rows="3"
+                    placeholder="Provide syllabus overview or course objectives..."
+                    value={subjectForm.description}
                     onChange={(e) =>
-                      setSubjectForm({
-                        ...subjectForm,
-                        credits: parseInt(e.target.value) || 4,
-                      })
-                    }
-                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] focus:bg-white rounded-lg font-bold text-[#F59E0B]"
-                  />
-                </div>
-
-                {/* Subject Type */}
-                <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">
-                    Subject Type
-                  </label>
-                  <select
-                    value={subjectForm.subject_type}
-                    onChange={(e) =>
-                      setSubjectForm({ ...subjectForm, subject_type: e.target.value })
-                    }
-                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] focus:bg-white rounded-lg font-semibold text-[#1E293B]"
-                  >
-                    <option value="Core Theory">Core Theory</option>
-                    <option value="Practical Lab">Practical Lab</option>
-                    <option value="Elective">Elective</option>
-                    <option value="Project / Seminar">Project / Seminar</option>
-                  </select>
-                </div>
-
-                {/* Total Hours */}
-                <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">
-                    Total Hours
-                  </label>
-                  <input
-                    type="number"
-                    min="10"
-                    max="200"
-                    value={subjectForm.total_hours}
-                    onChange={(e) =>
-                      setSubjectForm({
-                        ...subjectForm,
-                        total_hours: parseInt(e.target.value) || 60,
-                      })
+                      setSubjectForm({ ...subjectForm, description: e.target.value })
                     }
                     className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] focus:bg-white rounded-lg font-medium text-[#1E293B]"
-                  />
+                  ></textarea>
                 </div>
-              </div>
 
-              {/* Description */}
-              <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">
-                  Course Description / Syllabus Overview
-                </label>
-                <textarea
-                  rows="3"
-                  placeholder="Provide syllabus overview or course objectives..."
-                  value={subjectForm.description}
-                  onChange={(e) =>
-                    setSubjectForm({ ...subjectForm, description: e.target.value })
-                  }
-                  className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] focus:bg-white rounded-lg font-medium text-[#1E293B]"
-                ></textarea>
-              </div>
-
-              {/* Status Toggle */}
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="subject_is_active"
-                  checked={subjectForm.is_active}
-                  onChange={(e) =>
-                    setSubjectForm({ ...subjectForm, is_active: e.target.checked })
-                  }
-                  className="w-4 h-4 text-[#2563EB] rounded focus:ring-0 cursor-pointer"
-                />
-                <label
-                  htmlFor="subject_is_active"
-                  className="text-xs font-semibold text-[#1E293B] cursor-pointer"
-                >
-                  Active Subject (Visible in curriculum and timetable)
-                </label>
-              </div>
+                {/* Status Toggle */}
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="subject_is_active"
+                    checked={subjectForm.is_active}
+                    onChange={(e) =>
+                      setSubjectForm({ ...subjectForm, is_active: e.target.checked })
+                    }
+                    className="w-4 h-4 text-[#2563EB] rounded focus:ring-0 cursor-pointer"
+                  />
+                  <label
+                    htmlFor="subject_is_active"
+                    className="text-xs font-semibold text-[#1E293B] cursor-pointer"
+                  >
+                    Active Subject (Visible in curriculum and timetable)
+                  </label>
+                </div>
               </div>
 
               {/* Modal Action Buttons */}
@@ -825,25 +779,19 @@ const AdminSubjectManagement = () => {
         </div>
       )}
 
-      {/* View Subject Info Modal */}
+      {/* View Subject Details Modal */}
       {viewSubject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-auto max-h-[90vh] flex flex-col animate-fade-in text-xs">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-4 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-[#2563EB]/10 text-[#2563EB]">
-                  <BookOpen className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-extrabold text-[#1E293B]">Subject Information</h3>
-                  <p className="text-xs text-[#64748B]">Complete details of academic subject</p>
-                </div>
-              </div>
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3 shrink-0">
+              <h3 className="text-base font-bold text-[#1E293B] flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-[#2563EB]" />
+                Subject Information Sheet
+              </h3>
               <button
                 onClick={() => setViewSubject(null)}
-                className="p-2 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer"
-                title="Close"
+                className="p-1 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -851,91 +799,87 @@ const AdminSubjectManagement = () => {
 
             {/* Scrollable Content */}
             <div className="overflow-y-auto pr-1 space-y-4 text-xs grow">
-              {/* Top Banner Card */}
-              <div className="p-4 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
-                  <span className="px-3.5 py-1.5 rounded-lg bg-[#2563EB]/10 text-[#2563EB] font-mono font-bold text-xs border border-[#2563EB]/20">
+              {/* Profile / Subject Banner Summary */}
+              <div className="p-4 bg-[#2563EB]/5 rounded-xl border border-[#2563EB]/20 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="px-3 py-1 rounded-lg bg-[#2563EB]/10 text-[#2563EB] font-mono font-bold text-xs border border-[#2563EB]/20">
                     Subject Code: {viewSubject.subject_code || viewSubject.code}
                   </span>
                   <span
-                    className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      viewSubject.is_active !== false && viewSubject.isActive !== false
-                        ? "bg-[#22C55E]/10 text-[#22C55E]"
-                        : "bg-[#EF4444]/10 text-[#EF4444]"
-                    }`}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${viewSubject.is_active !== false && viewSubject.isActive !== false
+                      ? "bg-[#22C55E]/10 text-[#22C55E]"
+                      : "bg-[#EF4444]/10 text-[#EF4444]"
+                      }`}
                   >
                     {viewSubject.is_active !== false && viewSubject.isActive !== false
                       ? "● Active Subject"
-                      : "● Inactive Subject"}
+                      : "● Inactive"}
                   </span>
                 </div>
-
                 <div>
-                  <span className="text-[10px] text-[#64748B] uppercase font-bold block mb-1">Subject Name</span>
-                  <h4 className="text-lg font-extrabold text-[#1E293B]">
+                  <h4 className="text-base font-extrabold text-[#1E293B]">
                     {viewSubject.subject_name || viewSubject.name}
                   </h4>
+                  <p className="text-xs text-[#64748B] font-medium mt-0.5">
+                    {getDepartmentName(viewSubject.department_id || viewSubject.departmentId || viewSubject.program_id)} • {getSemesterLabel(viewSubject.semester_id || viewSubject.semesterId)}
+                  </p>
                 </div>
               </div>
 
-              {/* 2-Column Content Layout */}
+              {/* 2-Column Details Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Left Column: Academic Metadata */}
                 <div className="space-y-3">
-                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">
-                      Department
-                    </span>
-                    <p className="font-extrabold text-sm text-[#1E293B]">
-                      {getDepartmentCode(
-                        viewSubject.department_id ||
-                          viewSubject.departmentId ||
-                          viewSubject.program_id
-                      )}
+                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Department & Code</span>
+                    <p className="font-bold text-[#1E293B] text-xs">
+                      {getDepartmentName(viewSubject.department_id || viewSubject.departmentId || viewSubject.program_id)} ({getDepartmentCode(viewSubject.department_id || viewSubject.departmentId || viewSubject.program_id)})
                     </p>
                   </div>
-
-                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">
-                      Enrolled Semester
-                    </span>
-                    <p className="font-extrabold text-sm text-[#14B8A6]">
+                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Enrolled Semester</span>
+                    <p className="font-extrabold text-[#14B8A6] text-xs">
                       {getSemesterLabel(viewSubject.semester_id || viewSubject.semesterId)}
                     </p>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
-                      <span className="text-[10px] text-[#64748B] font-bold block uppercase">
-                        Credits
-                      </span>
-                      <p className="font-extrabold text-sm text-[#F59E0B]">
-                        {viewSubject.credits || 4} Credits
-                      </p>
-                    </div>
-                    <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
-                      <span className="text-[10px] text-[#64748B] font-bold block uppercase">
-                        Subject Type
-                      </span>
-                      <p className="font-extrabold text-sm text-[#1E293B]">
-                        {viewSubject.subject_type || "Core Theory"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Column: Syllabus & Course Objectives */}
-                <div className="space-y-3">
-                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1 min-h-[140px]">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">
-                      Syllabus & Course Objectives
-                    </span>
-                    <p className="text-[#334155] leading-relaxed text-xs pt-1">
-                      {viewSubject.description ||
-                        "Comprehensive subject curriculum covering theoretical principles, practical assignments, and exam preparation."}
+                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Subject Type</span>
+                    <p className="font-semibold text-[#1E293B] text-xs">
+                      {viewSubject.subject_type || "Core Theory"}
                     </p>
                   </div>
                 </div>
+
+                <div className="space-y-3">
+                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Academic Credits</span>
+                    <p className="font-extrabold text-[#F59E0B] text-xs">
+                      {viewSubject.credits || 4} Credits
+                    </p>
+                  </div>
+                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Total Teaching Hours</span>
+                    <p className="font-extrabold text-[#2563EB] text-xs">
+                      {viewSubject.total_hours || viewSubject.totalHours || 60} Hours
+                    </p>
+                  </div>
+                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Status</span>
+                    <p className="font-semibold text-[#1E293B] text-xs">
+                      {viewSubject.is_active !== false && viewSubject.isActive !== false ? "Active Subject" : "Inactive Subject"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Course Description / Syllabus */}
+              <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-1">
+                <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                  Course Description & Syllabus Overview
+                </span>
+                <p className="text-[#334155] leading-relaxed text-xs pt-1 whitespace-pre-wrap">
+                  {viewSubject.description ||
+                    "Comprehensive subject curriculum covering theoretical principles, practical assignments, and exam preparation."}
+                </p>
               </div>
             </div>
 
@@ -955,9 +899,8 @@ const AdminSubjectManagement = () => {
         onClose={() => setDeletingSubj(null)}
         onConfirm={handleConfirmDeleteSubject}
         title="Delete Subject"
-        message={`Are you sure you want to delete subject "${
-          deletingSubj?.subject_name || deletingSubj?.name || "this subject"
-        }"? This action cannot be undone.`}
+        message={`Are you sure you want to delete subject "${deletingSubj?.subject_name || deletingSubj?.name || "this subject"
+          }"? This action cannot be undone.`}
         confirmText="Delete Subject"
         loading={deleting}
         variant="danger"

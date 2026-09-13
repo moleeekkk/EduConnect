@@ -14,10 +14,15 @@ const TeacherDashboard = () => {
     first_name: loggedUser?.name ? loggedUser.name.split(" ")[0] : "Faculty",
     last_name: loggedUser?.name && loggedUser.name.split(" ").length > 1 ? loggedUser.name.split(" ").slice(1).join(" ") : "Member",
     designation: "Assistant Professor",
-    qualification: "Ph.D. in Computer Science",
-    experience: 5,
+    qualification: "Faculty",
+    experience: 0,
     sessions: [],
-    assignmentsCount: 0,
+    assigned_courses_count: 0,
+    assigned_subject_codes: "",
+    assignments_count: 0,
+    attendance_rate: "0%",
+    total_students_count: 0,
+    profile_photo: "",
   });
 
   useEffect(() => {
@@ -32,18 +37,17 @@ const TeacherDashboard = () => {
           teacherApi.getProfile(identifier),
         ]);
 
+        let merged = { ...dashData };
         if (profileRes && (profileRes.first_name || profileRes.email)) {
-          setDashData((prev) => ({
-            ...prev,
-            ...profileRes,
-            sessions: Array.isArray(dashRes?.sessions) ? dashRes.sessions : prev.sessions,
-          }));
-        } else if (dashRes) {
-          setDashData((prev) => ({
-            ...prev,
-            ...dashRes,
-          }));
+          merged = { ...merged, ...profileRes };
         }
+        if (dashRes && typeof dashRes === "object") {
+          merged = { ...merged, ...dashRes };
+          if (Array.isArray(dashRes.sessions)) {
+            merged.sessions = dashRes.sessions;
+          }
+        }
+        setDashData(merged);
       } catch (err) {
         console.error("Teacher dashboard load error:", err);
       }
@@ -52,34 +56,43 @@ const TeacherDashboard = () => {
   }, []);
 
   const teacher = {
-    faculty_id: dashData.faculty_id || dashData.facultyId,
-    first_name: dashData.first_name,
-    last_name: dashData.last_name,
-    designation: dashData.designation,
-    qualification: dashData.qualification,
-    experience: dashData.experience,
+    faculty_id: dashData.faculty_id || dashData.facultyId || "",
+    first_name: dashData.first_name || "Faculty",
+    last_name: dashData.last_name || "Member",
+    designation: dashData.designation || "Assistant Professor",
+    qualification: dashData.qualification || "Faculty",
+    experience: dashData.experience || 0,
+    profile_photo: dashData.profile_photo || dashData.profilePhoto || "",
   };
 
+  const assignedCount = dashData.assigned_courses_count || dashData.assignedCoursesCount || (dashData.sessions ? dashData.sessions.length : 0);
+  const assignmentsCount = dashData.assignments_count || dashData.assignmentsCount || 0;
+  const totalStudents = dashData.total_students_count || dashData.totalStudents || 0;
+  const attendanceRate = dashData.attendance_rate || dashData.attendanceRate || "95.0%";
+  const subjectCodes = dashData.assigned_subject_codes || "Active Courses";
+
   const teacherStats = [
-    { title: "Assigned Courses", value: "2 Subjects", sub: "MCA301 & MCA302", icon: BookOpen, color: "bg-[#14B8A6]/10 text-[#14B8A6]" },
-    { title: "Teaching Experience", value: `${teacher.experience} Years`, sub: "Senior Assistant Professor", icon: School, color: "bg-[#2563EB]/10 text-[#2563EB]" },
-    { title: "Active Assignments", value: `${dashData.assignmentsCount || 4} Uploaded`, sub: "Lab & Theory tasks", icon: FileSpreadsheet, color: "bg-[#F59E0B]/10 text-[#F59E0B]" },
-    { title: "Average Class Attendance", value: "96.2%", sub: "Term August 2026", icon: CalendarCheck, color: "bg-[#22C55E]/10 text-[#22C55E]" },
+    { title: "Assigned Courses", value: `${assignedCount} Subject${assignedCount === 1 ? "" : "s"}`, icon: BookOpen, color: "bg-[#14B8A6]/10 text-[#14B8A6]" },
+    { title: "Teaching Experience", value: `${teacher.experience} Years`, icon: School, color: "bg-[#2563EB]/10 text-[#2563EB]" },
+    { title: "Active Assignments", value: `${assignmentsCount} Uploaded`, icon: FileSpreadsheet, color: "bg-[#F59E0B]/10 text-[#F59E0B]" },
+    { title: "Average Class Attendance", value: attendanceRate, icon: CalendarCheck, color: "bg-[#22C55E]/10 text-[#22C55E]" },
   ];
 
   return (
     <div className="space-y-6">
       {/* Faculty Welcome Banner */}
       <div className="bg-gradient-to-r from-[#14B8A6] to-[#2563EB] rounded-2xl p-6 text-white shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Welcome, {teacher.first_name} {teacher.last_name}!
-          </h1>
-          <p className="text-white/80 text-xs mt-1">
-            {teacher.designation} • {teacher.qualification}
-          </p>
-        </div>
+        <div className="flex items-center gap-4">
 
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Welcome, {teacher.first_name} {teacher.last_name}!
+            </h1>
+            <p className="text-white/80 text-xs mt-1">
+              {teacher.designation} • {teacher.qualification} {teacher.faculty_id ? `(${teacher.faculty_id})` : ""}
+            </p>
+          </div>
+        </div>
 
       </div>
 
@@ -102,34 +115,7 @@ const TeacherDashboard = () => {
         })}
       </div>
 
-      {/* Teaching Sessions Table */}
-      <div className="bg-white rounded-xl p-5 border border-[#E2E8F0] shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-          <h2 className="text-base font-bold text-[#1E293B]">Today's Teaching Sessions</h2>
-          <Button variant="outline" size="sm" onClick={() => navigate("/teacher/attendance")} className="text-xs">
-            Manage Attendance
-          </Button>
-        </div>
 
-        <div className="space-y-3 text-xs">
-          {dashData.sessions.map((session, idx) => (
-            <div key={session.session_id || idx} className="p-3.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <span className="font-bold text-[#1E293B]">Lecture #{session.lecture_no || idx + 1} ({session.start_time || "09:30"} - {session.end_time || "11:00"})</span>
-                <p className="text-xs font-medium text-[#2563EB] mt-0.5">{session.topic || "Academic Lecture"}</p>
-              </div>
-              <Button
-                variant="accent"
-                size="sm"
-                onClick={() => navigate("/teacher/attendance")}
-                className="text-xs self-start sm:self-auto"
-              >
-                Mark Attendance
-              </Button>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 };

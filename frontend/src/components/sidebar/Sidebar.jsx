@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   CalendarCheck,
   BookOpenCheck,
-  Award,
   User,
   UserCheck,
   Users,
@@ -50,8 +49,6 @@ const Sidebar = ({
       { label: "Dashboard", path: "/student/dashboard", icon: LayoutDashboard },
       { label: "My Profile", path: "/student/profile", icon: User },
       { label: "Attendance", path: "/student/attendance", icon: CalendarCheck },
-      { label: "MarkSheet & Results", path: "/student/marksheet", icon: Award },
-      { label: "Timetable", path: "/student/timetable", icon: Clock },
       { label: "Assignments", path: "/student/assignments", icon: BookOpenCheck },
       { label: "Weekly Tests", path: "/student/weekly-tests", icon: CheckSquare },
       { label: "Quiz Practice", path: "/student/quiz-practice", icon: HelpCircle },
@@ -207,16 +204,6 @@ const Sidebar = ({
 
           {/* Footer Info & Sign Out */}
           <div className="p-3 border-t border-[#E2E8F0] space-y-2 shrink-0 bg-white">
-            {(!isCollapsed || isMobileOpen) && role === "Student" && (
-              <div className="p-2.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] hidden lg:block">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#1E293B] mb-0.5">
-                  <Sparkles className="w-3.5 h-3.5 text-[#F59E0B]" />
-                  Academic Term 2026
-                </div>
-                <p className="text-[11px] text-[#64748B]">Semester 3 • Active</p>
-              </div>
-            )}
-
             <button
               onClick={() => {
                 onCloseMobile();

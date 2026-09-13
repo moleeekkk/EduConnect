@@ -116,10 +116,20 @@ public class Student {
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime updatedAt;
 
+    public void setEnrollmentNo(String enrollmentNo) {
+        if (enrollmentNo != null) {
+            this.enrollmentNo = enrollmentNo.trim().toUpperCase();
+        } else {
+            this.enrollmentNo = null;
+        }
+    }
+
     @PrePersist
     protected void onCreate() {
         if (enrollmentNo == null || enrollmentNo.trim().isEmpty()) {
             enrollmentNo = "25CI" + (System.currentTimeMillis() % 100000);
+        } else {
+            enrollmentNo = enrollmentNo.trim().toUpperCase();
         }
         if (firstName == null || firstName.trim().isEmpty()) {
             firstName = "Student";
@@ -147,6 +157,9 @@ public class Student {
 
     @PreUpdate
     protected void onUpdate() {
+        if (enrollmentNo != null) {
+            enrollmentNo = enrollmentNo.trim().toUpperCase();
+        }
         updatedAt = LocalDateTime.now();
     }
 }

@@ -19,17 +19,22 @@ public class AttendanceRecord {
     @Column(name = "attendance_id")
     private UUID attendanceId;
 
-    @Column(name = "session_id", nullable = false)
+    @Column(name = "attendance_session_id", nullable = false)
     private UUID sessionId;
+
+    public UUID getAttendanceSessionId() {
+        return sessionId;
+    }
+
+    public void setAttendanceSessionId(UUID attendanceSessionId) {
+        this.sessionId = attendanceSessionId;
+    }
 
     @Column(name = "student_id", nullable = false)
     private UUID studentId;
 
     @Column(name = "attendance_status", nullable = false, length = 10)
     private String attendanceStatus; // 'Present', 'Absent', 'Late'
-
-    @Column(name = "remarks", length = 255)
-    private String remarks;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

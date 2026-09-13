@@ -44,7 +44,7 @@ public class Admin {
     @Column(name = "address", nullable = false, columnDefinition = "TEXT")
     private String address;
 
-    @Column(name = "profile_photo")
+    @Column(name = "profile_photo", columnDefinition = "TEXT")
     private String profilePhoto;
 
     @Column(name = "is_active", nullable = false)

@@ -3,25 +3,43 @@ import { FileText, Plus, Trash2, Edit, Paperclip, Download, Eye, X, BookOpen, Ch
 import Button from "../../components/common/Button";
 import { teacherApi } from "../../services/api";
 import { notifySuccess, notifyError } from "../../utils/toast";
-import { getDisplayFileName, downloadFile, openFileInNewTab } from "../../utils/fileViewer";
+import { getDisplayFileName, downloadFile, openFileInNewTab, readFileAsDataURL } from "../../utils/fileViewer";
 
 const TeacherStudyMaterial = () => {
   const [resources, setResources] = useState([]);
+  const [assignedSubjects, setAssignedSubjects] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editingResourceId, setEditingResourceId] = useState(null);
   const [viewFileModal, setViewFileModal] = useState(null);
+
+  const [title, setTitle] = useState("");
+  const [desc, setDesc] = useState("");
+  const [type, setType] = useState("Study Material");
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
+  const [selectedFileName, setSelectedFileName] = useState("");
+  const [selectedFileDataUrl, setSelectedFileDataUrl] = useState("");
 
   const handleViewDocument = (fileUrl, title = "Document Preview") => {
     openFileInNewTab(fileUrl, title);
   };
 
-
   useEffect(() => {
     const fetchMaterials = async () => {
       try {
-        const data = await teacherApi.getStudyMaterials();
-        if (Array.isArray(data)) {
-          setResources(data);
+        const userStr = localStorage.getItem("educonnect_user");
+        const loggedUser = userStr ? JSON.parse(userStr) : null;
+        const identifier = loggedUser?.identifier || loggedUser?.email || loggedUser?.userId;
+
+        const [materialsData, subjectsData] = await Promise.all([
+          teacherApi.getStudyMaterials(),
+          teacherApi.getAssignedSubjects(identifier),
+        ]);
+
+        if (Array.isArray(materialsData)) {
+          setResources(materialsData);
+        }
+        if (Array.isArray(subjectsData)) {
+          setAssignedSubjects(subjectsData);
         }
       } catch (err) {
         console.error("Teacher study materials load error:", err);
@@ -30,15 +48,16 @@ const TeacherStudyMaterial = () => {
     fetchMaterials();
   }, []);
 
-  const [title, setTitle] = useState("");
-  const [desc, setDesc] = useState("");
-  const [type, setType] = useState("Study Material");
-  const [selectedFileName, setSelectedFileName] = useState("");
-
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFileName(file.name);
+      try {
+        const dataUrl = await readFileAsDataURL(file);
+        setSelectedFileDataUrl(dataUrl);
+      } catch (err) {
+        console.error("Error reading file:", err);
+      }
     }
   };
 
@@ -47,67 +66,65 @@ const TeacherStudyMaterial = () => {
     setTitle("");
     setDesc("");
     setType("Study Material");
+    const defaultSub = assignedSubjects[0]?.subject_id || assignedSubjects[0]?.subjectId || "";
+    setSelectedSubjectId(defaultSub);
     setSelectedFileName("");
+    setSelectedFileDataUrl("");
     setShowModal(true);
   };
 
   const handleOpenEditModal = (item) => {
-    setEditingResourceId(item.resource_id);
-    setTitle(item.title);
-    setDesc(item.description);
-    setType(item.resource_type || "Study Material");
-    const extractedName = item.file_path ? item.file_path.split("/").pop() : "";
-    setSelectedFileName(extractedName);
+    const id = item.resourceId || item.resource_id;
+    setEditingResourceId(id);
+    setTitle(item.title || "");
+    setDesc(item.description || "");
+    setType(item.resourceType || item.resource_type || "Study Material");
+    setSelectedSubjectId(item.subjectId || item.subject_id || "");
+    const extractedName = item.fileName || item.file_name || (item.filePath || item.file_path ? (item.filePath || item.file_path).split("/").pop() : "");
+    setSelectedFileName(extractedName || "");
+    setSelectedFileDataUrl(item.filePath || item.file_path || "");
     setShowModal(true);
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
-    const finalFilePath = selectedFileName
-      ? selectedFileName.startsWith("/")
-        ? selectedFileName
-        : `/resources/${selectedFileName}`
-      : "/resources/study_material_doc.pdf";
+    let finalFilePath = selectedFileDataUrl;
+    if (!finalFilePath) {
+      finalFilePath = selectedFileName
+        ? selectedFileName.startsWith("/") || selectedFileName.startsWith("data:")
+          ? selectedFileName
+          : `/resources/${selectedFileName}`
+        : "/resources/study_material_doc.pdf";
+    }
 
     try {
       const payload = {
         title,
         description: desc,
         resource_type: type,
+        resourceType: type,
+        subject_id: selectedSubjectId,
+        subjectId: selectedSubjectId,
+        file_name: selectedFileName || "study_material_doc.pdf",
+        fileName: selectedFileName || "study_material_doc.pdf",
         file_path: finalFilePath,
+        filePath: finalFilePath,
       };
 
       if (editingResourceId) {
-        setResources(
-          resources.map((r) =>
-            r.resource_id === editingResourceId
-              ? {
-                  ...r,
-                  title,
-                  description: desc,
-                  resource_type: type,
-                  file_path: finalFilePath,
-                  updated_at: new Date().toISOString(),
-                }
-              : r
-          )
-        );
+        await teacherApi.updateStudyMaterial(editingResourceId, payload);
+        const data = await teacherApi.getStudyMaterials();
+        if (Array.isArray(data) && data.length > 0) {
+          setResources(data);
+        }
         notifySuccess(`Study material '${title}' updated successfully!`);
       } else {
         await teacherApi.uploadStudyMaterial(payload);
-        const created = {
-          resource_id: `res-00${resources.length + 10}`,
-          teacher_subject_id: "ts-001",
-          title,
-          description: desc,
-          resource_type: type,
-          file_path: finalFilePath,
-          uploaded_date: new Date().toISOString().split("T")[0],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        setResources([created, ...resources]);
-        notifySuccess(`Study material '${title}' uploaded to database successfully!`);
+        const data = await teacherApi.getStudyMaterials();
+        if (Array.isArray(data) && data.length > 0) {
+          setResources(data);
+        }
+        notifySuccess(`Study material '${title}' uploaded successfully!`);
       }
 
       setShowModal(false);
@@ -119,12 +136,19 @@ const TeacherStudyMaterial = () => {
     }
   };
 
-  const handleDelete = (id) => {
-    const item = resources.find((r) => r.resource_id === id);
+  const handleDelete = async (id) => {
+    const item = resources.find((r) => (r.resourceId || r.resource_id) === id);
     const itemTitle = item ? item.title : "study material";
     if (window.confirm(`Are you sure you want to delete '${itemTitle}'?`)) {
-      setResources(resources.filter((r) => r.resource_id !== id));
-      notifySuccess(`Study material '${itemTitle}' deleted successfully!`);
+      try {
+        await teacherApi.deleteStudyMaterial(id);
+        setResources(resources.filter((r) => (r.resourceId || r.resource_id) !== id));
+        notifySuccess(`Study material '${itemTitle}' deleted successfully!`);
+      } catch (err) {
+        console.error("Delete material error:", err);
+        const msg = err.response?.data?.error || err.message || "Failed to delete study material.";
+        notifyError(`Failed to delete study material: ${msg}`);
+      }
     }
   };
 
@@ -144,33 +168,54 @@ const TeacherStudyMaterial = () => {
       {/* Resource Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {resources.map((item) => {
-          const fileName = getDisplayFileName(item.file_name, item.file_path, item.title);
+          const resId = item.resourceId || item.resource_id;
+          const fn = item.fileName || item.file_name;
+          const fp = item.filePath || item.file_path;
+          const fileName = getDisplayFileName(fn, fp, item.title);
+          const fileUrl = fp || "/resources/study_material_doc.pdf";
+          const resType = item.resourceType || item.resource_type || "Study Material";
+          const uploadedDate = item.uploadedDate || item.uploaded_date || (item.createdAt ? String(item.createdAt).split("T")[0] : new Date().toISOString().split("T")[0]);
+          const subjBadge = item.subject_code || item.subjectCode || item.subject_name || item.subjectName;
+
           return (
             <div
-              key={item.resource_id}
+              key={resId}
               className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-all duration-200"
             >
               <div className="space-y-3">
                 {/* Header Badge & Date */}
-                <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#14B8A6]/10 text-[#14B8A6] font-bold text-[11px] border border-[#14B8A6]/20">
-                    {item.resource_type}
-                  </span>
-                  <span className="font-mono text-[#64748B] text-[11px] font-semibold">{item.uploaded_date}</span>
+                <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3 gap-2">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#14B8A6]/10 text-[#14B8A6] font-bold text-[11px] border border-[#14B8A6]/20">
+                      {resType}
+                    </span>
+                    {subjBadge && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-[#2563EB]/10 text-[#2563EB] font-bold text-[11px] border border-[#2563EB]/20">
+                        {subjBadge}
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-mono text-[#64748B] text-[11px] font-semibold">{uploadedDate}</span>
                 </div>
 
                 {/* Title & Description */}
                 <div>
-                  <h3 className="text-base font-extrabold text-[#1E293B] leading-snug">{item.title}</h3>
+                  <h3
+                    onClick={() => handleViewDocument(fileUrl, item.title)}
+                    className="text-base font-extrabold text-[#1E293B] hover:text-[#2563EB] leading-snug cursor-pointer transition-colors"
+                    title="Click title or file name to view file"
+                  >
+                    {item.title}
+                  </h3>
                   <p className="text-xs text-[#64748B] leading-relaxed line-clamp-3 mt-1.5">{item.description}</p>
                 </div>
 
                 {/* File Attachment Pill - Clickable File Name */}
                 <div className="pt-1">
                   <button
-                    onClick={() => handleViewDocument(item.file_path, item.title)}
+                    onClick={() => handleViewDocument(fileUrl, item.title)}
                     className="inline-flex items-center gap-1.5 text-[11px] font-mono text-[#2563EB] bg-[#2563EB]/10 hover:bg-[#2563EB] hover:text-white px-3 py-1 rounded-lg border border-[#2563EB]/20 font-bold cursor-pointer transition-all truncate max-w-full"
-                    title="Click file name to view document in full-screen"
+                    title="Click file name to view document"
                   >
                     <Paperclip className="w-3.5 h-3.5 shrink-0" /> {fileName}
                   </button>
@@ -187,7 +232,7 @@ const TeacherStudyMaterial = () => {
                   <Edit className="w-4 h-4" /> Edit
                 </button>
                 <button
-                  onClick={() => handleDelete(item.resource_id)}
+                  onClick={() => handleDelete(resId)}
                   className="p-1.5 rounded-lg text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold"
                   title="Delete Resource"
                 >
@@ -227,6 +272,28 @@ const TeacherStudyMaterial = () => {
                   placeholder="e.g. Unit 3 Microservices Architecture Notes"
                   className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
                 />
+              </div>
+
+              <div>
+                <label className="block text-[#64748B] mb-1 font-medium">Subject (Allocated to Teacher)</label>
+                <select
+                  value={selectedSubjectId}
+                  onChange={(e) => setSelectedSubjectId(e.target.value)}
+                  required
+                  className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
+                >
+                  <option value="">Select Allocated Subject</option>
+                  {assignedSubjects.map((sub) => {
+                    const sId = sub.subject_id || sub.subjectId;
+                    const sCode = sub.subject_code || sub.subjectCode;
+                    const sName = sub.subject_name || sub.subjectName;
+                    return (
+                      <option key={sId} value={sId}>
+                        {sCode ? `${sCode} - ` : ""}{sName}
+                      </option>
+                    );
+                  })}
+                </select>
               </div>
 
               <div>
