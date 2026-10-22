@@ -61,13 +61,9 @@ const SemesterManagement = () => {
 
   const handleOpenAddModal = () => {
     setEditSem(null);
-    const defaultDept = departments.length > 0
-      ? (departments[0].department_id || departments[0].departmentId || "")
-      : "";
-
     setSemForm({
-      department_id: defaultDept,
-      semester_number: 0,
+      department_id: "",
+      semester_number: 1,
       semester_name: "",
       is_active: true,
     });
@@ -88,22 +84,25 @@ const SemesterManagement = () => {
 
   const handleSaveSemester = async (e) => {
     e.preventDefault();
+    if (!semForm.department_id || semForm.department_id === "") {
+      notifyError("Please select a department.");
+      return;
+    }
     setSaving(true);
     try {
-      let deptId = semForm.department_id;
-      if ((!deptId || deptId === "") && departments.length > 0) {
-        deptId = departments[0].department_id || departments[0].departmentId || "";
-      }
-
-      const payload = {
-        department_id: deptId,
-        semester_number: parseInt(semForm.semester_number) || 1,
-        semester_name: semForm.semester_name || `Semester ${semForm.semester_number}`,
-        is_active: semForm.is_active,
-      };
+      const semNum = parseInt(semForm.semester_number) || 1;
+      const semName = semForm.semester_name || `Semester ${semNum}`;
 
       if (editSem) {
         const id = editSem.semester_id || editSem.semesterId;
+        const payload = {
+          department_id: semForm.department_id === "ALL"
+            ? (editSem.department_id || editSem.departmentId || (departments[0]?.department_id || departments[0]?.departmentId))
+            : semForm.department_id,
+          semester_number: semNum,
+          semester_name: semName,
+          is_active: semForm.is_active,
+        };
         const res = await adminApi.updateSemester(id, payload);
         const updatedObj = (res && (res.semester_id || res.semesterId))
           ? res
@@ -111,18 +110,39 @@ const SemesterManagement = () => {
         setSemesters((prev) =>
           prev.map((s) => ((s.semester_id || s.semesterId) === id ? updatedObj : s))
         );
-        notifySuccess(`Semester '${payload.semester_name}' updated successfully!`);
+        notifySuccess(`Semester '${semName}' updated successfully!`);
       } else {
-        const res = await adminApi.createSemester(payload);
-        const newSemObj = (res && (res.semester_id || res.semesterId))
-          ? res
-          : {
-            semester_id: "sem-" + Date.now(),
-            ...payload,
-            created_at: new Date().toISOString(),
+        if (semForm.department_id === "ALL") {
+          await Promise.all(
+            departments.map((d) => {
+              const dId = d.department_id || d.departmentId || d.program_id;
+              return adminApi.createSemester({
+                department_id: dId,
+                semester_number: semNum,
+                semester_name: semName,
+                is_active: semForm.is_active,
+              });
+            })
+          );
+          notifySuccess(`Semester '${semName}' created successfully for all departments!`);
+        } else {
+          const payload = {
+            department_id: semForm.department_id,
+            semester_number: semNum,
+            semester_name: semName,
+            is_active: semForm.is_active,
           };
-        setSemesters((prev) => [...prev, newSemObj]);
-        notifySuccess(`Semester '${payload.semester_name}' created successfully in database!`);
+          const res = await adminApi.createSemester(payload);
+          const newSemObj = (res && (res.semester_id || res.semesterId))
+            ? res
+            : {
+              semester_id: "sem-" + Date.now(),
+              ...payload,
+              created_at: new Date().toISOString(),
+            };
+          setSemesters((prev) => [...prev, newSemObj]);
+          notifySuccess(`Semester '${semName}' created successfully in database!`);
+        }
       }
       setShowModal(false);
       await fetchData();
@@ -441,28 +461,25 @@ const SemesterManagement = () => {
               <div className="overflow-y-auto pr-1 space-y-4 text-xs grow">
                 <div>
                   <label className="block text-[#64748B] mb-1 font-semibold">
-                    Department
+                    Department <span className="text-red-500">*</span>
                   </label>
                   <select
                     required
-                    value={semForm.department_id}
+                    value={semForm.department_id || ""}
                     onChange={(e) => setSemForm({ ...semForm, department_id: e.target.value })}
                     className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-semibold text-[#1E293B]"
                   >
-                    {departments.length === 0 ? (
-                      <option value="">No Departments Available</option>
-                    ) : (
-                      departments.map((d) => {
-                        const dId = d.department_id || d.departmentId;
-                        const dCode = d.department_code || d.departmentCode;
-                        const dName = d.department_name || d.departmentName;
-                        return (
-                          <option key={dId} value={dId}>
-                            {dName} ({dCode})
-                          </option>
-                        );
-                      })
-                    )}
+                    <option value="">-- Select Department --</option>
+                    {departments.map((d) => {
+                      const dId = d.department_id || d.departmentId || d.program_id;
+                      const dCode = d.department_code || d.departmentCode || d.program_code;
+                      const dName = d.department_name || d.departmentName || d.program_name;
+                      return (
+                        <option key={dId} value={dId}>
+                          {dName} ({dCode})
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -490,30 +507,31 @@ const SemesterManagement = () => {
                   </div>
 
                   <div>
-                    <label className="block text-[#64748B] mb-1 font-semibold">Status</label>
-                    <select
-                      value={semForm.is_active ? "true" : "false"}
-                      onChange={(e) => setSemForm({ ...semForm, is_active: e.target.value === "true" })}
-                      className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-semibold"
-                    >
-                      <option value="true">Active</option>
-                      <option value="false">Inactive</option>
-                    </select>
+                    <label className="block text-[#64748B] mb-1 font-semibold">
+                      Semester Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={semForm.semester_name}
+                      onChange={(e) => setSemForm({ ...semForm, semester_name: e.target.value })}
+                      placeholder="e.g. Semester 1, Term 1"
+                      className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-extrabold text-[#1E293B]"
+                    />
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">
-                    Semester Name
-                  </label>
+                <div className="flex items-center gap-2 pt-1">
                   <input
-                    type="text"
-                    required
-                    value={semForm.semester_name}
-                    onChange={(e) => setSemForm({ ...semForm, semester_name: e.target.value })}
-                    placeholder="e.g. Semester 1, Term 1"
-                    className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-extrabold text-[#1E293B]"
+                    type="checkbox"
+                    id="sem_is_active"
+                    checked={semForm.is_active}
+                    onChange={(e) => setSemForm({ ...semForm, is_active: e.target.checked })}
+                    className="w-4 h-4 text-[#2563EB] rounded border-[#E2E8F0] focus:ring-[#2563EB] cursor-pointer"
                   />
+                  <label htmlFor="sem_is_active" className="text-xs font-semibold text-[#1E293B] cursor-pointer">
+                    Active Status
+                  </label>
                 </div>
               </div>
 

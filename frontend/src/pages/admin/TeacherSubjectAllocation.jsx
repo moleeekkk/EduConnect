@@ -14,18 +14,42 @@ import {
   GraduationCap,
   Sparkles,
   Check,
+  CalendarRange,
 } from "lucide-react";
 import Button from "../../components/common/Button";
 import { adminApi } from "../../services/api";
+import { useBatch } from "../../context/BatchContext";
 import { notifySuccess, notifyError } from "../../utils/toast";
 
 const AdminTeacherSubjectAllocation = () => {
+  const { selectedBatch: globalSelectedBatch, batches, setSelectedBatch } = useBatch();
   const [subjects, setSubjects] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [semesters, setSemesters] = useState([]);
   const [allocations, setAllocations] = useState([]);
+  const [localBatches, setLocalBatches] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Available batches (fallback to local if context hasn't loaded yet)
+  const availableBatches = (batches && batches.length > 0) ? batches : localBatches;
+
+  // Active Batch Determination
+  const activeBatch =
+    globalSelectedBatch ||
+    availableBatches.find((b) => b.is_active === true || b.isActive === true) ||
+    availableBatches[0] ||
+    null;
+
+  const activeBatchId = activeBatch
+    ? (activeBatch.batch_id || activeBatch.batchId || activeBatch.id)
+    : null;
+
+  const activeBatchName = activeBatch
+    ? (activeBatch.batch_name ||
+      activeBatch.batchName ||
+      `${activeBatch.start_year || activeBatch.startYear}-${activeBatch.end_year || activeBatch.endYear}`)
+    : "Active Batch";
 
   // Filters & View State
   const [selectedDepartment, setSelectedDepartment] = useState("all");
@@ -42,18 +66,30 @@ const AdminTeacherSubjectAllocation = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [subData, teacherData, deptData, semData, allocData] = await Promise.all([
+      const [subData, teacherData, deptData, semData, allocData, batchData] = await Promise.all([
         adminApi.getSubjects(),
         adminApi.getFaculty(),
         adminApi.getDepartments(),
         adminApi.getSemesters(),
         adminApi.getTeacherSubjects(),
+        adminApi.getBatches(),
       ]);
       setSubjects(Array.isArray(subData) ? subData : []);
       setTeachers(Array.isArray(teacherData) ? teacherData : []);
       setDepartments(Array.isArray(deptData) ? deptData : []);
       setSemesters(Array.isArray(semData) ? semData : []);
       setAllocations(Array.isArray(allocData) ? allocData : []);
+
+      const fetchedBatches = Array.isArray(batchData) ? batchData : [];
+      setLocalBatches(fetchedBatches);
+
+      // If no global batch was selected yet, automatically select the active batch
+      if (!globalSelectedBatch && fetchedBatches.length > 0) {
+        const defaultActive = fetchedBatches.find((b) => b.is_active === true || b.isActive === true) || fetchedBatches[0];
+        if (defaultActive && typeof setSelectedBatch === "function") {
+          setSelectedBatch(defaultActive);
+        }
+      }
     } catch (err) {
       console.error("Allocation data load error:", err);
     } finally {
@@ -135,7 +171,19 @@ const AdminTeacherSubjectAllocation = () => {
     );
   };
 
-  // Get assigned subjects for a teacher
+  // Only subjects belonging to the active batch
+  const activeBatchSubjects = subjects.filter((subj) => {
+    const bId = subj.batch_id || subj.batchId;
+    const targetBatchId =
+      activeBatchId ||
+      availableBatches.find((b) => b.is_active === true || b.isActive === true)?.batch_id ||
+      availableBatches[0]?.batch_id;
+
+    if (!targetBatchId) return false;
+    return bId && String(bId).toLowerCase() === String(targetBatchId).toLowerCase();
+  });
+
+  // Get assigned subjects for a teacher (only of active batch)
   const getAssignedSubjects = (teacherId) => {
     const assignedSubjIds = allocations
       .filter(
@@ -145,7 +193,7 @@ const AdminTeacherSubjectAllocation = () => {
       )
       .map((a) => String(a.subject_id || a.subjectId));
 
-    return subjects.filter((s) =>
+    return activeBatchSubjects.filter((s) =>
       assignedSubjIds.includes(String(s.subject_id || s.subjectId || s.id))
     );
   };
@@ -211,8 +259,8 @@ const AdminTeacherSubjectAllocation = () => {
     }
   };
 
-  // Filtered Subjects
-  const filteredSubjects = subjects.filter((subj) => {
+  // Filtered Subjects of active batch for Subject View
+  const filteredSubjects = activeBatchSubjects.filter((subj) => {
     const deptId = subj.department_id || subj.departmentId || subj.program_id;
     const semId = subj.semester_id || subj.semesterId;
 
@@ -256,19 +304,24 @@ const AdminTeacherSubjectAllocation = () => {
     return true;
   });
 
-  // Calculate distinct counts for stats badges
-  const activeAllocCount = allocations.filter(
-    (a) => a.is_active !== false && a.isActive !== false
-  ).length;
+  // Active batch subject IDs set
+  const activeBatchSubjectIds = new Set(
+    activeBatchSubjects.map((s) => String(s.subject_id || s.subjectId || s.id))
+  );
+
+  // Calculate distinct counts for stats badges (scoped to active batch subjects)
+  const activeBatchAllocations = allocations.filter(
+    (a) =>
+      (a.is_active !== false && a.isActive !== false) &&
+      activeBatchSubjectIds.has(String(a.subject_id || a.subjectId))
+  );
+
+  const activeAllocCount = activeBatchAllocations.length;
   const allocatedTeacherCount = new Set(
-    allocations
-      .filter((a) => a.is_active !== false && a.isActive !== false)
-      .map((a) => String(a.teacher_id || a.teacherId))
+    activeBatchAllocations.map((a) => String(a.teacher_id || a.teacherId))
   ).size;
   const allocatedSubjectCount = new Set(
-    allocations
-      .filter((a) => a.is_active !== false && a.isActive !== false)
-      .map((a) => String(a.subject_id || a.subjectId))
+    activeBatchAllocations.map((a) => String(a.subject_id || a.subjectId))
   ).size;
 
   return (
@@ -276,10 +329,17 @@ const AdminTeacherSubjectAllocation = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
-          <h1 className="text-xl font-bold text-[#1E293B] flex items-center gap-2">
-            <Layers className="w-6 h-6 text-[#2563EB]" /> Teacher-Subject Allocation Matrix
-          </h1>
-
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-xl font-bold text-[#1E293B] flex items-center gap-2">
+              <Layers className="w-6 h-6 text-[#2563EB]" /> Teacher-Subject Allocation Matrix
+            </h1>
+            {activeBatchName && (
+              <span className="text-xs font-bold px-3 py-1 rounded-full bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/20">
+                Batch: {activeBatchName}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-[#64748B] mt-1">Manage academic faculty allocations for subjects of active batch</p>
         </div>
 
         {/* Quick Stats Badges */}
@@ -303,6 +363,36 @@ const AdminTeacherSubjectAllocation = () => {
       <div className="bg-white p-4 rounded-xl border border-[#E2E8F0] shadow-xs space-y-3">
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3 flex-1">
+            {/* Batch Selection Filter */}
+            {availableBatches.length > 0 && (
+              <div className="w-full sm:w-auto min-w-[170px]">
+                <select
+                  value={activeBatchId || ""}
+                  onChange={(e) => {
+                    const found = availableBatches.find(
+                      (b) => String(b.batch_id || b.batchId || b.id) === String(e.target.value)
+                    );
+                    if (found && typeof setSelectedBatch === "function") {
+                      setSelectedBatch(found);
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs font-semibold text-[#1E293B] outline-none focus:border-[#2563EB] cursor-pointer"
+                  title="Select Batch to filter subjects"
+                >
+                  {availableBatches.map((b) => {
+                    const bId = b.batch_id || b.batchId || b.id;
+                    const bName = b.batch_name || b.batchName || `${b.start_year || b.startYear}-${b.end_year || b.endYear}`;
+                    const isDefaultActive = b.is_active === true || b.isActive === true;
+                    return (
+                      <option key={bId} value={bId}>
+                        {bName} {isDefaultActive ? "★ (Active)" : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
+
             {/* Department Selection Filter */}
             <div className="flex-1 min-w-[170px]">
               <select
@@ -423,7 +513,7 @@ const AdminTeacherSubjectAllocation = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredSubjects.length === 0 ? (
             <div className="col-span-full p-8 text-center bg-white rounded-xl border border-[#E2E8F0] text-xs text-[#64748B]">
-              No subjects found matching your filter criteria.
+              No subjects found for active batch {activeBatchName ? `(${activeBatchName})` : ""} matching your filter criteria.
             </div>
           ) : (
             filteredSubjects.map((subj) => {
@@ -736,16 +826,21 @@ const AdminTeacherSubjectAllocation = () => {
               />
             </div>
 
-            {/* Subject Selection List */}
+            {/* Subject Selection List (Filtered by Active Batch) */}
             <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-              {subjects
-                .filter((s) => {
-                  if (!modalSearch.trim()) return true;
-                  const q = modalSearch.toLowerCase().trim();
-                  const code = (s.subject_code || s.code || "").toLowerCase();
-                  const name = (s.subject_name || s.name || "").toLowerCase();
-                  return code.includes(q) || name.includes(q);
-                })
+              {activeBatchSubjects.length === 0 ? (
+                <div className="p-6 text-center text-xs text-[#64748B] bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                  No subjects found for active batch {activeBatchName ? `(${activeBatchName})` : ""}.
+                </div>
+              ) : (
+                activeBatchSubjects
+                  .filter((s) => {
+                    if (!modalSearch.trim()) return true;
+                    const q = modalSearch.toLowerCase().trim();
+                    const code = (s.subject_code || s.code || "").toLowerCase();
+                    const name = (s.subject_name || s.name || "").toLowerCase();
+                    return code.includes(q) || name.includes(q);
+                  })
                 .map((s) => {
                   const sId = s.subject_id || s.subjectId || s.id;
                   const tId = manageTeacherModal.teacher_id || manageTeacherModal.teacherId || manageTeacherModal.id;
@@ -803,7 +898,7 @@ const AdminTeacherSubjectAllocation = () => {
                       )}
                     </div>
                   );
-                })}
+                }))}
             </div>
 
             <div className="pt-3 border-t border-[#E2E8F0] shrink-0 text-right">

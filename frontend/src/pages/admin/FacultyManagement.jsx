@@ -288,14 +288,16 @@ const FacultyManagement = () => {
               ) : (
                 filteredTeachers.map((t) => {
                   const teacherId = t.teacher_id || t.teacherId || t.id;
-                  const firstName = t.first_name || t.firstName || "Faculty";
-                  const lastName = t.last_name || t.lastName || "";
+                  const fName = (t.first_name || t.firstName || "Faculty").trim();
+                  const sName = (t.surname || "").trim();
+                  const lName = (t.last_name || t.lastName || "").trim();
+                  const listingName = sName ? `${fName} ${sName}` : (lName ? `${fName} ${lName}` : fName);
                   const facId = t.faculty_id || t.facultyId || "N/A";
 
                   return (
                     <tr key={teacherId || facId} className="hover:bg-[#F8FAFC]">
                       <td className="p-3.5 font-mono font-bold text-[#14B8A6]">{facId}</td>
-                      <td className="p-3.5 font-semibold">{firstName} {lastName}</td>
+                      <td className="p-3.5 font-semibold text-[#1E293B]">{listingName}</td>
                       <td className="p-3.5 text-[#64748B]">{t.email}</td>
                       <td className="p-3.5">{t.mobile || "N/A"}</td>
                       <td className="p-3.5 font-medium">{t.designation || "N/A"}</td>
@@ -317,7 +319,7 @@ const FacultyManagement = () => {
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => setDeletingUser({ id: teacherId, name: `${firstName} ${lastName}`.trim() })}
+                            onClick={() => setDeletingUser({ id: teacherId, name: listingName })}
                             className="p-1.5 hover:bg-[#EF4444]/10 rounded-lg text-[#EF4444] transition-colors cursor-pointer"
                             title="Delete Faculty"
                           >
@@ -346,7 +348,7 @@ const FacultyManagement = () => {
               </h3>
               <button
                 onClick={() => setViewTeacher(null)}
-                className="p-1 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
+                className="p-1 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -354,61 +356,154 @@ const FacultyManagement = () => {
 
             {/* Scrollable Content */}
             <div className="overflow-y-auto pr-1 space-y-4 text-xs grow">
-              {/* Profile Card Summary */}
-              <div className="flex items-center gap-4 p-4 bg-[#14B8A6]/5 rounded-xl border border-[#14B8A6]/20">
-                <img
-                  src={viewTeacher.profile_photo || viewTeacher.profilePhoto || "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80"}
-                  alt={viewTeacher.first_name || viewTeacher.firstName}
-                  className="w-16 h-16 rounded-full object-cover border-2 border-[#14B8A6]"
-                />
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-base font-extrabold text-[#1E293B]">
-                      {viewTeacher.first_name || viewTeacher.firstName} {viewTeacher.last_name || viewTeacher.lastName}
-                    </h4>
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${(viewTeacher.is_active !== undefined ? viewTeacher.is_active : viewTeacher.isActive) ? "bg-[#22C55E]/10 text-[#22C55E]" : "bg-gray-200 text-gray-600"}`}>
-                      {(viewTeacher.is_active !== undefined ? viewTeacher.is_active : viewTeacher.isActive) ? "● Active Faculty" : "● Inactive"}
-                    </span>
-                  </div>
-                  <p className="font-mono text-[#14B8A6] font-bold text-xs">Faculty ID: {viewTeacher.faculty_id || viewTeacher.facultyId || "N/A"}</p>
-                  <p className="text-xs text-[#64748B] font-medium">{viewTeacher.designation || "Faculty Member"}</p>
-                </div>
-              </div>
+              {(() => {
+                const fName = (viewTeacher.first_name || viewTeacher.firstName || "").trim();
+                const lName = (viewTeacher.last_name || viewTeacher.lastName || "").trim();
+                const sName = (viewTeacher.surname || "").trim();
+                const fullName = [fName, lName, sName].filter(Boolean).join(" ") || "Faculty Member";
+                const isActive = viewTeacher.is_active !== undefined ? viewTeacher.is_active : (viewTeacher.isActive !== undefined ? viewTeacher.isActive : true);
+                const photo = viewTeacher.profile_photo || viewTeacher.profilePhoto;
 
-              {/* 2-Column Details Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Email Address</span>
-                    <p className="font-medium text-[#2563EB] text-xs">{viewTeacher.email}</p>
-                  </div>
-                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Mobile Number</span>
-                    <p className="font-mono text-[#1E293B] font-extrabold text-xs">{viewTeacher.mobile || "N/A"}</p>
-                  </div>
-                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Qualification</span>
-                    <p className="font-bold text-[#2563EB] text-xs">{viewTeacher.qualification || "N/A"}</p>
-                  </div>
-                </div>
+                return (
+                  <div className="space-y-4">
+                    {/* Profile Card Summary Banner */}
+                    <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 p-4 bg-[#14B8A6]/5 rounded-xl border border-[#14B8A6]/20">
+                      {photo ? (
+                        <img
+                          src={photo}
+                          alt={fullName}
+                          className="w-20 h-20 rounded-full object-cover border-2 border-[#14B8A6] shrink-0 shadow-xs"
+                        />
+                      ) : (
+                        <div className="w-20 h-20 rounded-full bg-[#14B8A6]/20 border-2 border-[#14B8A6] flex items-center justify-center text-[#14B8A6] font-extrabold text-2xl shrink-0">
+                          {fName.charAt(0)}{sName ? sName.charAt(0) : (lName ? lName.charAt(0) : "F")}
+                        </div>
+                      )}
+                      <div className="space-y-1.5 flex-1 text-center sm:text-left">
+                        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                          <h4 className="text-lg font-extrabold text-[#1E293B]">
+                            {fullName}
+                          </h4>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${isActive ? "bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20" : "bg-gray-200 text-gray-600"}`}>
+                            {isActive ? "● Active Faculty" : "● Inactive"}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 text-xs text-[#64748B]">
+                          <span className="font-mono text-[#14B8A6] font-bold bg-[#14B8A6]/10 px-2 py-0.5 rounded border border-[#14B8A6]/20">
+                            ID: {viewTeacher.faculty_id || viewTeacher.facultyId || "N/A"}
+                          </span>
+                          <span className="font-semibold text-[#1E293B]">
+                            {viewTeacher.designation || "Faculty Member"}
+                          </span>
+                          {viewTeacher.qualification && (
+                            <span className="text-[#2563EB] font-medium">
+                              • {viewTeacher.qualification}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
 
-                <div className="space-y-3">
-                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Experience & Joining Date</span>
-                    <p className="font-semibold text-[#1E293B] text-xs">
-                      {viewTeacher.experience !== undefined && viewTeacher.experience !== null ? `${viewTeacher.experience} Years Experience` : "N/A"} • Joined: {viewTeacher.joining_date || viewTeacher.joiningDate || "N/A"}
-                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {/* Contact & Personal */}
+                      <div className="space-y-3">
+                        <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                          <span className="text-[10px] text-[#64748B] font-bold block uppercase flex items-center gap-1">
+                            <Mail className="w-3.5 h-3.5 text-[#2563EB]" /> Email Address
+                          </span>
+                          <p className="font-semibold text-[#2563EB] text-xs pt-1">{viewTeacher.email || "N/A"}</p>
+                        </div>
+
+                        <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                          <span className="text-[10px] text-[#64748B] font-bold block uppercase flex items-center gap-1">
+                            <Phone className="w-3.5 h-3.5 text-[#14B8A6]" /> Mobile Number
+                          </span>
+                          <p className="font-mono font-bold text-[#1E293B] text-xs pt-1">{viewTeacher.mobile || "N/A"}</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                            <span className="text-[10px] text-[#64748B] font-bold block uppercase">Gender</span>
+                            <p className="font-bold text-[#1E293B] text-xs pt-1">{viewTeacher.gender || "N/A"}</p>
+                          </div>
+                          <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                            <span className="text-[10px] text-[#64748B] font-bold block uppercase flex items-center gap-1">
+                              <Calendar className="w-3.5 h-3.5 text-[#64748B]" /> Date of Birth
+                            </span>
+                            <p className="font-semibold text-[#1E293B] text-xs pt-1">{viewTeacher.date_of_birth || viewTeacher.dateOfBirth || "N/A"}</p>
+                          </div>
+                        </div>
+
+                        <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                          <span className="text-[10px] text-[#64748B] font-bold block uppercase flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-rose-500" /> Residential Address
+                          </span>
+                          <p className="font-medium text-[#1E293B] text-xs pt-1 leading-relaxed">{viewTeacher.address || "N/A"}</p>
+                        </div>
+                      </div>
+
+                      {/* Professional & Academic */}
+                      <div className="space-y-3">
+                        <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                          <span className="text-[10px] text-[#64748B] font-bold block uppercase flex items-center gap-1">
+                            <School className="w-3.5 h-3.5 text-[#14B8A6]" /> Designation
+                          </span>
+                          <p className="font-bold text-[#1E293B] text-xs pt-1">{viewTeacher.designation || "N/A"}</p>
+                        </div>
+
+                        <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                          <span className="text-[10px] text-[#64748B] font-bold block uppercase">Qualification</span>
+                          <p className="font-bold text-[#2563EB] text-xs pt-1">{viewTeacher.qualification || "N/A"}</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                            <span className="text-[10px] text-[#64748B] font-bold block uppercase">Experience</span>
+                            <p className="font-bold text-[#1E293B] text-xs pt-1">
+                              {viewTeacher.experience !== undefined && viewTeacher.experience !== null && viewTeacher.experience !== ""
+                                ? `${viewTeacher.experience} Years`
+                                : "N/A"}
+                            </p>
+                          </div>
+                          <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                            <span className="text-[10px] text-[#64748B] font-bold block uppercase flex items-center gap-1">
+                              <Calendar className="w-3.5 h-3.5 text-[#14B8A6]" /> Joining Date
+                            </span>
+                            <p className="font-semibold text-[#1E293B] text-xs pt-1">{viewTeacher.joining_date || viewTeacher.joiningDate || "N/A"}</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                            <span className="text-[10px] text-[#64748B] font-bold block uppercase">Created At</span>
+                            <p className="font-mono text-[11px] text-[#64748B] pt-1">
+                              {viewTeacher.created_at || viewTeacher.createdAt
+                                ? new Date(viewTeacher.created_at || viewTeacher.createdAt).toLocaleDateString("en-IN", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                })
+                                : "N/A"}
+                            </p>
+                          </div>
+                          <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                            <span className="text-[10px] text-[#64748B] font-bold block uppercase">Updated At</span>
+                            <p className="font-mono text-[11px] text-[#64748B] pt-1">
+                              {viewTeacher.updated_at || viewTeacher.updatedAt
+                                ? new Date(viewTeacher.updated_at || viewTeacher.updatedAt).toLocaleDateString("en-IN", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                })
+                                : "N/A"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Gender & Date of Birth</span>
-                    <p className="font-semibold text-[#1E293B] text-xs">{viewTeacher.gender || "N/A"} • {viewTeacher.date_of_birth || viewTeacher.dateOfBirth || "N/A"}</p>
-                  </div>
-                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Residential Address</span>
-                    <p className="font-medium text-[#1E293B] text-xs">{viewTeacher.address || "N/A"}</p>
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
             </div>
 
             {/* Footer */}
@@ -442,10 +537,10 @@ const FacultyManagement = () => {
                   <label className="block text-[#64748B] mb-1 font-semibold">Faculty ID</label>
                   <input
                     type="text"
-                    placeholder="Enter Faculty ID"
+                    placeholder="FAC101"
                     value={teacherForm.faculty_id}
                     onChange={(e) => setTeacherForm({ ...teacherForm, faculty_id: e.target.value })}
-                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg font-mono font-bold text-[#14B8A6]"
+                    className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg font-mono font-bold "
                   />
                 </div>
 

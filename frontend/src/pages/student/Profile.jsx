@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
-import { User, Mail, Phone, Calendar, MapPin, Heart, Shield, Edit, Save, Check } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { User, Mail, Phone, Calendar, MapPin, Heart, Shield, Edit, Save, Check, Camera, Upload } from "lucide-react";
 import Button from "../../components/common/Button";
 import { studentApi } from "../../services/api";
-import { notifySuccess } from "../../utils/toast";
+import { notifySuccess, notifyError } from "../../utils/toast";
 
 const StudentProfile = () => {
+  const fileInputRef = useRef(null);
   const userStr = localStorage.getItem("educonnect_user");
   const loggedUser = userStr ? JSON.parse(userStr) : null;
 
@@ -27,6 +28,24 @@ const StudentProfile = () => {
   });
   const [isEditing, setIsEditing] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  // Handle local image file selection
+  const handleImageFileSelect = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        notifyError("Image file size must be less than 2MB.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64Str = reader.result;
+        setProfile((prev) => ({ ...prev, profile_photo: base64Str }));
+        notifySuccess("Photo updated! Click 'Save Changes' to persist your new photo.");
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -86,12 +105,38 @@ const StudentProfile = () => {
           profile_photo: updated.profile_photo || updated.profilePhoto || prev.profile_photo,
         }));
       }
+
+      // Sync local storage educonnect_user if present
+      if (userStr) {
+        try {
+          const userObj = JSON.parse(userStr);
+          const finalPhoto = updated?.profile_photo || updated?.profilePhoto || profile.profile_photo;
+          if (finalPhoto) {
+            userObj.profile_photo = finalPhoto;
+            userObj.profilePhoto = finalPhoto;
+          }
+          localStorage.setItem("educonnect_user", JSON.stringify(userObj));
+          window.dispatchEvent(new Event("profile_updated"));
+        } catch (ignored) {}
+      }
+
       setIsEditing(false);
       setSavedSuccess(true);
       notifySuccess("Student profile details saved to database successfully!");
       setTimeout(() => setSavedSuccess(false), 3000);
     } catch (err) {
       console.error("Failed to save student profile:", err);
+      if (userStr) {
+        try {
+          const userObj = JSON.parse(userStr);
+          if (profile.profile_photo) {
+            userObj.profile_photo = profile.profile_photo;
+            userObj.profilePhoto = profile.profile_photo;
+            localStorage.setItem("educonnect_user", JSON.stringify(userObj));
+            window.dispatchEvent(new Event("profile_updated"));
+          }
+        } catch (ignored) {}
+      }
       setIsEditing(false);
       setSavedSuccess(true);
       notifySuccess("Student profile updated!");
@@ -104,11 +149,32 @@ const StudentProfile = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div className="flex items-center gap-4">
-          <img
-            src={profile.profile_photo}
-            alt={`${profile.first_name} ${profile.last_name}`}
-            className="w-16 h-16 rounded-full object-cover border-2 border-[#2563EB]"
-          />
+          {/* Profile Photo with Click-to-Upload when editing */}
+          <div
+            className={`relative group ${isEditing ? "cursor-pointer" : ""}`}
+            onClick={() => isEditing && fileInputRef.current?.click()}
+            title={isEditing ? "Click to change profile photo" : undefined}
+          >
+            <img
+              src={profile.profile_photo || `https://ui-avatars.com/api/?name=${encodeURIComponent((profile.first_name || "Student") + " " + (profile.last_name || ""))}&background=2563EB&color=fff`}
+              alt={`${profile.first_name} ${profile.last_name}`}
+              className={`w-16 h-16 rounded-full object-cover border-2 border-[#2563EB] ${
+                isEditing ? "shadow-xs group-hover:opacity-80 transition-all" : ""
+              }`}
+            />
+            {isEditing && (
+              <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <Camera className="w-5 h-5 text-white" />
+              </div>
+            )}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImageFileSelect}
+              accept="image/*"
+              className="hidden"
+            />
+          </div>
           <div>
             <h1 className="text-xl font-bold text-[#1E293B]">
               {profile.first_name} {profile.last_name}
@@ -147,15 +213,27 @@ const StudentProfile = () => {
         </h2>
 
         <form onSubmit={handleSave} className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-          <div>
-            <label className="block font-medium text-[#64748B] mb-1">Student ID (UUID)</label>
-            <input
-              type="text"
-              value={profile.student_id}
-              disabled
-              className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-mono text-[#64748B]"
-            />
-          </div>
+          {isEditing && (
+            <div className="sm:col-span-2 p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] space-y-2">
+              <label className="block font-bold text-[#1E293B]">Profile Photo (Upload File or Paste Image URL)</label>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={profile.profile_photo || ""}
+                  onChange={(e) => handleChange("profile_photo", e.target.value)}
+                  placeholder="https://example.com/photo.jpg"
+                  className="w-full p-2.5 rounded-lg border border-[#2563EB] bg-white outline-none text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-3.5 py-2 bg-[#2563EB]/10 text-[#2563EB] rounded-lg font-bold hover:bg-[#2563EB]/20 transition-colors flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+                >
+                  <Upload className="w-4 h-4" /> Upload Image File
+                </button>
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block font-medium text-[#64748B] mb-1">Enrollment No (enrollment_no)</label>

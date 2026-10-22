@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { BadgeAlert, CheckCircle2, XCircle, Clock, X } from "lucide-react";
+import { BadgeAlert, CheckCircle2, XCircle, Clock, X, CalendarRange } from "lucide-react";
 import Button from "../../components/common/Button";
 import { teacherApi } from "../../services/api";
 import { notifySuccess, notifyError } from "../../utils/toast";
+import { useBatch } from "../../context/BatchContext";
 
 const TeacherLeaveManagement = () => {
+  const { selectedBatch, batches } = useBatch();
+  const activeBatch = selectedBatch || batches.find((b) => b.is_active === true || b.isActive === true) || batches[0];
+  const activeBatchId = activeBatch ? String(activeBatch.batch_id || activeBatch.batchId || activeBatch.id) : null;
+  const batchName = activeBatch?.batch_name || activeBatch?.name || "Active Batch";
+
   const [requests, setRequests] = useState([]);
   const [students, setStudents] = useState([]);
   const [selectedReq, setSelectedReq] = useState(null);
@@ -58,20 +64,36 @@ const TeacherLeaveManagement = () => {
     }
   };
 
+  const batchStudents = students.filter(
+    (s) => !activeBatchId || String(s.batch_id || s.batchId) === activeBatchId
+  );
+
+  const batchRequests = requests.filter((req) => {
+    if (!activeBatchId) return true;
+    if (req.batch_id) return String(req.batch_id) === activeBatchId;
+    return batchStudents.some(
+      (s) => String(s.student_id || s.id) === String(req.student_id)
+    );
+  });
+
   return (
     <div className="space-y-6">
       {/* Module Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
-          <h1 className="text-xl font-bold text-[#1E293B]">Leave Management</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold text-[#1E293B]">Leave Management</h1>
+
+          </div>
+
         </div>
       </div>
 
       {/* Submitted Applications Table */}
       <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs overflow-hidden">
         <div className="p-4 border-b border-[#E2E8F0] flex items-center justify-between">
-          <h2 className="text-sm font-bold text-[#1E293B]">Submitted Student Leave Applications</h2>
-          <span className="text-xs text-[#64748B] font-mono">Total: {requests.length}</span>
+          <h2 className="text-sm font-bold text-[#1E293B]">Submitted Student Leave Applications ({batchName})</h2>
+          <span className="text-xs text-[#64748B] font-mono">Total: {batchRequests.length}</span>
         </div>
 
         <div className="overflow-x-auto">
@@ -88,56 +110,65 @@ const TeacherLeaveManagement = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
-              {requests.map((req) => {
-                const stu = students.find((s) => s.student_id === req.student_id || s.id === req.student_id);
-                return (
-                  <tr key={req.leave_request_id} className="hover:bg-[#F8FAFC] transition-colors">
-                    <td className="p-3.5">
-                      <div className="font-extrabold text-[#1E293B]">
-                        {stu ? `${stu.first_name} ${stu.last_name}` : "Student"}
-                      </div>
-                      <span className="font-mono text-[10px] text-[#2563EB] font-bold">
-                        {stu ? stu.enrollment_no : "25CI2110016"}
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-[#2563EB] font-bold">{req.leave_type}</td>
-                    <td className="p-3.5 font-mono font-medium">{req.from_date} to {req.to_date}</td>
-                    <td className="p-3.5 max-w-xs truncate font-medium text-[#64748B]">{req.reason}</td>
-                    <td className="p-3.5">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${req.status === "Approved"
+              {batchRequests.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-[#64748B] italic">
+                    No leave requests found for batch: {batchName}
+                  </td>
+                </tr>
+              ) : (
+                batchRequests.map((req) => {
+                  const stu = batchStudents.find((s) => String(s.student_id || s.id) === String(req.student_id)) ||
+                    students.find((s) => String(s.student_id || s.id) === String(req.student_id));
+                  return (
+                    <tr key={req.leave_request_id} className="hover:bg-[#F8FAFC] transition-colors">
+                      <td className="p-3.5">
+                        <div className="font-extrabold text-[#1E293B]">
+                          {stu ? `${stu.first_name} ${stu.last_name}` : "Student"}
+                        </div>
+                        <span className="font-mono text-[10px] text-[#2563EB] font-bold">
+                          {stu ? stu.enrollment_no : "25CI2110016"}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-[#2563EB] font-bold">{req.leave_type}</td>
+                      <td className="p-3.5 font-mono font-medium">{req.from_date} to {req.to_date}</td>
+                      <td className="p-3.5 max-w-xs truncate font-medium text-[#64748B]">{req.reason}</td>
+                      <td className="p-3.5">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${req.status === "Approved"
                             ? "bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20"
                             : req.status === "Rejected"
                               ? "bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/20"
                               : "bg-[#F59E0B]/10 text-[#F59E0B] border border-[#F59E0B]/20"
-                          }`}
-                      >
-                        {req.status}
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-[#64748B] font-medium">{req.remarks || "-"}</td>
-                    <td className="p-3.5 text-right">
-                      {req.status === "Pending" ? (
-                        <Button
-                          variant="accent"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedReq(req);
-                            setRemarksText("");
-                          }}
-                          className="text-xs"
+                            }`}
                         >
-                          Review
-                        </Button>
-                      ) : (
-                        <span className="text-[11px] text-[#64748B] font-semibold bg-slate-100 px-2.5 py-1 rounded-lg">
-                          Reviewed
+                          {req.status}
                         </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+                      </td>
+                      <td className="p-3.5 text-[#64748B] font-medium">{req.remarks || "-"}</td>
+                      <td className="p-3.5 text-right">
+                        {req.status === "Pending" ? (
+                          <Button
+                            variant="accent"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedReq(req);
+                              setRemarksText("");
+                            }}
+                            className="text-xs"
+                          >
+                            Review
+                          </Button>
+                        ) : (
+                          <span className="text-[11px] text-[#64748B] font-semibold bg-slate-100 px-2.5 py-1 rounded-lg">
+                            Reviewed
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

@@ -38,7 +38,7 @@ public class StudyMaterial {
     @JsonProperty("subject_id")
     private UUID subjectId;
 
-    @Column(name = "file_name", length = 255)
+    @Column(name = "file_name", columnDefinition = "TEXT")
     @JsonProperty("file_name")
     private String fileName;
 

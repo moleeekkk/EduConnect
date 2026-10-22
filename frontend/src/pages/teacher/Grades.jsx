@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { FileSpreadsheet, ArrowLeft, CheckCircle2, Save, Loader2 } from "lucide-react";
+import { FileSpreadsheet, ArrowLeft, CheckCircle2, Save, Loader2, CalendarRange } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Button from "../../components/common/Button";
 import { teacherApi } from "../../services/api";
 import { notifySuccess, notifyError } from "../../utils/toast";
+import { useBatch } from "../../context/BatchContext";
 
 const TeacherGrades = () => {
   const navigate = useNavigate();
+  const { selectedBatch, batches } = useBatch();
+  const activeBatch = selectedBatch || batches.find((b) => b.is_active === true || b.isActive === true) || batches[0];
+  const activeBatchId = activeBatch ? String(activeBatch.batch_id || activeBatch.batchId || activeBatch.id) : null;
+  const batchName = activeBatch?.batch_name || activeBatch?.name || "Active Batch";
+
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [gradeInputs, setGradeInputs] = useState({});
@@ -92,37 +98,49 @@ const TeacherGrades = () => {
     }
   };
 
+  const batchSubmissions = submissions.filter((sub) => {
+    if (!activeBatchId) return true;
+    if (sub.batch_id) return String(sub.batch_id) === activeBatchId;
+    return true;
+  });
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 bg-white p-6 rounded-2xl border border-[#E2E8F0] shadow-xs">
+      <div className="flex items-center gap-4 bg-white p-6 rounded-2xl border border-[#E2E8F0] shadow-xs">
         <button onClick={() => navigate("/teacher/dashboard")} className="text-[#64748B] hover:text-[#2563EB]">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-[#1E293B]">Grade Book & Evaluation</h1>
-          <p className="text-xs text-[#64748B]">Review student lab submissions and enter marks</p>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-[#1E293B]">Grade Book & Evaluation</h1>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/20">
+              <CalendarRange className="w-3.5 h-3.5" />
+              Batch: {batchName} ({batchSubmissions.length} submissions)
+            </span>
+          </div>
+          <p className="text-xs text-[#64748B] mt-1">Review student lab submissions and enter marks for {batchName}</p>
         </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs overflow-hidden">
         <div className="p-4 bg-[#F8FAFC] border-b border-[#E2E8F0] flex items-center justify-between">
-          <span className="text-xs font-bold text-[#1E293B]">MCA Semester 3 Submissions</span>
-          <span className="text-xs font-mono text-[#64748B]">Total: {submissions.length} Submissions</span>
+          <span className="text-xs font-bold text-[#1E293B]">Submissions for {batchName}</span>
+          <span className="text-xs font-mono text-[#64748B]">Total: {batchSubmissions.length} Submissions</span>
         </div>
 
         {loading ? (
           <div className="p-12 text-center text-[#64748B] text-xs flex items-center justify-center gap-2">
             <Loader2 className="w-5 h-5 animate-spin text-[#2563EB]" /> Loading pending grades from database...
           </div>
-        ) : submissions.length === 0 ? (
+        ) : batchSubmissions.length === 0 ? (
           <div className="p-12 text-center text-[#64748B] text-xs space-y-2">
             <FileSpreadsheet className="w-8 h-8 text-[#94A3B8] mx-auto" />
             <p className="font-semibold text-sm text-[#1E293B]">No Submissions Needing Grading</p>
-            <p>All student laboratory & assignment submissions have been graded.</p>
+            <p>No student submissions requiring grading for {batchName}.</p>
           </div>
         ) : (
           <div className="divide-y divide-[#E2E8F0]">
-            {submissions.map((sub, index) => {
+            {batchSubmissions.map((sub, index) => {
               const subId = sub.submission_id || sub.submissionId || sub.id || `sub-index-${index}`;
               const enrollment = sub.enrollmentNo || sub.enrollment_no || "25CI2110016";
               const studentName = sub.studentName || sub.student_name || "Student";

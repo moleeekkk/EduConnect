@@ -6,9 +6,14 @@ import {
 } from "lucide-react";
 import Button from "../../components/common/Button";
 import { adminApi } from "../../services/api";
+import { useBatch } from "../../context/BatchContext";
 
 const AdminReports = () => {
+  const { selectedBatch, batches = [] } = useBatch();
   const [activeTab, setActiveTab] = useState("attendance");
+  const [selectedBatchId, setSelectedBatchId] = useState(() => {
+    return selectedBatch?.batch_id || selectedBatch?.batchId || selectedBatch?.id || "all";
+  });
   const [selectedProgram, setSelectedProgram] = useState("all");
   const [selectedSemester, setSelectedSemester] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -16,6 +21,16 @@ const AdminReports = () => {
   const [expandedResultId, setExpandedResultId] = useState(null);
   const [selectedStudentForProfile, setSelectedStudentForProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Sync selectedBatchId if active context batch changes
+  useEffect(() => {
+    if (selectedBatch) {
+      const bId = selectedBatch.batch_id || selectedBatch.batchId || selectedBatch.id;
+      if (bId) {
+        setSelectedBatchId(String(bId));
+      }
+    }
+  }, [selectedBatch]);
 
   // Real Database Report Data States
   const [reportsData, setReportsData] = useState({
@@ -97,14 +112,6 @@ const AdminReports = () => {
         const name = `"${s.first_name || "Student"} ${s.last_name || ""}"`.trim();
         csvContent += `${s.enrollment_no || ""},${name},${s.totalSessions || 0},${s.attendedSessions || 0},${s.absentSessions || 0},${s.percentage || 0}%,${s.status || ""}\n`;
       });
-    } else if (activeTab === "semester_results") {
-      filename = `Semester_Results_Report_${new Date().toISOString().split("T")[0]}.csv`;
-      csvContent = "Enrollment No,Student Name,Semester,SGPA,CGPA,Result Status,Published Date\n";
-      filteredSemesterResults.forEach((res) => {
-        const stu = studentsAttendance.find((s) => (s.student_id || s.id) === res.student_id || (s.enrollment_no || s.enrollmentNo) === res.enrollment_no);
-        const name = stu ? `"${stu.first_name || "Student"} ${stu.last_name || ""}"`.trim() : `"Student"`;
-        csvContent += `${res.enrollment_no || ""},${name},${res.semester_id || "Semester 1"},${res.sgpa || 0},${res.cgpa || 0},${res.result_status || ""},${res.published_date || ""}\n`;
-      });
     } else {
       filename = `Weekly_Tests_Report_${new Date().toISOString().split("T")[0]}.csv`;
       csvContent = "Assessment Title,Student Name,Enrollment No,Exam Date,Total Marks,Obtained Marks,Score %,Grade,Faculty Remarks\n";
@@ -136,9 +143,9 @@ const AdminReports = () => {
   const availableSemesters = selectedProgram === "all"
     ? semesters
     : semesters.filter((s) => {
-        const sDept = String(s.department_id || s.departmentId || s.program_id || s.id || "");
-        return sDept === String(selectedProgram);
-      });
+      const sDept = String(s.department_id || s.departmentId || s.program_id || s.id || "");
+      return sDept === String(selectedProgram);
+    });
 
   const handleDepartmentChange = (deptId) => {
     setSelectedProgram(deptId);
@@ -167,24 +174,10 @@ const AdminReports = () => {
     const stuSem = String(stu.semester_id || stu.semesterId || "");
     const semMatch = selectedSemester === "all" || !stuSem || stuSem === String(selectedSemester);
 
-    return matchesSearch && deptMatch && semMatch;
-  });
+    const stuBatch = String(stu.batch_id || stu.batchId || "");
+    const batchMatch = selectedBatchId === "all" || !stuBatch || stuBatch === String(selectedBatchId);
 
-  // Filter semester exam results
-  const filteredSemesterResults = semesterResults.filter((res) => {
-    const stu = studentsAttendance.find((s) => (s.student_id || s.id) === res.student_id || (s.enrollment_no || s.enrollmentNo) === res.enrollment_no);
-    const query = searchQuery.trim().toLowerCase();
-    const enrollment = (stu?.enrollment_no || res?.enrollment_no || "").toLowerCase();
-    const fullName = `${stu?.first_name || ""} ${stu?.last_name || ""}`.toLowerCase();
-    const matchesSearch = query === "" || enrollment.includes(query) || fullName.includes(query);
-    
-    const stuDept = String(stu?.department_id || stu?.departmentId || res?.department_id || "");
-    const deptMatch = selectedProgram === "all" || !stuDept || stuDept === String(selectedProgram);
-    
-    const stuSem = String(stu?.semester_id || stu?.semesterId || res?.semester_id || "");
-    const semMatch = selectedSemester === "all" || !stuSem || stuSem === String(selectedSemester);
-
-    return matchesSearch && deptMatch && semMatch;
+    return matchesSearch && deptMatch && semMatch && batchMatch;
   });
 
   // Filter weekly test results
@@ -194,15 +187,29 @@ const AdminReports = () => {
     const enrollment = (stu?.enrollment_no || wer?.enrollment_no || "").toLowerCase();
     const fullName = `${stu?.first_name || ""} ${stu?.last_name || ""}`.toLowerCase();
     const matchesSearch = query === "" || enrollment.includes(query) || fullName.includes(query);
-    
+
     const stuDept = String(stu?.department_id || stu?.departmentId || wer?.department_id || "");
     const deptMatch = selectedProgram === "all" || !stuDept || stuDept === String(selectedProgram);
 
     const stuSem = String(stu?.semester_id || stu?.semesterId || wer?.semester_id || "");
     const semMatch = selectedSemester === "all" || !stuSem || stuSem === String(selectedSemester);
 
-    return matchesSearch && deptMatch && semMatch;
+    const stuBatch = String(stu?.batch_id || stu?.batchId || wer?.batch_id || "");
+    const batchMatch = selectedBatchId === "all" || !stuBatch || stuBatch === String(selectedBatchId);
+
+    return matchesSearch && deptMatch && semMatch && batchMatch;
   });
+
+  // Batch Specific Calculated KPI metrics
+  const displayTotalStudents = selectedBatchId !== "all" || selectedProgram !== "all" || selectedSemester !== "all"
+    ? filteredAttendance.length
+    : (reportsData.totalStudents || studentsAttendance.length);
+
+  const filteredAtRiskCount = filteredAttendance.filter(s => s.status === "At-Risk").length;
+  
+  const displayAvgAttendance = filteredAttendance.length > 0
+    ? (filteredAttendance.reduce((acc, curr) => acc + (parseFloat(curr.percentage) || 0), 0) / filteredAttendance.length).toFixed(1) + "%"
+    : reportsData.avgAttendanceRate;
 
   // Particular Student Match logic if user searches enrollment number / name
   const isSearchActive = searchQuery.trim().length > 0;
@@ -251,13 +258,13 @@ const AdminReports = () => {
             </div>
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-xl font-extrabold text-[#1E293B]">{reportsData.avgAttendanceRate}</span>
+            <span className="text-xl font-extrabold text-[#1E293B]">{displayAvgAttendance}</span>
 
           </div>
           <p className="text-[10px] text-[#64748B]">
-            {reportsData.atRiskStudentsCount > 0 ? (
+            {filteredAtRiskCount > 0 ? (
               <span className="text-[#EF4444] font-bold flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" /> {reportsData.atRiskStudentsCount} student(s) at-risk (&lt;75%)
+                <AlertTriangle className="w-3 h-3" /> {filteredAtRiskCount} student(s) at-risk (&lt;75%)
               </span>
             ) : (
               ""
@@ -282,21 +289,6 @@ const AdminReports = () => {
 
         </div>
 
-        {/* KPI 3: Average Institutional CGPA */}
-        <div className="bg-white p-3.5 rounded-xl border border-[#E2E8F0] shadow-xs space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider">Average CGPA</span>
-            <div className="p-1.5 rounded-lg bg-[#14B8A6]/10 text-[#14B8A6]">
-              <Award className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline justify-between">
-            <span className="text-xl font-extrabold text-[#1E293B]">{reportsData.avgCGPA} / 10</span>
-            <span className="text-[10px] font-bold text-[#2563EB]">Avg SGPA: {reportsData.avgSGPA}</span>
-          </div>
-
-        </div>
-
         {/* KPI 4: Active Enrolled Students */}
         <div className="bg-white p-3.5 rounded-xl border border-[#E2E8F0] shadow-xs space-y-1.5">
           <div className="flex items-center justify-between">
@@ -306,7 +298,7 @@ const AdminReports = () => {
             </div>
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-xl font-extrabold text-[#1E293B]">{reportsData.totalStudents} Enrolled</span>
+            <span className="text-xl font-extrabold text-[#1E293B]">{displayTotalStudents} Enrolled</span>
             <span className="text-[10px] font-bold text-[#64748B]">{reportsData.totalFaculty} Faculty</span>
           </div>
 
@@ -314,7 +306,7 @@ const AdminReports = () => {
       </div>
 
       {/* Category Tabs Container */}
-      <div className="bg-white p-2.5 rounded-xl border border-[#E2E8F0] shadow-xs grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <div className="bg-white p-2.5 rounded-xl border border-[#E2E8F0] shadow-xs grid grid-cols-1 sm:grid-cols-2 gap-2">
         <button
           onClick={() => setActiveTab("attendance")}
           className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${activeTab === "attendance"
@@ -323,16 +315,6 @@ const AdminReports = () => {
             }`}
         >
           <Users className="w-4 h-4" /> Attendance Report
-        </button>
-
-        <button
-          onClick={() => setActiveTab("semester_results")}
-          className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${activeTab === "semester_results"
-            ? "bg-[#2563EB] text-white shadow-xs"
-            : "bg-[#F8FAFC] text-[#64748B] hover:bg-gray-100 border border-[#E2E8F0]"
-            }`}
-        >
-          <GraduationCap className="w-4 h-4" /> Semester Exam Results
         </button>
 
         <button
@@ -346,8 +328,25 @@ const AdminReports = () => {
         </button>
       </div>
 
-      {/* Controls Toolbar: Department, Semester & Search Box Side-by-Side */}
+      {/* Controls Toolbar: Batch, Department, Semester & Search Box Side-by-Side */}
       <div className="bg-white p-3 rounded-xl border border-[#E2E8F0] shadow-xs flex flex-wrap items-center gap-3">
+        {/* Batch Selection */}
+        <div className="flex items-center gap-2">
+          <label className="text-[11px] font-bold text-[#64748B] whitespace-nowrap">Batch:</label>
+          <select
+            value={selectedBatchId}
+            onChange={(e) => setSelectedBatchId(e.target.value)}
+            className="px-2.5 py-1.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-semibold text-[#1E293B] focus:outline-hidden focus:border-[#2563EB] cursor-pointer"
+          >
+            <option value="all">All Batches ({batches.length})</option>
+            {batches.map((b) => (
+              <option key={b.batch_id || b.batchId || b.id} value={b.batch_id || b.batchId || b.id}>
+                {b.batch_name || b.batchName || b.name || "Batch"} {b.is_active || b.isActive ? "(Active)" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* Department Selection */}
         <div className="flex items-center gap-2">
           <label className="text-[11px] font-bold text-[#64748B] whitespace-nowrap">Department:</label>
@@ -573,132 +572,7 @@ const AdminReports = () => {
         </div>
       )}
 
-      {/* TAB 2: SEMESTER EXAM RESULTS */}
-      {activeTab === "semester_results" && (
-        <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs overflow-hidden">
-          <div className="p-3 border-b border-[#E2E8F0] flex items-center justify-between bg-[#F8FAFC]">
-            <div>
-              <h2 className="text-xs font-bold text-[#1E293B]">
-                {isSearchActive ? "Filtered Semester Examination Results" : "Semester Examination Results"}
-              </h2>
-              <p className="text-[10px] text-[#64748B]">Consolidated academic grades published by the institution</p>
-            </div>
-            <span className="px-2 py-0.5 rounded-full bg-[#14B8A6]/10 text-[#14B8A6] font-bold text-[11px]">
-              {filteredSemesterResults.length} Result Record(s)
-            </span>
-          </div>
-
-          {loading ? (
-            <div className="p-8 text-center text-xs text-[#64748B]">
-              <div className="flex items-center justify-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-[#2563EB]" />
-                <span>Loading exam result records from database...</span>
-              </div>
-            </div>
-          ) : filteredSemesterResults.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-[11px]">
-                <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#64748B] font-semibold">
-                  <tr>
-                    <th className="p-3">Enrollment No</th>
-                    <th className="p-3">Student Name</th>
-                    <th className="p-3">Semester</th>
-                    <th className="p-3">SGPA</th>
-                    <th className="p-3">CGPA</th>
-                    <th className="p-3">Result Status</th>
-                    <th className="p-3">Published Date</th>
-                    <th className="p-3 text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
-                  {filteredSemesterResults.map((res) => {
-                    const stu = studentsAttendance.find((s) => (s.student_id || s.id) === res.student_id || s.enrollment_no === res.enrollment_no);
-                    const isExpanded = expandedResultId === res.semester_result_id;
-                    const details = semesterResultDetails.filter(d => d.semester_result_id === res.semester_result_id);
-
-                    return (
-                      <React.Fragment key={res.semester_result_id || res.enrollment_no}>
-                        <tr className="hover:bg-slate-50 transition-colors">
-                          <td className="p-3 font-mono font-bold text-[#2563EB]">{res.enrollment_no || stu?.enrollment_no || "N/A"}</td>
-                          <td className="p-3 font-semibold">
-                            {stu ? `${stu.first_name} ${stu.last_name || ""}` : (res.first_name ? `${res.first_name} ${res.last_name || ""}` : "Student")}
-                          </td>
-                          <td className="p-3 font-medium">
-                            {res.semester_id === "sem-002" ? "Semester 2" : "Semester 1"}
-                          </td>
-                          <td className="p-3 font-bold text-[#2563EB]">{res.sgpa}</td>
-                          <td className="p-3 font-bold text-[#14B8A6]">{res.cgpa}</td>
-                          <td className="p-3 font-bold">
-                            <span className="px-2 py-0.5 rounded-full bg-[#22C55E]/10 text-[#22C55E] text-[10px]">
-                              {res.result_status || "PASS"}
-                            </span>
-                          </td>
-                          <td className="p-3 text-[#64748B] font-mono">{res.published_date || "2026-08-01"}</td>
-                          <td className="p-3 text-center">
-                            <div className="flex items-center justify-center gap-1.5">
-                              {stu && (
-                                <button
-                                  onClick={() => setSelectedStudentForProfile(stu)}
-                                  className="p-1 rounded-md border border-[#E2E8F0] hover:bg-[#2563EB] hover:text-white text-[#2563EB] font-bold text-[10px] inline-flex items-center gap-1 transition-all cursor-pointer"
-                                >
-                                  <Eye className="w-3 h-3" /> Profile
-                                </button>
-                              )}
-                              <button
-                                onClick={() => setExpandedResultId(isExpanded ? null : res.semester_result_id)}
-                                className="p-1 rounded-md border border-[#E2E8F0] hover:bg-gray-100 text-[#1E293B] font-bold text-[10px] inline-flex items-center gap-1 cursor-pointer"
-                              >
-                                Marks {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-
-                        {/* Expandable Subject Marks Row */}
-                        {isExpanded && (
-                          <tr className="bg-slate-50 border-y border-[#E2E8F0]">
-                            <td colSpan={8} className="p-3">
-                              <div className="bg-white p-3 rounded-lg border border-[#E2E8F0] space-y-2">
-                                <h4 className="text-[11px] font-bold text-[#1E293B] flex items-center gap-1.5">
-                                  <BookOpen className="w-3.5 h-3.5 text-[#2563EB]" /> Subject Exam Marks Breakdown ({stu ? `${stu.first_name} ${stu.last_name || ""}` : res.enrollment_no})
-                                </h4>
-                                {details.length > 0 ? (
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
-                                    {details.map((d, dIdx) => (
-                                      <div key={d.semester_result_detail_id || dIdx} className="p-2 rounded-md bg-[#F8FAFC] border border-[#E2E8F0]">
-                                        <p className="font-bold text-[#1E293B] text-[10px] truncate">{d.subject_name || d.subject_code}</p>
-                                        <p className="text-[9px] text-[#64748B] font-mono">{d.subject_code}</p>
-                                        <div className="flex items-center justify-between mt-1 pt-1 border-t border-gray-200">
-                                          <span className="font-extrabold text-[#2563EB] text-[10px]">{d.obtained_marks} / {d.total_marks || 100}</span>
-                                          <span className="font-bold text-[#22C55E] text-[9px] bg-[#22C55E]/10 px-1.5 py-0.5 rounded">Grade: {d.grade || "A"}</span>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <p className="text-[10px] text-[#64748B]">Consolidated semester exam mark details stored in database.</p>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="p-8 text-center text-xs text-[#64748B] space-y-1.5">
-              <Search className="w-6 h-6 text-gray-300 mx-auto" />
-              <p className="font-bold text-[#1E293B]">No semester examination records found</p>
-              <p className="text-[11px]">No matching exam records found in database.</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* TAB 3: WEEKLY TESTS & MARKS */}
+      {/* TAB 2: WEEKLY TESTS & MARKS */}
       {activeTab === "weekly_tests" && (
         <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs overflow-hidden">
           <div className="p-3 border-b border-[#E2E8F0] flex items-center justify-between bg-[#F8FAFC]">

@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { Users, Eye, X, GraduationCap, Search, SlidersHorizontal, RotateCcw, Filter } from "lucide-react";
+import { Users, Eye, X, GraduationCap, Search, SlidersHorizontal, RotateCcw, Filter, CalendarRange } from "lucide-react";
 import Button from "../../components/common/Button";
 import { teacherApi, adminApi } from "../../services/api";
+import { useBatch } from "../../context/BatchContext";
 
 const TeacherManageStudents = () => {
+  const { selectedBatch, batches } = useBatch();
+  const activeBatch = selectedBatch || batches.find((b) => b.is_active === true || b.isActive === true) || batches[0];
+  const activeBatchId = activeBatch ? String(activeBatch.batch_id || activeBatch.batchId || activeBatch.id) : null;
+
   const [students, setStudents] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [semesters, setSemesters] = useState([]);
@@ -41,6 +46,13 @@ const TeacherManageStudents = () => {
     fetchData();
   }, []);
 
+  // Filter students belonging to the currently selected batch
+  const batchStudents = students.filter((stu) => {
+    if (!activeBatchId) return true;
+    const stuBatchId = String(stu.batch_id || stu.batchId || "");
+    return stuBatchId === activeBatchId;
+  });
+
   // Reset all filters to default
   const handleResetFilters = () => {
     setSearchTerm("");
@@ -63,8 +75,8 @@ const TeacherManageStudents = () => {
     setSelectedSem("all"); // Reset semester filter when department changes
   };
 
-  // Filter logic across search, department, semester, gender, and status
-  const filteredStudents = students.filter((stu) => {
+  // Filter logic across search, department, semester, gender, and status within the active batch
+  const filteredStudents = batchStudents.filter((stu) => {
     // 1. Text Search Filter
     const query = searchTerm.toLowerCase();
     const fullName = `${stu.first_name || ""} ${stu.last_name || ""}`.toLowerCase();
@@ -109,7 +121,7 @@ const TeacherManageStudents = () => {
 
         <div className="flex items-center gap-2">
           <span className="text-xs text-[#64748B] font-medium">
-            Showing <strong className="text-[#2563EB]">{filteredStudents.length}</strong> of {students.length} Students
+            Showing <strong className="text-[#2563EB]">{filteredStudents.length}</strong> of {batchStudents.length} Students
           </span>
         </div>
       </div>
@@ -280,8 +292,7 @@ const TeacherManageStudents = () => {
                         onClick={() => setViewStudent(stu)}
                         title="View Student Details"
                         className="p-1.5 rounded-lg text-[#2563EB] hover:bg-[#2563EB]/10 border border-[#2563EB]/20 transition-colors cursor-pointer inline-flex items-center justify-center"
-                      >
-                        <Eye className="w-4 h-4" />
+                      ><Eye className="w-4 h-4" />
                       </button>
                     </td>
                   </tr>

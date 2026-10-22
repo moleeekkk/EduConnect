@@ -189,6 +189,7 @@ public class DepartmentService {
             if (updatedSubj.getSubjectName() != null) existing.setSubjectName(updatedSubj.getSubjectName());
             if (updatedSubj.getDepartmentId() != null) existing.setDepartmentId(updatedSubj.getDepartmentId());
             if (updatedSubj.getSemesterId() != null) existing.setSemesterId(updatedSubj.getSemesterId());
+            if (updatedSubj.getBatchId() != null) existing.setBatchId(updatedSubj.getBatchId());
             if (updatedSubj.getCredits() != null) existing.setCredits(updatedSubj.getCredits());
             if (updatedSubj.getTotalHours() != null) existing.setTotalHours(updatedSubj.getTotalHours());
             if (updatedSubj.getDescription() != null) existing.setDescription(updatedSubj.getDescription());

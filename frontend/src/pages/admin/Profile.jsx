@@ -208,7 +208,7 @@ const AdminProfile = () => {
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div className="flex items-center gap-4">
-          {/* Profile Photo with Upload Trigger */}
+          {/* Profile Photo with Upload Trigger when editing */}
           <div className="relative group shrink-0">
             {profile.profile_photo ? (
               <img
@@ -221,20 +221,25 @@ const AdminProfile = () => {
                 {(profile.first_name || "A")[0]}
               </div>
             )}
-            <label
-              htmlFor="profile_photo_file"
-              className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white"
-              title="Change Profile Picture"
-            >
-              <Camera className="w-5 h-5" />
-            </label>
-            <input
-              type="file"
-              id="profile_photo_file"
-              accept="image/*"
-              onChange={handlePhotoUpload}
-              className="hidden"
-            />
+            {isEditing && (
+              <>
+                <label
+                  htmlFor="profile_photo_file"
+                  className="absolute inset-0 bg-black/50 rounded-full flex flex-col items-center justify-center transition-all cursor-pointer text-white hover:bg-black/65 shadow-inner"
+                  title="Click to change profile picture"
+                >
+                  <Camera className="w-4 h-4 mb-0.5" />
+                  <span className="text-[9px] font-semibold leading-none">Change</span>
+                </label>
+                <input
+                  type="file"
+                  id="profile_photo_file"
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                />
+              </>
+            )}
           </div>
 
           <div>
@@ -306,59 +311,6 @@ const AdminProfile = () => {
         </div>
 
         <form onSubmit={handleSaveProfile} className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-          {/* Profile Picture File Upload / URL field */}
-          <div className="sm:col-span-2 space-y-1.5 p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
-            <label className="block font-bold text-[#1E293B]">Profile Picture</label>
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              <input
-                type="text"
-                placeholder="Paste Image URL or choose file on right"
-                value={profile.profile_photo}
-                onChange={(e) => handleChange("profile_photo", e.target.value)}
-                disabled={!isEditing}
-                className={`flex-1 w-full p-2.5 rounded-lg border font-mono text-xs ${
-                  isEditing ? "border-[#2563EB] bg-white" : "border-[#E2E8F0] bg-gray-50 text-[#64748B]"
-                }`}
-              />
-              <label
-                htmlFor="profile_photo_input"
-                className="px-3 py-2 rounded-lg border text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 shrink-0 bg-[#2563EB] text-white border-[#2563EB] hover:bg-[#1D4ED8]"
-              >
-                <Camera className="w-4 h-4" /> Upload New Photo
-              </label>
-              <input
-                type="file"
-                id="profile_photo_input"
-                accept="image/*"
-                onChange={handlePhotoUpload}
-                className="hidden"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block font-semibold text-[#64748B] mb-1">Admin ID (Database UUID)</label>
-            <input
-              type="text"
-              value={profile.admin_id}
-              disabled
-              className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-mono text-[#64748B]"
-            />
-          </div>
-
-          <div>
-            <label className="block font-semibold text-[#64748B] mb-1">Email Address</label>
-            <input
-              type="email"
-              value={profile.email}
-              disabled={!isEditing}
-              onChange={(e) => handleChange("email", e.target.value)}
-              className={`w-full p-2.5 rounded-lg border ${
-                isEditing ? "border-[#2563EB] bg-white" : "border-[#E2E8F0] bg-[#F8FAFC]"
-              }`}
-            />
-          </div>
-
           <div>
             <label className="block font-semibold text-[#64748B] mb-1">First Name</label>
             <input
@@ -379,6 +331,19 @@ const AdminProfile = () => {
               value={profile.last_name}
               disabled={!isEditing}
               onChange={(e) => handleChange("last_name", e.target.value)}
+              className={`w-full p-2.5 rounded-lg border ${
+                isEditing ? "border-[#2563EB] bg-white" : "border-[#E2E8F0] bg-[#F8FAFC]"
+              }`}
+            />
+          </div>
+
+          <div>
+            <label className="block font-semibold text-[#64748B] mb-1">Email Address</label>
+            <input
+              type="email"
+              value={profile.email}
+              disabled={!isEditing}
+              onChange={(e) => handleChange("email", e.target.value)}
               className={`w-full p-2.5 rounded-lg border ${
                 isEditing ? "border-[#2563EB] bg-white" : "border-[#E2E8F0] bg-[#F8FAFC]"
               }`}

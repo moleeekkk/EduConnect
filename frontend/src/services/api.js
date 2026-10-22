@@ -94,7 +94,7 @@ export const studentApi = {
       if (!param) {
         try {
           const user = JSON.parse(localStorage.getItem("educonnect_user") || "{}");
-          param = user.student_id || user.studentId || user.enrollment_no || user.enrollmentNo || "2024MCA001";
+          param = user.student_id || user.studentId || user.enrollment_no || user.enrollmentNo || user.identifier || user.userId || "2024MCA001";
         } catch (e) {
           param = "2024MCA001";
         }

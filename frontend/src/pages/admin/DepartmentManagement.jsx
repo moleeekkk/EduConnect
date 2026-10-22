@@ -26,6 +26,8 @@ const AdminDepartmentManagement = () => {
   const [deleting, setDeleting] = useState(false);
   const [deletingDept, setDeletingDept] = useState(null);
   const [viewDept, setViewDept] = useState(null);
+  const [selectedInstituteFilter, setSelectedInstituteFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchData = async () => {
     setLoading(true);
@@ -67,7 +69,7 @@ const AdminDepartmentManagement = () => {
     setDeptForm({
       department_code: "",
       department_name: "",
-      institute_id: institutes.length > 0 ? (institutes[0].institute_id || institutes[0].instituteId || "") : "",
+      institute_id: "",
       duration_years: 2,
       description: "",
       is_active: true,
@@ -119,13 +121,13 @@ const AdminDepartmentManagement = () => {
     setSaving(true);
     try {
       let instId = deptForm.institute_id;
-      if ((!instId || instId === "") && institutes.length > 0) {
-        instId = institutes[0].institute_id || institutes[0].instituteId || "";
+      if (!instId || instId === "" || instId === "all") {
+        instId = null;
       }
       const payload = {
         department_code: deptForm.department_code,
         department_name: deptForm.department_name,
-        institute_id: instId || null,
+        institute_id: instId,
         duration_years: parseInt(deptForm.duration_years) || 2,
         description: deptForm.description || "",
         is_active: deptForm.is_active !== undefined ? deptForm.is_active : true,
@@ -150,18 +152,84 @@ const AdminDepartmentManagement = () => {
     }
   };
 
+  const filteredDepartments = departments.filter((dept) => {
+    const instId = dept.institute_id || dept.instituteId;
+    const matchesInstitute =
+      selectedInstituteFilter === "all" ||
+      String(instId) === String(selectedInstituteFilter);
+
+    const query = searchQuery.trim().toLowerCase();
+    const dCode = (dept.department_code || dept.departmentCode || dept.program_code || "").toLowerCase();
+    const dName = (dept.department_name || dept.departmentName || dept.program_name || "").toLowerCase();
+    const matchesSearch = query === "" || dCode.includes(query) || dName.includes(query);
+
+    return matchesInstitute && matchesSearch;
+  });
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
           <h1 className="text-xl font-bold text-[#1E293B]">Department Management</h1>
-
         </div>
 
         <Button variant="accent" size="sm" icon={Plus} onClick={handleOpenAddDept} className="text-xs">
           Add Department
         </Button>
+      </div>
+
+      {/* Search & Institute Filter Bar */}
+      <div className="bg-white p-4 rounded-xl border border-[#E2E8F0] shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3 flex-1">
+          {/* Institute Filter */}
+          <div className="w-full sm:w-auto min-w-[220px]">
+            <select
+              value={selectedInstituteFilter}
+              onChange={(e) => setSelectedInstituteFilter(e.target.value)}
+              className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs font-semibold text-[#1E293B] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all cursor-pointer"
+            >
+              <option value="all">All Institutes ({institutes.length})</option>
+              {institutes.map((inst) => {
+                const id = inst.institute_id || inst.instituteId;
+                const name = inst.institute_name || inst.instituteName;
+                const code = inst.institute_code || inst.instituteCode;
+                return (
+                  <option key={id} value={id}>
+                    {code} - {name}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {/* Search Input */}
+          <div className="flex-1 min-w-[200px]">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search by department name or code..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-3 pr-8 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs text-[#1E293B] placeholder-[#64748B] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#64748B] hover:text-[#1E293B]"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="px-3 py-1.5 bg-[#2563EB]/10 text-[#2563EB] rounded-xl text-xs font-bold border border-[#2563EB]/20">
+            {filteredDepartments.length} Department{filteredDepartments.length !== 1 ? "s" : ""}
+          </span>
+        </div>
       </div>
 
       {/* Listed Department Cards Grid */}
@@ -172,13 +240,13 @@ const AdminDepartmentManagement = () => {
             <span>Fetching departments from database...</span>
           </div>
         </div>
-      ) : departments.length === 0 ? (
+      ) : filteredDepartments.length === 0 ? (
         <div className="bg-white p-6 rounded-xl border border-[#E2E8F0] text-center text-xs text-[#64748B]">
-          No departments found in database. Click <strong>Add Department</strong> to create one.
+          No departments found matching the filter criteria.
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {departments.map((dept) => {
+          {filteredDepartments.map((dept) => {
             const deptId = dept.department_id || dept.departmentId || dept.program_id || dept.programId;
             const deptCode = dept.department_code || dept.departmentCode || dept.program_code || dept.programCode;
             const deptName = dept.department_name || dept.departmentName || dept.program_name || dept.programName;
@@ -229,9 +297,13 @@ const AdminDepartmentManagement = () => {
                     <h3 className="text-base font-extrabold text-[#1E293B] group-hover:text-[#2563EB] transition-colors leading-snug">
                       {deptName}
                     </h3>
-                    {inst && (
+                    {inst ? (
                       <p className="text-[11px] text-[#2563EB] font-semibold flex items-center gap-1 mt-1">
                         <Building2 className="w-3 h-3" /> {inst.institute_name || inst.instituteName}
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-[#64748B] font-medium flex items-center gap-1 mt-1">
+                        <Building2 className="w-3 h-3 text-[#94A3B8]" /> All Institutes
                       </p>
                     )}
                   </div>
@@ -328,24 +400,22 @@ const AdminDepartmentManagement = () => {
                   <div>
                     <label className="block text-[#64748B] mb-1 font-semibold">Belongs to Institute</label>
                     <select
-                      value={deptForm.institute_id}
+                      value={deptForm.institute_id || ""}
                       onChange={(e) => setDeptForm({ ...deptForm, institute_id: e.target.value })}
                       className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-semibold text-[#1E293B]"
                     >
-                      {institutes.length === 0 ? (
-                        <option value="">No Institutes Available</option>
-                      ) : (
-                        institutes.map((inst) => {
-                          const id = inst.institute_id || inst.instituteId;
-                          const name = inst.institute_name || inst.instituteName;
-                          const code = inst.institute_code || inst.instituteCode;
-                          return (
-                            <option key={id} value={id}>
-                              {name} ({code})
-                            </option>
-                          );
-                        })
-                      )}
+                      <option value="">-- Select Institute --</option>
+                      <option value="all">All Institutes</option>
+                      {institutes.map((inst) => {
+                        const id = inst.institute_id || inst.instituteId;
+                        const name = inst.institute_name || inst.instituteName;
+                        const code = inst.institute_code || inst.instituteCode;
+                        return (
+                          <option key={id} value={id}>
+                            {name} ({code})
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
 
@@ -441,7 +511,7 @@ const AdminDepartmentManagement = () => {
                 const duration = viewDept.duration_years || viewDept.durationYears || 2;
                 const instId = viewDept.institute_id || viewDept.instituteId;
                 const inst = institutes.find((i) => (i.institute_id || i.instituteId) === instId);
-                const instName = inst ? (inst.institute_name || inst.instituteName) : (viewDept.institute_name || viewDept.instituteName || "Not Specified");
+                const instName = inst ? (inst.institute_name || inst.instituteName) : (viewDept.institute_name || viewDept.instituteName || "All Institutes");
                 const instCode = inst ? (inst.institute_code || inst.instituteCode) : "";
                 const isActive = viewDept.is_active ?? viewDept.isActive ?? true;
                 const dId = viewDept.department_id || viewDept.departmentId || viewDept.program_id || viewDept.programId;

@@ -227,25 +227,21 @@ const AdminBatchManagement = () => {
                       <td className="p-3.5">
                         <span
                           className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${isActive
-                              ? "bg-emerald-50 text-[#10B981] border border-emerald-200"
-                              : "bg-rose-50 text-[#EF4444] border border-rose-200"
+                            ? "bg-emerald-50 text-[#10B981] border border-emerald-200"
+                            : "bg-rose-50 text-[#EF4444] border border-rose-200"
                             }`}
                         >
                           {isActive ? (
-                            <>
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Active
-                            </>
+                            <>Active</>
                           ) : (
-                            <>
-                              <XCircle className="w-3.5 h-3.5" /> Inactive
-                            </>
+                            <>Inactive</>
                           )}
                         </span>
                       </td>
                       <td className="p-3.5">
                         {isCurrentSelected ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-[#D97706] border border-amber-300 rounded-full font-semibold text-[11px]">
-                            <Sparkles className="w-3 h-3" /> Selected Batch
+                            Selected Batch
                           </span>
                         ) : (
                           <button

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { 
-  BookOpenCheck, Plus, CheckCircle2, FileText, Check, X, Edit, Trash2, 
-  Paperclip, Upload, Clock, AlertTriangle, UserCheck, Mail, Send, Eye, Users
+import {
+  BookOpenCheck, Plus, CheckCircle2, FileText, Check, X, Edit, Trash2,
+  Paperclip, Upload, Clock, AlertTriangle, UserCheck, Mail, Send, Eye, Users, CalendarRange, Download, Award
 } from "lucide-react";
 import Button from "../../components/common/Button";
 import { teacherApi } from "../../services/api";
 import { notifySuccess, notifyError } from "../../utils/toast";
-import { readFileAsDataURL, getDisplayFileName, downloadFile, openFileInNewTab } from "../../utils/fileViewer";
+import { readFileAsDataURL, getDisplayFileName, downloadFile, openFileInNewTab, parseMultipleFiles, serializeMultipleFiles } from "../../utils/fileViewer";
+import { useBatch } from "../../context/BatchContext";
 
 const defaultSubmissions = [
   {
@@ -90,6 +91,10 @@ const defaultSubmissions = [
 ];
 
 const TeacherUploadAssignment = () => {
+  const { selectedBatch, batches } = useBatch();
+  const activeBatch = selectedBatch || batches.find((b) => b.is_active === true || b.isActive === true) || batches[0];
+  const activeBatchId = activeBatch ? String(activeBatch.batch_id || activeBatch.batchId || activeBatch.id) : null;
+
   const [assignments, setAssignments] = useState([]);
   const [submissions, setSubmissions] = useState(defaultSubmissions);
   const [assignedSubjects, setAssignedSubjects] = useState([]);
@@ -99,6 +104,7 @@ const TeacherUploadAssignment = () => {
   const [viewSubmissionsAssignment, setViewSubmissionsAssignment] = useState(null);
   const [modalTab, setModalTab] = useState("timely"); // "timely", "late", "missed"
   const [viewFileModal, setViewFileModal] = useState(null);
+  const [detailsAssignment, setDetailsAssignment] = useState(null);
 
   // Add / Edit Modal States
   const [showAddModal, setShowAddModal] = useState(false);
@@ -108,7 +114,7 @@ const TeacherUploadAssignment = () => {
   const [newDesc, setNewDesc] = useState("");
   const [newDueDate, setNewDueDate] = useState("2026-08-25");
   const [newMarks, setNewMarks] = useState(50);
-  const [refFileName, setRefFileName] = useState("");
+  const [attachedFiles, setAttachedFiles] = useState([]);
 
   // Grade Modal State
   const [selectedSub, setSelectedSub] = useState(null);
@@ -119,8 +125,48 @@ const TeacherUploadAssignment = () => {
   const [reminderNote, setReminderNote] = useState("");
   const [isSendingReminder, setIsSendingReminder] = useState(false);
 
-  const [refFileData, setRefFileData] = useState(null);
   const [dbStudentsList, setDbStudentsList] = useState([]);
+
+  // Filter subjects by currently selected batch
+  const batchSubjects = assignedSubjects.filter((sub) => {
+    if (!activeBatchId) return true;
+    const subBatchId = String(sub.batch_id || sub.batchId || "");
+    return subBatchId === activeBatchId;
+  });
+
+  // Helper to find subject name & code
+  const getSubjectName = (subId) => {
+    const s = assignedSubjects.find((sub) => String(sub.subject_id || sub.id) === String(subId));
+    return s ? `${s.subject_code ? s.subject_code + " - " : ""}${s.subject_name || "Subject"}` : "General Subject";
+  };
+
+  // Automatically keep selectedSubjectId synced to active batch's subjects
+  useEffect(() => {
+    if (batchSubjects.length > 0) {
+      const exists = batchSubjects.some(s => String(s.subject_id || s.id) === String(selectedSubjectId));
+      if (!exists) {
+        setSelectedSubjectId(batchSubjects[0].subject_id || batchSubjects[0].id || "");
+      }
+    } else {
+      setSelectedSubjectId("");
+    }
+  }, [activeBatchId, assignedSubjects]);
+
+  // Filter assignments by currently selected batch
+  const batchAssignments = assignments.filter((a) => {
+    if (!activeBatchId) return true;
+    if (a.batch_id && String(a.batch_id) === activeBatchId) return true;
+    if (a.subject_id) {
+      return batchSubjects.some(s => String(s.subject_id || s.id) === String(a.subject_id));
+    }
+    return false;
+  });
+
+  // Filter students by currently selected batch
+  const batchStudents = dbStudentsList.filter((s) => {
+    if (!activeBatchId) return true;
+    return String(s.batch_id || s.batchId || "") === activeBatchId;
+  });
 
   const handleViewDocument = (fileUrl, title = "Document Preview") => {
     openFileInNewTab(fileUrl, title);
@@ -177,16 +223,30 @@ const TeacherUploadAssignment = () => {
   }, []);
 
   const handleFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setRefFileName(file.name);
+    const selected = Array.from(e.target.files || []);
+    if (selected.length > 0) {
       try {
-        const dataUrl = await readFileAsDataURL(file);
-        setRefFileData(dataUrl);
+        const loadedFiles = await Promise.all(
+          selected.map(async (file) => {
+            const dataUrl = await readFileAsDataURL(file);
+            return {
+              name: file.name,
+              path: dataUrl,
+              size: file.size,
+              type: file.type,
+            };
+          })
+        );
+        setAttachedFiles((prev) => [...prev, ...loadedFiles]);
       } catch (err) {
-        console.error("Error reading uploaded file as Data URL:", err);
+        console.error("Error reading uploaded files as Data URL:", err);
       }
     }
+    e.target.value = "";
+  };
+
+  const handleRemoveFile = (indexToRemove) => {
+    setAttachedFiles((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
   const handleOpenAddModal = () => {
@@ -195,14 +255,12 @@ const TeacherUploadAssignment = () => {
     setNewDesc("");
     setNewDueDate("2026-08-25");
     setNewMarks(50);
-    setRefFileName("");
-    setRefFileData(null);
+    setAttachedFiles([]);
     if (assignedSubjects.length > 0) {
       setSelectedSubjectId(assignedSubjects[0].subject_id || "");
     }
     setShowAddModal(true);
   };
-
 
   const handleOpenEditModal = (asgn) => {
     setEditingAssignmentId(asgn.assignment_id);
@@ -210,9 +268,8 @@ const TeacherUploadAssignment = () => {
     setNewDesc(asgn.description);
     setNewDueDate(asgn.due_date);
     setNewMarks(asgn.total_marks);
-    const cleanName = getDisplayFileName(asgn.file_name, asgn.attachment, asgn.title);
-    setRefFileName(cleanName);
-    setRefFileData(null);
+    const existingFiles = parseMultipleFiles(asgn.attachment, asgn.file_name, asgn.title);
+    setAttachedFiles(existingFiles);
     setSelectedSubjectId(asgn.subject_id || (assignedSubjects[0]?.subject_id || ""));
     setShowAddModal(true);
   };
@@ -233,15 +290,7 @@ const TeacherUploadAssignment = () => {
 
   const handleSaveAssignment = async (e) => {
     e.preventDefault();
-    const cleanFileName = getDisplayFileName(refFileName, refFileData, newTitle);
-    const attachmentVal = refFileData || (refFileName
-      ? (refFileName.startsWith("data:") || refFileName.startsWith("/"))
-        ? refFileName
-        : `/uploads/assignments/${refFileName}`
-      : null);
-
-    const selectedSubObj = assignedSubjects.find((s) => String(s.subject_id) === String(selectedSubjectId));
-    const subName = selectedSubObj ? `${selectedSubObj.subject_code} - ${selectedSubObj.subject_name}` : "Assigned Subject";
+    const { attachment: serializedAttachment, fileName: serializedFileNames } = serializeMultipleFiles(attachedFiles);
 
     const payload = {
       subject_id: selectedSubjectId,
@@ -249,9 +298,9 @@ const TeacherUploadAssignment = () => {
       description: newDesc,
       due_date: newDueDate,
       total_marks: Number(newMarks),
-      attachment: attachmentVal,
-      file_name: cleanFileName,
-      fileName: cleanFileName,
+      attachment: serializedAttachment,
+      file_name: serializedFileNames,
+      fileName: serializedFileNames,
     };
 
     try {
@@ -359,7 +408,7 @@ const TeacherUploadAssignment = () => {
         if (
           u.role === "student" &&
           ((u.enrollment_no && sub.enrollment_no && String(u.enrollment_no).toLowerCase() === String(sub.enrollment_no).toLowerCase()) ||
-           (u.name && sub.student_name && String(u.name).toLowerCase() === String(sub.student_name).toLowerCase()))
+            (u.name && sub.student_name && String(u.name).toLowerCase() === String(sub.student_name).toLowerCase()))
         ) {
           if (u.email && u.email.includes("@")) return u.email;
         }
@@ -375,7 +424,7 @@ const TeacherUploadAssignment = () => {
         );
         if (match && match.email && match.email.includes("@")) return match.email;
       }
-    } catch (e) {}
+    } catch (e) { }
 
     // 4. Default official institutional email derived from enrollment number
     if (sub.enrollment_no) {
@@ -429,7 +478,7 @@ const TeacherUploadAssignment = () => {
           if (subDate > due) {
             return "Late";
           }
-        } catch (e) {}
+        } catch (e) { }
       }
       return "Timely";
     }
@@ -443,7 +492,7 @@ const TeacherUploadAssignment = () => {
         if (now <= due) {
           return "Pending"; // Due date extended or in future -> NOT Missed!
         }
-      } catch (e) {}
+      } catch (e) { }
     }
     return "Missed";
   };
@@ -496,15 +545,15 @@ const TeacherUploadAssignment = () => {
   // Filtered submissions inside modal
   const modalSubmissions = viewSubmissionsAssignment
     ? submissions.filter((s) => {
-        if (String(s.assignment_id) !== String(viewSubmissionsAssignment.assignment_id)) {
-          return false;
-        }
-        const st = getEffectiveSubmissionStatus(s, viewSubmissionsAssignment);
-        if (modalTab === "timely") return st === "Timely";
-        if (modalTab === "late") return st === "Late";
-        if (modalTab === "missed") return st === "Missed";
+      if (String(s.assignment_id) !== String(viewSubmissionsAssignment.assignment_id)) {
         return false;
-      })
+      }
+      const st = getEffectiveSubmissionStatus(s, viewSubmissionsAssignment);
+      if (modalTab === "timely") return st === "Timely";
+      if (modalTab === "late") return st === "Late";
+      if (modalTab === "missed") return st === "Missed";
+      return false;
+    })
     : [];
 
   return (
@@ -528,17 +577,18 @@ const TeacherUploadAssignment = () => {
             <h2 className="text-sm font-bold text-[#1E293B]">Published Class Assignments</h2>
           </div>
           <span className="text-xs text-[#64748B] font-mono bg-[#F8FAFC] border border-[#E2E8F0] px-3 py-1 rounded-lg font-bold">
-            Total Assignments: {assignments.length}
+            Total Assignments: {batchAssignments.length}
           </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          {assignments.map((asgn) => {
+          {batchAssignments.map((asgn) => {
             const stats = getAssignmentStats(asgn.assignment_id, asgn);
             return (
               <div
                 key={asgn.assignment_id}
-                className="bg-white rounded-xl border border-[#E2E8F0] p-3.5 shadow-2xs hover:shadow-xs flex flex-col justify-between space-y-3 hover:border-[#0F172A]/30 transition-all duration-200"
+                onClick={() => setDetailsAssignment(asgn)}
+                className="bg-white rounded-xl border border-[#E2E8F0] p-3.5 shadow-2xs hover:shadow-xs flex flex-col justify-between space-y-3 hover:border-[#0F172A]/30 transition-all duration-200 cursor-pointer"
               >
                 <div className="space-y-2.5">
                   {/* Card Header: Title, Marks, Due Date & Actions */}
@@ -558,14 +608,20 @@ const TeacherUploadAssignment = () => {
                     {/* Action Buttons: Edit & Delete */}
                     <div className="flex items-center gap-0.5 shrink-0">
                       <button
-                        onClick={() => handleOpenEditModal(asgn)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenEditModal(asgn);
+                        }}
                         className="p-1 rounded-md text-[#14B8A6] hover:bg-[#14B8A6]/10 transition-colors cursor-pointer"
                         title="Edit Assignment"
                       >
                         <Edit className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => handleDeleteAssignment(asgn.assignment_id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteAssignment(asgn.assignment_id);
+                        }}
                         className="p-1 rounded-md text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors cursor-pointer"
                         title="Delete Assignment"
                       >
@@ -577,19 +633,34 @@ const TeacherUploadAssignment = () => {
                   {/* Instructions / Description */}
                   <p className="text-[11px] text-[#64748B] leading-snug line-clamp-2">{asgn.description}</p>
 
-                  {/* Ref File Attachment Pill */}
-                  {asgn.attachment && (
-                    <div>
-                      <button
-                        onClick={() => handleViewDocument(asgn.attachment, asgn.title)}
-                        className="inline-flex items-center gap-1 font-mono font-semibold text-[10px] text-[#14B8A6] bg-[#14B8A6]/10 hover:bg-[#14B8A6] hover:text-white px-2.5 py-0.5 rounded-md border border-[#14B8A6]/20 transition-all cursor-pointer truncate max-w-full"
-                        title="Click to view document in a new tab"
-                      >
-                        <Paperclip className="w-3 h-3 shrink-0" />
-                        <span className="truncate">{getDisplayFileName(asgn.file_name, asgn.attachment, asgn.title)}</span>
-                      </button>
-                    </div>
-                  )}
+                  {/* Ref File Attachment Pills */}
+                  {(() => {
+                    const refFiles = parseMultipleFiles(asgn.attachment, asgn.file_name, asgn.title);
+                    if (refFiles.length === 0) return null;
+                    return (
+                      <div className="space-y-1 pt-0.5">
+                        <span className="text-[9px] font-bold text-[#64748B] uppercase tracking-wider block">
+                          Reference Files ({refFiles.length})
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {refFiles.map((file, fIdx) => (
+                            <button
+                              key={fIdx}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleViewDocument(file.path, file.name);
+                              }}
+                              className="inline-flex items-center gap-1 font-mono font-semibold text-[10px] text-[#14B8A6] bg-[#14B8A6]/10 hover:bg-[#14B8A6] hover:text-white px-2 py-0.5 rounded-md border border-[#14B8A6]/20 transition-all cursor-pointer truncate max-w-full"
+                              title={`Click to view ${file.name}`}
+                            >
+                              <Paperclip className="w-3 h-3 shrink-0" />
+                              <span className="truncate max-w-[140px]">{file.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Submission Breakdown Interactive Badges Grid */}
                   <div className="pt-1">
@@ -598,7 +669,10 @@ const TeacherUploadAssignment = () => {
                     </span>
                     <div className="grid grid-cols-3 gap-1.5 text-center">
                       <button
-                        onClick={() => handleOpenSubmissionsModal(asgn, "timely")}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenSubmissionsModal(asgn, "timely");
+                        }}
                         className="p-1.5 rounded-lg bg-[#22C55E]/10 border border-[#22C55E]/20 text-[#22C55E] hover:bg-[#22C55E] hover:text-white transition-all cursor-pointer flex flex-col items-center justify-center"
                         title="View Timely Submitted Students"
                       >
@@ -607,7 +681,10 @@ const TeacherUploadAssignment = () => {
                       </button>
 
                       <button
-                        onClick={() => handleOpenSubmissionsModal(asgn, "late")}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenSubmissionsModal(asgn, "late");
+                        }}
                         className="p-1.5 rounded-lg bg-[#F97316]/10 border border-[#F97316]/20 text-[#F97316] hover:bg-[#F97316] hover:text-white transition-all cursor-pointer flex flex-col items-center justify-center"
                         title="View Late Submitted Students"
                       >
@@ -616,7 +693,10 @@ const TeacherUploadAssignment = () => {
                       </button>
 
                       <button
-                        onClick={() => handleOpenSubmissionsModal(asgn, "missed")}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenSubmissionsModal(asgn, "missed");
+                        }}
                         className="p-1.5 rounded-lg bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] hover:bg-[#EF4444] hover:text-white transition-all cursor-pointer flex flex-col items-center justify-center"
                         title="View Missed / Pending Students"
                       >
@@ -633,7 +713,10 @@ const TeacherUploadAssignment = () => {
                     variant="accent"
                     size="sm"
                     icon={Eye}
-                    onClick={() => handleOpenSubmissionsModal(asgn, "timely")}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenSubmissionsModal(asgn, "timely");
+                    }}
                     className="w-full text-[11px] py-1"
                   >
                     View Submissions Pop-up
@@ -655,9 +738,7 @@ const TeacherUploadAssignment = () => {
                 <h3 className="text-base font-extrabold text-[#1E293B]">
                   {viewSubmissionsAssignment.title}
                 </h3>
-                <p className="text-xs text-[#64748B]">
-                  Student Submissions Overview • Due Date: {viewSubmissionsAssignment.due_date}
-                </p>
+
               </div>
               <button
                 onClick={() => setViewSubmissionsAssignment(null)}
@@ -672,11 +753,10 @@ const TeacherUploadAssignment = () => {
             <div className="bg-[#F8FAFC] p-2 rounded-xl border border-[#E2E8F0] flex items-center gap-2">
               <button
                 onClick={() => setModalTab("timely")}
-                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  modalTab === "timely"
-                    ? "bg-[#22C55E] text-white shadow-xs"
-                    : "text-[#64748B] hover:text-[#1E293B] hover:bg-white"
-                }`}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${modalTab === "timely"
+                  ? "bg-[#22C55E] text-white shadow-xs"
+                  : "text-[#64748B] hover:text-[#1E293B] hover:bg-white"
+                  }`}
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Submitted Timely ({getAssignmentStats(viewSubmissionsAssignment.assignment_id, viewSubmissionsAssignment).timely})
@@ -684,11 +764,10 @@ const TeacherUploadAssignment = () => {
 
               <button
                 onClick={() => setModalTab("late")}
-                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  modalTab === "late"
-                    ? "bg-[#F97316] text-white shadow-xs"
-                    : "text-[#64748B] hover:text-[#1E293B] hover:bg-white"
-                }`}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${modalTab === "late"
+                  ? "bg-[#F97316] text-white shadow-xs"
+                  : "text-[#64748B] hover:text-[#1E293B] hover:bg-white"
+                  }`}
               >
                 <Clock className="w-3.5 h-3.5" />
                 Submitted Late ({getAssignmentStats(viewSubmissionsAssignment.assignment_id, viewSubmissionsAssignment).late})
@@ -696,11 +775,10 @@ const TeacherUploadAssignment = () => {
 
               <button
                 onClick={() => setModalTab("missed")}
-                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  modalTab === "missed"
-                    ? "bg-[#EF4444] text-white shadow-xs"
-                    : "text-[#64748B] hover:text-[#1E293B] hover:bg-white"
-                }`}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${modalTab === "missed"
+                  ? "bg-[#EF4444] text-white shadow-xs"
+                  : "text-[#64748B] hover:text-[#1E293B] hover:bg-white"
+                  }`}
               >
                 <AlertTriangle className="w-3.5 h-3.5" />
                 Missed / Pending ({getAssignmentStats(viewSubmissionsAssignment.assignment_id, viewSubmissionsAssignment).missed})
@@ -794,7 +872,7 @@ const TeacherUploadAssignment = () => {
                           size="sm"
                           onClick={() => {
                             setSelectedSub(sub);
-                            setGradeMarks(sub.obtained_marks || 45);
+                            setGradeMarks(sub.obtained_marks);
                             setGradeFeedback(sub.feedback || "Good work");
                           }}
                           className="text-xs w-full"
@@ -829,7 +907,7 @@ const TeacherUploadAssignment = () => {
       {/* Create / Edit Assignment Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-[#E2E8F0] space-y-4 my-8 animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-2xl sm:max-w-3xl w-full p-6 sm:p-7 shadow-xl border border-[#E2E8F0] space-y-4 my-8 animate-fade-in max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
               <h3 className="text-base font-bold text-[#1E293B]">
                 {editingAssignmentId ? "Edit Assignment Details" : "Upload New Assignment"}
@@ -846,8 +924,8 @@ const TeacherUploadAssignment = () => {
             <form onSubmit={handleSaveAssignment} className="space-y-3 text-xs">
               {/* Assigned Subject Selector */}
               <div>
-                <label className="block text-[#64748B] mb-1 font-semibold">Select Assigned Subject *</label>
-                {assignedSubjects.length > 0 ? (
+                <label className="block text-[#64748B] mb-1 font-semibold">Select Assigned Subject ({activeBatch?.batch_name || "Active Batch"}) *</label>
+                {batchSubjects.length > 0 ? (
                   <select
                     required
                     value={selectedSubjectId}
@@ -855,7 +933,7 @@ const TeacherUploadAssignment = () => {
                     className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] font-semibold text-[#1E293B] outline-none focus:border-[#2563EB] text-xs cursor-pointer"
                   >
                     <option value="">-- Choose Assigned Subject --</option>
-                    {assignedSubjects.map((sub) => (
+                    {batchSubjects.map((sub) => (
                       <option key={sub.subject_id} value={sub.subject_id}>
                         {sub.subject_code} - {sub.subject_name} {sub.subject_type ? `(${sub.subject_type})` : ""}
                       </option>
@@ -863,7 +941,7 @@ const TeacherUploadAssignment = () => {
                   </select>
                 ) : (
                   <div className="p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-lg text-[#EF4444] text-xs font-semibold">
-                    No subjects assigned to you yet. Please contact Administrator for subject allocation.
+                    No subjects allocated to you for the active batch ({activeBatch?.batch_name || "Active Batch"}).
                   </div>
                 )}
               </div>
@@ -915,20 +993,76 @@ const TeacherUploadAssignment = () => {
                 </div>
               </div>
 
-              {/* Optional Reference Document Upload */}
-              <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-1.5">
-                <label className="block text-[#1E293B] font-bold flex items-center gap-1.5">
-                  <Paperclip className="w-3.5 h-3.5 text-[#2563EB]" /> Reference Document Attachment
-                </label>
+              {/* Multi-File Reference Documents Upload */}
+              <div className="p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[#1E293B] font-bold flex items-center gap-1.5 text-xs">
+                    <Paperclip className="w-3.5 h-3.5 text-[#2563EB]" /> Reference Documents Attachment
+                  </label>
+                  <span className="text-[10px] text-[#64748B] font-medium">Multiple files allowed</span>
+                </div>
+
                 <input
                   type="file"
+                  multiple
                   onChange={handleFileChange}
                   className="w-full text-xs text-[#64748B] file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#2563EB]/10 file:text-[#2563EB] cursor-pointer"
                 />
-                {refFileName && (
-                  <p className="text-[11px] text-[#14B8A6] font-semibold font-mono truncate">
-                    Selected Document: {getDisplayFileName(refFileName, refFileData, newTitle)}
-                  </p>
+
+                {attachedFiles.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-[#64748B] uppercase">
+                      <span>Attached Documents ({attachedFiles.length})</span>
+                      <button
+                        type="button"
+                        onClick={() => setAttachedFiles([])}
+                        className="text-[#EF4444] hover:underline cursor-pointer lowercase text-[10px]"
+                      >
+                        clear all
+                      </button>
+                    </div>
+
+                    <div className="space-y-1 max-h-36 overflow-y-auto pr-0.5">
+                      {attachedFiles.map((file, fIdx) => (
+                        <div
+                          key={fIdx}
+                          className="flex items-center justify-between p-2 rounded-lg bg-white border border-[#E2E8F0] text-xs shadow-2xs hover:border-[#2563EB]/30 transition-all"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 pr-2">
+                            <FileText className="w-3.5 h-3.5 text-[#2563EB] shrink-0" />
+                            <span className="font-mono text-[11px] text-[#1E293B] font-semibold truncate" title={file.name}>
+                              {file.name}
+                            </span>
+                            {file.size && (
+                              <span className="text-[10px] text-[#94A3B8] shrink-0 font-mono">
+                                ({(file.size / 1024).toFixed(1)} KB)
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {file.path && (
+                              <button
+                                type="button"
+                                onClick={() => handleViewDocument(file.path, file.name)}
+                                className="p-1 text-[#2563EB] hover:bg-[#2563EB]/10 rounded cursor-pointer transition-colors"
+                                title="Preview File"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFile(fIdx)}
+                              className="p-1 text-[#EF4444] hover:bg-[#EF4444]/10 rounded cursor-pointer transition-colors"
+                              title="Remove File"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -1131,6 +1265,209 @@ const TeacherUploadAssignment = () => {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* POP-UP MODAL FOR ASSIGNMENT DETAILS (CLICK ON CARD) */}
+      {detailsAssignment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-5 my-8 animate-fade-in max-h-[90vh] flex flex-col">
+            {/* Modal Header with Title and Cross Icon */}
+            <div className="flex items-start justify-between border-b border-[#E2E8F0] pb-3 gap-3">
+              <div className="space-y-1 min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#14B8A6]/10 text-[#14B8A6] border border-[#14B8A6]/20">
+                    Assignment Details
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#2563EB]/10 text-[#2563EB]">
+                    {detailsAssignment.total_marks} Marks
+                  </span>
+                </div>
+                <h3 className="text-base sm:text-lg font-extrabold text-[#1E293B] leading-snug break-words">
+                  {detailsAssignment.title}
+                </h3>
+              </div>
+              <button
+                onClick={() => setDetailsAssignment(null)}
+                className="p-1.5 rounded-lg text-[#64748B] hover:text-[#1E293B] hover:bg-slate-100 transition-all cursor-pointer shrink-0"
+                title="Close details"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body - Scrollable content */}
+            <div className="overflow-y-auto space-y-4 pr-1 text-xs">
+              {/* Info Grid: Subject, Batch, Due Date, Total Marks */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                <div>
+                  <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider block mb-0.5">Subject</span>
+                  <p className="font-bold text-[#1E293B] text-xs">{getSubjectName(detailsAssignment.subject_id)}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider block mb-0.5">Target Batch</span>
+                  <p className="font-bold text-[#1E293B] text-xs">{activeBatch?.batch_name || "Current Batch"}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider block mb-0.5">Submission Deadline</span>
+                  <p className="font-mono font-bold text-[#1E293B] text-xs flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-[#2563EB]" />
+                    {detailsAssignment.due_date || "No deadline"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider block mb-0.5">Total Evaluation Marks</span>
+                  <p className="font-bold text-[#2563EB] text-xs font-mono">{detailsAssignment.total_marks} Points</p>
+                </div>
+              </div>
+
+              {/* Description / Instructions */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider block">
+                  Instructions & Description
+                </span>
+                <div className="p-3.5 bg-white rounded-xl border border-[#E2E8F0] text-xs text-[#334155] leading-relaxed whitespace-pre-wrap">
+                  {detailsAssignment.description || "No specific instructions provided."}
+                </div>
+              </div>
+
+              {/* Reference Files */}
+              {(() => {
+                const refFiles = parseMultipleFiles(detailsAssignment.attachment, detailsAssignment.file_name, detailsAssignment.title);
+                return (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider block">
+                        Reference Attachments ({refFiles.length})
+                      </span>
+                    </div>
+                    {refFiles.length === 0 ? (
+                      <p className="text-[11px] text-[#94A3B8] italic">No reference attachments uploaded for this assignment.</p>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {refFiles.map((file, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] gap-2 hover:border-[#14B8A6]/40 transition-colors"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Paperclip className="w-4 h-4 text-[#14B8A6] shrink-0" />
+                              <span className="font-mono text-xs text-[#1E293B] font-semibold truncate" title={file.name}>
+                                {file.name}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                onClick={() => handleViewDocument(file.path, file.name)}
+                                className="px-2 py-1 text-[11px] font-semibold text-[#14B8A6] bg-[#14B8A6]/10 hover:bg-[#14B8A6] hover:text-white rounded-md transition-colors cursor-pointer flex items-center gap-1"
+                                title="View document"
+                              >
+                                <Eye className="w-3 h-3" /> View
+                              </button>
+                              <button
+                                onClick={() => downloadFile(file.path, file.name)}
+                                className="p-1 text-[#64748B] hover:text-[#1E293B] hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
+                                title="Download file"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Submissions Analytics & Breakdown */}
+              {(() => {
+                const stats = getAssignmentStats(detailsAssignment.assignment_id, detailsAssignment);
+                return (
+                  <div className="space-y-2 pt-1 border-t border-[#E2E8F0]">
+                    <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider block">
+                      Submissions Status Breakdown
+                    </span>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div
+                        onClick={() => {
+                          const asgn = detailsAssignment;
+                          setDetailsAssignment(null);
+                          handleOpenSubmissionsModal(asgn, "timely");
+                        }}
+                        className="p-2.5 rounded-xl bg-[#22C55E]/10 border border-[#22C55E]/20 text-[#22C55E] cursor-pointer hover:bg-[#22C55E]/20 transition-all flex flex-col items-center justify-center"
+                        title="Click to view timely submitted students"
+                      >
+                        <span className="font-extrabold text-sm">{stats.timely}</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Timely Submissions</span>
+                      </div>
+                      <div
+                        onClick={() => {
+                          const asgn = detailsAssignment;
+                          setDetailsAssignment(null);
+                          handleOpenSubmissionsModal(asgn, "late");
+                        }}
+                        className="p-2.5 rounded-xl bg-[#F97316]/10 border border-[#F97316]/20 text-[#F97316] cursor-pointer hover:bg-[#F97316]/20 transition-all flex flex-col items-center justify-center"
+                        title="Click to view late submitted students"
+                      >
+                        <span className="font-extrabold text-sm">{stats.late}</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Late Submissions</span>
+                      </div>
+                      <div
+                        onClick={() => {
+                          const asgn = detailsAssignment;
+                          setDetailsAssignment(null);
+                          handleOpenSubmissionsModal(asgn, "missed");
+                        }}
+                        className="p-2.5 rounded-xl bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] cursor-pointer hover:bg-[#EF4444]/20 transition-all flex flex-col items-center justify-center"
+                        title="Click to view missed / pending students"
+                      >
+                        <span className="font-extrabold text-sm">{stats.missed}</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Missed / Pending</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between pt-3 border-t border-[#E2E8F0]">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const asgn = detailsAssignment;
+                    setDetailsAssignment(null);
+                    handleOpenEditModal(asgn);
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-[#E2E8F0] text-xs font-bold text-[#1E293B] hover:bg-slate-100 transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Edit className="w-3.5 h-3.5 text-[#14B8A6]" /> Edit Assignment
+                </button>
+                <Button
+                  variant="accent"
+                  size="sm"
+                  icon={Eye}
+                  onClick={() => {
+                    const asgn = detailsAssignment;
+                    setDetailsAssignment(null);
+                    handleOpenSubmissionsModal(asgn, "timely");
+                  }}
+                  className="text-xs"
+                >
+                  View Submissions List
+                </Button>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDetailsAssignment(null)}
+                className="text-xs"
+              >
+                Close
+              </Button>
+            </div>
           </div>
         </div>
       )}

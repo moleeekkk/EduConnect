@@ -35,6 +35,8 @@ const StudentAttendance = () => {
     currentUser?.studentId ||
     currentUser?.enrollment_no ||
     currentUser?.enrollmentNo ||
+    currentUser?.identifier ||
+    currentUser?.userId ||
     "2024MCA001";
 
   useEffect(() => {
@@ -61,7 +63,7 @@ const StudentAttendance = () => {
     fetchData();
   }, [studentIdentifier]);
 
-  // Subjects list strictly for current student's department and semester
+  // Subjects list for current student including enrolled subjects and recorded attendance subjects
   const subjectsList = useMemo(() => {
     const map = new Map();
 
@@ -74,8 +76,32 @@ const StudentAttendance = () => {
       }
     });
 
+    attendanceRecords.forEach((r) => {
+      const name = r.subject_name || r.subject?.subject_name || r.subject || "";
+      const code = r.subject_code || r.subject?.subject_code || "";
+      const id = String(r.subject_id || r.subject?.subject_id || code || name || "");
+
+      if (id || name) {
+        let exists = false;
+        for (const [k, v] of map.entries()) {
+          if (
+            (id && v.id.toLowerCase() === id.toLowerCase()) ||
+            (code && v.code.toLowerCase() === code.toLowerCase()) ||
+            (name && v.name.toLowerCase() === name.toLowerCase())
+          ) {
+            exists = true;
+            break;
+          }
+        }
+        if (!exists) {
+          const key = id || code || name;
+          map.set(key, { id: key, name: name || "Subject", code: code || "" });
+        }
+      }
+    });
+
     return Array.from(map.values());
-  }, [studentSubjects]);
+  }, [studentSubjects, attendanceRecords]);
 
   // Compute detailed per-subject attendance stats & session records
   const subjectCardData = useMemo(() => {
@@ -89,11 +115,13 @@ const StudentAttendance = () => {
         const sCode = String(sub.code || sub.subject_code || "").trim().toLowerCase();
         const sName = String(sub.name || sub.subject_name || "").trim().toLowerCase();
 
-        const idMatch = rId && sId && rId === sId;
+        const idMatch = rId && sId && (rId === sId || rId.includes(sId) || sId.includes(rId));
         const codeMatch = rCode && sCode && (rCode === sCode || sCode.includes(rCode) || rCode.includes(sCode));
         const nameMatch = rName && sName && (rName === sName || sName.includes(rName) || rName.includes(sName));
 
-        return idMatch || codeMatch || nameMatch;
+        const fallbackMatch = (!rId && !rCode && !rName) || subjectsList.length === 1;
+
+        return idMatch || codeMatch || nameMatch || fallbackMatch;
       });
 
       const total = recordsForSub.length;

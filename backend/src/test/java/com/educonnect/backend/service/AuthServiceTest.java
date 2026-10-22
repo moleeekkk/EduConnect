@@ -106,14 +106,14 @@ class AuthServiceTest {
     }
 
     @Test
-    void testAdminLogin_FallbackSuccess() {
+    void testAdminLogin_NotFoundInDatabase_Fails() {
         LoginRequest request = new LoginRequest("admin@educonnect.ac.in", "admin123");
         when(adminRepository.findByEmail("admin@educonnect.ac.in")).thenReturn(Optional.empty());
 
         AuthResponse response = authService.adminLogin(request);
 
-        assertTrue(response.isSuccess());
-        assertEquals("Admin", response.getRole());
+        assertFalse(response.isSuccess());
+        assertTrue(response.getMessage().contains("Invalid email address or password"));
     }
 
     // --- Teacher Login Tests ---

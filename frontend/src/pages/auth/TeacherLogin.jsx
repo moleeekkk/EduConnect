@@ -9,8 +9,8 @@ import { notifySuccess, notifyError } from "../../utils/toast";
 
 const TeacherLogin = () => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("maulikdabhiofficial@gmail.com");
-  const [password, setPassword] = useState("maulik123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);

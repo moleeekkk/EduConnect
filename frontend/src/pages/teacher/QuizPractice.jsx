@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { HelpCircle, Plus, Edit, Trash2, CheckCircle2, ListPlus, BookOpen, X } from "lucide-react";
+import { HelpCircle, Plus, Edit, Trash2, CheckCircle2, ListPlus, BookOpen, X, CalendarRange } from "lucide-react";
 import Button from "../../components/common/Button";
 import { teacherApi, adminApi } from "../../services/api";
 import { notifySuccess, notifyError } from "../../utils/toast";
+import { useBatch } from "../../context/BatchContext";
 
 const TeacherQuizPractice = () => {
+  const { selectedBatch, batches } = useBatch();
+  const activeBatch = selectedBatch || batches.find((b) => b.is_active === true || b.isActive === true) || batches[0];
+  const activeBatchId = activeBatch ? String(activeBatch.batch_id || activeBatch.batchId || activeBatch.id) : null;
+  const batchName = activeBatch?.batch_name || activeBatch?.name || "Active Batch";
+
   const [quizzes, setQuizzes] = useState([]);
   const [mcqs, setMcqs] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -44,6 +50,21 @@ const TeacherQuizPractice = () => {
   const [subjectId, setSubjectId] = useState("");
   const [learnerType, setLearnerType] = useState("Fast");
 
+  const batchSubjects = subjects.filter(
+    (s) => !activeBatchId || String(s.batch_id || s.batchId) === activeBatchId
+  );
+
+  const batchQuizzes = quizzes.filter((quiz) => {
+    if (!activeBatchId) return true;
+    if (quiz.batch_id) return String(quiz.batch_id) === activeBatchId;
+    if (quiz.subject_id) {
+      return batchSubjects.some(
+        (s) => String(s.subject_id || s.id) === String(quiz.subject_id)
+      );
+    }
+    return true;
+  });
+
   // Add MCQ Question Modal States
   const [activeQuizForMcq, setActiveQuizForMcq] = useState(null);
   const [newQuestion, setNewQuestion] = useState("");
@@ -58,7 +79,7 @@ const TeacherQuizPractice = () => {
     setEditingQuizId(null);
     setTitle("");
     setDesc("");
-    setSubjectId(subjects[0]?.subject_id || subjects[0]?.id || "");
+    setSubjectId(batchSubjects[0]?.subject_id || batchSubjects[0]?.id || "");
     setLearnerType("Fast");
     setShowAddModal(true);
   };
@@ -163,10 +184,10 @@ const TeacherQuizPractice = () => {
           prev.map((q) =>
             String(q.quiz_id || q.id) === String(quizId)
               ? {
-                  ...q,
-                  total_questions: (q.total_questions || 0) + 1,
-                  mcqs: [...(q.mcqs || []), addedMcq],
-                }
+                ...q,
+                total_questions: (q.total_questions || 0) + 1,
+                mcqs: [...(q.mcqs || []), addedMcq],
+              }
               : q
           )
         );
@@ -198,10 +219,10 @@ const TeacherQuizPractice = () => {
         prev.map((q) =>
           String(q.quiz_id || q.id) === String(quizId)
             ? {
-                ...q,
-                total_questions: Math.max(0, (q.total_questions || 1) - 1),
-                mcqs: updatedQuestions,
-              }
+              ...q,
+              total_questions: Math.max(0, (q.total_questions || 1) - 1),
+              mcqs: updatedQuestions,
+            }
             : q
         )
       );
@@ -217,7 +238,11 @@ const TeacherQuizPractice = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
-          <h1 className="text-xl font-bold text-[#1E293B]">Quiz Practice</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold text-[#1E293B]">Quiz Practice</h1>
+
+          </div>
+
         </div>
 
         <Button variant="accent" size="sm" icon={Plus} onClick={handleOpenAddModal} className="text-xs">
@@ -226,86 +251,91 @@ const TeacherQuizPractice = () => {
       </div>
 
       {/* Quizzes Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {quizzes.map((quiz) => {
-          const quizId = quiz.quiz_id || quiz.id;
-          const quizMcqsList = mcqs.filter((m) => String(m.quiz_id || m.quizId) === String(quizId));
-          const quizMcqCount = quizMcqsList.length > 0 ? quizMcqsList.length : (quiz.total_questions || 0);
-          const subj = subjects.find((s) => String(s.subject_id || s.id) === String(quiz.subject_id));
-          const subjectName = subj ? (subj.subject_name || subj.name) : (quiz.subject_name || "");
-          const subjectCode = subj ? (subj.subject_code || subj.code) : (quiz.subject_code || "");
+      {batchQuizzes.length === 0 ? (
+        <div className="p-8 text-center bg-white rounded-xl border border-[#E2E8F0] shadow-xs">
+          <p className="text-sm font-medium text-[#64748B]">No practice quizzes found for batch: {batchName}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {batchQuizzes.map((quiz) => {
+            const quizId = quiz.quiz_id || quiz.id;
+            const quizMcqsList = mcqs.filter((m) => String(m.quiz_id || m.quizId) === String(quizId));
+            const quizMcqCount = quizMcqsList.length > 0 ? quizMcqsList.length : (quiz.total_questions || 0);
+            const subj = subjects.find((s) => String(s.subject_id || s.id) === String(quiz.subject_id));
+            const subjectName = subj ? (subj.subject_name || subj.name) : (quiz.subject_name || "");
+            const subjectCode = subj ? (subj.subject_code || subj.code) : (quiz.subject_code || "");
 
-          return (
-            <div key={quizId} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-4">
-              <div className="space-y-3 text-xs">
-                {/* Header Badges */}
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                      (quiz.learner_type || quiz.category) === "Fast"
-                        ? "bg-[#2563EB]/10 text-[#2563EB]"
-                        : "bg-[#14B8A6]/10 text-[#14B8A6]"
-                    }`}
-                  >
-                    Category: {quiz.learner_type || quiz.category || "Fast"} Learner
-                  </span>
-
-                  {(subjectName || subjectCode) && (
-                    <span className="font-mono text-[#2563EB] bg-[#2563EB]/10 px-2.5 py-0.5 rounded-full font-bold text-[10px] flex items-center gap-1">
-                      <BookOpen className="w-3 h-3" />
-                      {subjectName ? `${subjectName} (${subjectCode})` : subjectCode}
+            return (
+              <div key={quizId} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-4">
+                <div className="space-y-3 text-xs">
+                  {/* Header Badges */}
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${(quiz.learner_type || quiz.category) === "Fast"
+                          ? "bg-[#2563EB]/10 text-[#2563EB]"
+                          : "bg-[#14B8A6]/10 text-[#14B8A6]"
+                        }`}
+                    >
+                      Category: {quiz.learner_type || quiz.category || "Fast"} Learner
                     </span>
-                  )}
+
+                    {(subjectName || subjectCode) && (
+                      <span className="font-mono text-[#2563EB] bg-[#2563EB]/10 px-2.5 py-0.5 rounded-full font-bold text-[10px] flex items-center gap-1">
+                        <BookOpen className="w-3 h-3" />
+                        {subjectName ? `${subjectName} (${subjectCode})` : subjectCode}
+                      </span>
+                    )}
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-bold text-[#1E293B]">{quiz.title}</h3>
+                    <p className="text-[#64748B] mt-0.5">{quiz.description}</p>
+                  </div>
+
+                  {/* Info Bar */}
+                  <div className="pt-2 border-t border-[#E2E8F0] flex items-center justify-between text-[11px] text-[#64748B]">
+                    <span className="font-bold text-[#2563EB]">{quizMcqCount} Questions Added</span>
+                    <span className="font-medium text-[#14B8A6]">{quiz.time_limit_minutes || 15} Mins Limit</span>
+                  </div>
                 </div>
 
-                <div>
-                  <h3 className="text-sm font-bold text-[#1E293B]">{quiz.title}</h3>
-                  <p className="text-[#64748B] mt-0.5">{quiz.description}</p>
-                </div>
-
-                {/* Info Bar */}
-                <div className="pt-2 border-t border-[#E2E8F0] flex items-center justify-between text-[11px] text-[#64748B]">
-                  <span className="font-bold text-[#2563EB]">{quizMcqCount} Questions Added</span>
-                  <span className="font-medium text-[#14B8A6]">{quiz.time_limit_minutes || 15} Mins Limit</span>
-                </div>
-              </div>
-
-              <div className="border-t border-[#E2E8F0] pt-3 flex flex-wrap items-center justify-between gap-2">
-                <Button
-                  variant="accent"
-                  size="sm"
-                  icon={ListPlus}
-                  onClick={() => handleOpenManageQuestions(quiz)}
-                  className="text-xs"
-                >
-                  Manage Questions ({quizMcqCount})
-                </Button>
-
-                <div className="flex items-center gap-2">
+                <div className="border-t border-[#E2E8F0] pt-3 flex flex-wrap items-center justify-between gap-2">
                   <Button
-                    variant="outline"
+                    variant="accent"
                     size="sm"
-                    icon={Edit}
-                    onClick={() => handleOpenEditModal(quiz)}
+                    icon={ListPlus}
+                    onClick={() => handleOpenManageQuestions(quiz)}
                     className="text-xs"
                   >
-                    Edit
+                    Manage Questions ({quizMcqCount})
                   </Button>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    icon={Trash2}
-                    onClick={() => handleDeleteQuiz(quizId)}
-                    className="text-xs !bg-[#EF4444]/10 !text-[#EF4444] hover:!bg-[#EF4444] hover:!text-white border-transparent"
-                  >
-                    Delete
-                  </Button>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={Edit}
+                      onClick={() => handleOpenEditModal(quiz)}
+                      className="text-xs"
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      icon={Trash2}
+                      onClick={() => handleDeleteQuiz(quizId)}
+                      className="text-xs !bg-[#EF4444]/10 !text-[#EF4444] hover:!bg-[#EF4444] hover:!text-white border-transparent"
+                    >
+                      Delete
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Add / Edit Quiz Modal */}
       {showAddModal && (
@@ -348,11 +378,15 @@ const TeacherQuizPractice = () => {
                     onChange={(e) => setSubjectId(e.target.value)}
                     className="w-full p-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
                   >
-                    {subjects.map((s) => (
-                      <option key={s.subject_id || s.id} value={s.subject_id || s.id}>
-                        {s.subject_code || s.code} - {s.subject_name || s.name}
-                      </option>
-                    ))}
+                    {batchSubjects.length === 0 ? (
+                      <option value="" disabled>No subjects allocated for {batchName}</option>
+                    ) : (
+                      batchSubjects.map((s) => (
+                        <option key={s.subject_id || s.id} value={s.subject_id || s.id}>
+                          {s.subject_code || s.code} - {s.subject_name || s.name}
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
                 <div>

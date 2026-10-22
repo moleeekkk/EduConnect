@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { FileText, Download, Eye, Paperclip, X } from "lucide-react";
 import Button from "../../components/common/Button";
 import { studentApi } from "../../services/api";
-import { getDisplayFileName, downloadFile, openFileInNewTab } from "../../utils/fileViewer";
+import { getDisplayFileName, downloadFile, openFileInNewTab, parseMultipleFiles } from "../../utils/fileViewer";
 
 const StudentStudyMaterial = () => {
   const [materials, setMaterials] = useState([]);
@@ -84,29 +84,45 @@ const StudentStudyMaterial = () => {
                   <p className="text-xs text-[#64748B] leading-relaxed line-clamp-3 mt-1.5">{item.description}</p>
                 </div>
 
-                {/* File Attachment Pill - Clickable File Name */}
-                <div className="pt-1">
-                  <button
-                    onClick={() => handleViewDocument(fileUrl, item.title)}
-                    className="inline-flex items-center gap-1.5 text-[11px] font-mono text-[#2563EB] bg-[#2563EB]/10 hover:bg-[#2563EB] hover:text-white px-3 py-1 rounded-lg border border-[#2563EB]/20 font-bold cursor-pointer transition-all truncate max-w-full"
-                    title="Click file name to open document in a new tab"
-                  >
-                    <Paperclip className="w-3.5 h-3.5 shrink-0" /> {fileName}
-                  </button>
-                </div>
-              </div>
+                {/* File Attachment List */}
+                {(() => {
+                  const mFiles = parseMultipleFiles(fileUrl, item.fileName || item.file_name, item.title);
+                  if (mFiles.length === 0) return null;
+                  return (
+                    <div className="space-y-1.5 pt-1">
+                      <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider block">
+                        Course Documents ({mFiles.length})
+                      </span>
+                      <div className="space-y-1.5">
+                        {mFiles.map((file, fIdx) => (
+                          <div
+                            key={fIdx}
+                            className="flex items-center justify-between p-2 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] text-xs hover:border-[#2563EB]/30 transition-all"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleViewDocument(file.path, file.name)}
+                              className="font-mono font-bold text-[#2563EB] hover:underline cursor-pointer flex items-center gap-1.5 truncate text-[11px] min-w-0 pr-2"
+                              title={`Click to view ${file.name}`}
+                            >
+                              <Paperclip className="w-3.5 h-3.5 shrink-0" />
+                              <span className="truncate">{file.name}</span>
+                            </button>
 
-              {/* Action Buttons */}
-              <div className="border-t border-[#E2E8F0] pt-3 flex items-center justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  icon={Download}
-                  onClick={() => downloadFile(fileUrl, fileName)}
-                  className="text-xs"
-                >
-                  Download
-                </Button>
+                            <button
+                              type="button"
+                              onClick={() => downloadFile(file.path, file.name)}
+                              className="p-1 rounded-md text-[#64748B] hover:text-[#2563EB] hover:bg-[#2563EB]/10 transition-colors cursor-pointer shrink-0"
+                              title={`Download ${file.name}`}
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           );

@@ -25,6 +25,7 @@ import com.educonnect.backend.repository.SubjectRepository;
 import com.educonnect.backend.repository.TeacherRepository;
 import com.educonnect.backend.repository.TeacherSubjectRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,7 +54,8 @@ public class TeacherService {
     private final com.educonnect.backend.repository.StudentDoubtRepository studentDoubtRepository;
     private final com.educonnect.backend.repository.StudyMaterialRepository studyMaterialRepository;
     private final com.educonnect.backend.repository.QuizRepository quizRepository;
-    private final EmailService emailService;
+    @Autowired(required = false)
+    private EmailService emailService;
     private final PasswordEncoder passwordEncoder;
 
     @Transactional(readOnly = true)
@@ -690,7 +692,42 @@ public class TeacherService {
     }
 
     public List<Map<String, Object>> getPendingGrades(String teacherId) {
-        return Collections.emptyList();
+        List<AssignmentSubmission> allSubs = submissionRepository.findAll();
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (AssignmentSubmission sub : allSubs) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("submission_id", sub.getSubmissionId() != null ? sub.getSubmissionId().toString() : "");
+            map.put("assignment_id", sub.getAssignmentId() != null ? sub.getAssignmentId().toString() : "");
+            map.put("student_id", sub.getStudentId() != null ? sub.getStudentId().toString() : "");
+            map.put("obtained_marks", sub.getObtainedMarks());
+            map.put("status", sub.getSubmissionStatus() != null ? sub.getSubmissionStatus() : "Submitted");
+            map.put("submission_date", sub.getSubmissionDate() != null ? sub.getSubmissionDate().toString() : "");
+            if (sub.getStudentId() != null) {
+                studentRepository.findById(sub.getStudentId()).ifPresent(s -> {
+                    map.put("student_name", (s.getFirstName() + " " + s.getLastName()).trim());
+                    map.put("enrollment_no", s.getEnrollmentNo());
+                    if (s.getBatchId() != null) {
+                        map.put("batch_id", s.getBatchId().toString());
+                    }
+                });
+            }
+            if (sub.getAssignmentId() != null) {
+                assignmentRepository.findById(sub.getAssignmentId()).ifPresent(a -> {
+                    map.put("assignment_title", a.getTitle());
+                    map.put("total_marks", a.getTotalMarks());
+                    if (a.getSubjectId() != null) {
+                        map.put("subject_id", a.getSubjectId().toString());
+                        subjectRepository.findById(a.getSubjectId()).ifPresent(subObj -> {
+                            if (subObj.getBatchId() != null) {
+                                map.put("batch_id", subObj.getBatchId().toString());
+                            }
+                        });
+                    }
+                });
+            }
+            list.add(map);
+        }
+        return list;
     }
 
     // --- Teacher Subject Allocation Methods ---
@@ -1027,6 +1064,9 @@ public class TeacherService {
                 subjectRepository.findById(wt.getSubjectId()).ifPresent(sub -> {
                     map.put("subject_code", sub.getSubjectCode());
                     map.put("subject_name", sub.getSubjectName());
+                    if (sub.getBatchId() != null) {
+                        map.put("batch_id", sub.getBatchId().toString());
+                    }
                 });
             }
             list.add(map);
@@ -1184,6 +1224,7 @@ public class TeacherService {
             map.put("student_id", s.getStudentId() != null ? s.getStudentId().toString() : "");
             map.put("student_name", (s.getFirstName() + " " + s.getLastName()).trim());
             map.put("enrollment_no", s.getEnrollmentNo() != null ? s.getEnrollmentNo() : "");
+            map.put("batch_id", s.getBatchId() != null ? s.getBatchId().toString() : "");
 
             WeeklyTestResult res = resultMap.get(s.getStudentId());
             if (res != null) {
@@ -1229,6 +1270,15 @@ public class TeacherService {
                 if (omObj instanceof Number) obtainedMarks = ((Number) omObj).intValue();
                 else if (omObj instanceof String && !((String) omObj).trim().isEmpty()) {
                     try { obtainedMarks = Integer.parseInt(((String) omObj).trim()); } catch (Exception ignored) {}
+                }
+            }
+
+            if (obtainedMarks != null) {
+                if (obtainedMarks > totalMarks) {
+                    throw new IllegalArgumentException("Entered marks (" + obtainedMarks + ") cannot be greater than total test marks (" + totalMarks + ").");
+                }
+                if (obtainedMarks < 0) {
+                    throw new IllegalArgumentException("Marks cannot be negative.");
                 }
             }
 
@@ -1629,14 +1679,17 @@ public class TeacherService {
         String body = (String) reqData.get("message");
         if (body == null) body = (String) reqData.get("body");
         String studentName = (String) reqData.get("student_name");
+        String ccEmail = (String) reqData.get("cc");
+        if (ccEmail == null) ccEmail = (String) reqData.get("cc_email");
 
-        if (recipientEmail != null && !recipientEmail.trim().isEmpty()) {
+        if (recipientEmail != null && !recipientEmail.trim().isEmpty() && emailService != null) {
             try {
                 emailService.sendAssignmentReminderEmail(
                         recipientEmail,
                         studentName != null ? studentName : "Student",
                         subject != null ? subject : "Assignment Submission Reminder",
-                        body != null ? body : ""
+                        body != null ? body : "",
+                        ccEmail
                 );
             } catch (Exception e) {
                 // Log and gracefully return success

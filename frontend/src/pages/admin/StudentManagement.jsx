@@ -1,11 +1,27 @@
 import React, { useState, useEffect } from "react";
-import { GraduationCap, Plus, Edit, Trash2, Eye, Calendar, Phone, Mail, MapPin, AtSign, X, Building2, Search, RotateCcw, Filter, Loader2 } from "lucide-react";
+import {
+  GraduationCap,
+  Plus,
+  Edit,
+  Trash2,
+  Eye,
+  Calendar,
+  Phone,
+  Mail,
+  MapPin,
+  AtSign,
+  X,
+  Building2,
+  Search,
+  RotateCcw,
+  Filter,
+  Loader2,
+} from "lucide-react";
 import Button from "../../components/common/Button";
 import ConfirmModal from "../../components/modals/ConfirmModal";
 import { adminApi } from "../../services/api";
 import { useBatch } from "../../context/BatchContext";
 import { notifySuccess, notifyError } from "../../utils/toast";
-
 
 const StudentManagement = () => {
   const { selectedBatch: globalSelectedBatch } = useBatch();
@@ -63,20 +79,32 @@ const StudentManagement = () => {
   // Helper to map institute_id to Institute Name & Code
   const getInstituteName = (instId) => {
     if (!instId) return "Main Campus";
-    const inst = institutes.find((i) => String(i.institute_id || i.instituteId || i.id) === String(instId) || i.institute_code === instId);
-    return inst ? (inst.institute_name || inst.name) : "Main Campus";
+    const inst = institutes.find(
+      (i) =>
+        String(i.institute_id || i.instituteId || i.id) === String(instId) ||
+        i.institute_code === instId,
+    );
+    return inst ? inst.institute_name || inst.name : "Main Campus";
   };
 
   const getInstituteCode = (instId) => {
     if (!instId) return "CA";
-    const inst = institutes.find((i) => String(i.institute_id || i.instituteId || i.id) === String(instId) || i.institute_code === instId);
-    return inst ? (inst.institute_code || inst.code) : "CA";
+    const inst = institutes.find(
+      (i) =>
+        String(i.institute_id || i.instituteId || i.id) === String(instId) ||
+        i.institute_code === instId,
+    );
+    return inst ? inst.institute_code || inst.code : "CA";
   };
 
   // Helper to map department_id to Department Name & Code
   const getDepartmentName = (deptId, instId) => {
     if (deptId) {
-      const prog = programs.find((p) => String(p.department_id || p.departmentId || p.id) === String(deptId) || p.department_code === deptId);
+      const prog = programs.find(
+        (p) =>
+          String(p.department_id || p.departmentId || p.id) ===
+          String(deptId) || p.department_code === deptId,
+      );
       if (prog) return prog.department_name || prog.name;
     }
     return "Department of Computer Applications";
@@ -84,7 +112,11 @@ const StudentManagement = () => {
 
   const getDepartmentCode = (deptId, instId) => {
     if (deptId) {
-      const prog = programs.find((p) => String(p.department_id || p.departmentId || p.id) === String(deptId) || p.department_code === deptId);
+      const prog = programs.find(
+        (p) =>
+          String(p.department_id || p.departmentId || p.id) ===
+          String(deptId) || p.department_code === deptId,
+      );
       if (prog) return prog.department_code || prog.code;
     }
     return "MCA";
@@ -93,8 +125,10 @@ const StudentManagement = () => {
   // Helper to map batch_id to Batch Name
   const getBatchName = (batchId) => {
     if (!batchId) return "Unassigned Batch";
-    const batch = batches.find((b) => String(b.batch_id || b.batchId || b.id) === String(batchId));
-    return batch ? (batch.batch_name || batch.batchName) : "Academic Batch";
+    const batch = batches.find(
+      (b) => String(b.batch_id || b.batchId || b.id) === String(batchId),
+    );
+    return batch ? batch.batch_name || batch.batchName : "Academic Batch";
   };
 
   // Helper to map semester_id to Semester Label
@@ -103,17 +137,26 @@ const StudentManagement = () => {
     if (semId) {
       const sem = semesters.find(
         (s) =>
-          String(s.semester_id || s.semesterId || s.id).toLowerCase() === String(semId).toLowerCase() ||
-          String(s.semester_number || s.number) === String(semId)
+          String(s.semester_id || s.semesterId || s.id).toLowerCase() ===
+          String(semId).toLowerCase() ||
+          String(s.semester_number || s.number) === String(semId),
       );
-      if (sem) return sem.semester_name || `Semester ${sem.semester_number || sem.number}`;
+      if (sem)
+        return (
+          sem.semester_name || `Semester ${sem.semester_number || sem.number}`
+        );
     }
     if (semNo) {
-      const sem = semesters.find((s) => String(s.semester_number || s.number) === String(semNo));
-      if (sem) return sem.semester_name || `Semester ${sem.semester_number || sem.number}`;
+      const sem = semesters.find(
+        (s) => String(s.semester_number || s.number) === String(semNo),
+      );
+      if (sem)
+        return (
+          sem.semester_name || `Semester ${sem.semester_number || sem.number}`
+        );
       return `Semester ${semNo}`;
     }
-    if (semId && (!isNaN(semId) && String(semId).length <= 2)) {
+    if (semId && !isNaN(semId) && String(semId).length <= 2) {
       return `Semester ${semId}`;
     }
     return "Semester 1";
@@ -123,21 +166,33 @@ const StudentManagement = () => {
     if (!semesters || semesters.length === 0) return [];
     if (!deptId || deptId === "all") return semesters;
 
-    const targetDept = programs.find((p) => String(p.department_id || p.departmentId || p.id) === String(deptId) || p.department_code === deptId);
-    const targetId = targetDept ? (targetDept.department_id || targetDept.departmentId || targetDept.id) : deptId;
+    const targetDept = programs.find(
+      (p) =>
+        String(p.department_id || p.departmentId || p.id) === String(deptId) ||
+        p.department_code === deptId,
+    );
+    const targetId = targetDept
+      ? targetDept.department_id || targetDept.departmentId || targetDept.id
+      : deptId;
 
     const filtered = semesters.filter((s) => {
       const sDept = s.department_id || s.departmentId;
-      return String(sDept) === String(targetId) || String(sDept) === String(deptId);
+      return (
+        String(sDept) === String(targetId) || String(sDept) === String(deptId)
+      );
     });
 
     return filtered.length > 0 ? filtered : semesters;
   };
 
-  const availableDepartments = selectedInstitute === "all"
-    ? programs
-    : programs.filter((p) => String(p.institute_id || p.instituteId) === String(selectedInstitute));
-
+  const availableDepartments =
+    selectedInstitute === "all"
+      ? programs
+      : programs.filter(
+        (p) =>
+          String(p.institute_id || p.instituteId) ===
+          String(selectedInstitute),
+      );
 
   // Filtered Students Array
   const filteredStudents = students.filter((stu) => {
@@ -145,33 +200,42 @@ const StudentManagement = () => {
     const progId = stu.department_id || stu.departmentId;
     const semId = stu.semester_id || stu.semesterId;
     const batchId = stu.batch_id || stu.batchId;
-    const activeBatchId = globalSelectedBatch?.batch_id || globalSelectedBatch?.batchId || globalSelectedBatch?.id;
+    const activeBatchId =
+      globalSelectedBatch?.batch_id ||
+      globalSelectedBatch?.batchId ||
+      globalSelectedBatch?.id;
 
     if (selectedInstitute !== "all") {
       if (instId) {
         const matchesId = String(instId) === String(selectedInstitute);
-        const matchesCode = getInstituteCode(instId) === getInstituteCode(selectedInstitute);
+        const matchesCode =
+          getInstituteCode(instId) === getInstituteCode(selectedInstitute);
         if (!matchesId && !matchesCode) return false;
       }
     }
     if (selectedDepartment !== "all") {
       if (progId) {
         const matchesId = String(progId) === String(selectedDepartment);
-        const matchesCode = getDepartmentCode(progId) === getDepartmentCode(selectedDepartment);
+        const matchesCode =
+          getDepartmentCode(progId) === getDepartmentCode(selectedDepartment);
         if (!matchesId && !matchesCode) return false;
       }
     }
     if (selectedSemester !== "all") {
       if (semId) {
         const matchesId = String(semId) === String(selectedSemester);
-        const matchesLabel = getSemesterLabel(semId) === getSemesterLabel(selectedSemester);
+        const matchesLabel =
+          getSemesterLabel(semId) === getSemesterLabel(selectedSemester);
         if (!matchesId && !matchesLabel) return false;
       }
     }
     if (activeBatchId) {
       if (batchId) {
         const matchesId = String(batchId) === String(activeBatchId);
-        const matchesName = globalSelectedBatch?.batch_name && getBatchName(batchId) === (globalSelectedBatch.batch_name || globalSelectedBatch.batchName);
+        const matchesName =
+          globalSelectedBatch?.batch_name &&
+          getBatchName(batchId) ===
+          (globalSelectedBatch.batch_name || globalSelectedBatch.batchName);
         if (!matchesId && !matchesName) return false;
       } else {
         return false;
@@ -182,7 +246,11 @@ const StudentManagement = () => {
       const firstName = stu.first_name || stu.firstName || "";
       const lastName = stu.last_name || stu.lastName || "";
       const fullName = `${firstName} ${lastName}`.toLowerCase();
-      const enroll = (stu.enrollment_no || stu.enrollmentNo || "").toLowerCase();
+      const enroll = (
+        stu.enrollment_no ||
+        stu.enrollmentNo ||
+        ""
+      ).toLowerCase();
       const email = (stu.email || "").toLowerCase();
       if (!fullName.includes(q) && !enroll.includes(q) && !email.includes(q)) {
         return false;
@@ -223,7 +291,11 @@ const StudentManagement = () => {
     ? programs.filter((p) => {
       const pInstId = p.institute_id || p.instituteId;
       if (!pInstId) return true;
-      return String(pInstId) === String(studentForm.institute_id) || getInstituteCode(pInstId) === getInstituteCode(studentForm.institute_id);
+      return (
+        String(pInstId) === String(studentForm.institute_id) ||
+        getInstituteCode(pInstId) ===
+        getInstituteCode(studentForm.institute_id)
+      );
     })
     : [];
 
@@ -239,20 +311,40 @@ const StudentManagement = () => {
     const instDepts = defaultInst
       ? programs.filter((p) => {
         const pInstId = p.institute_id || p.instituteId;
-        return String(pInstId) === String(defaultInst) || getInstituteCode(pInstId) === getInstituteCode(defaultInst);
+        return (
+          String(pInstId) === String(defaultInst) ||
+          getInstituteCode(pInstId) === getInstituteCode(defaultInst)
+        );
       })
       : [];
 
-    const defaultProg = (selectedDepartment !== "all" && instDepts.some(p => String(p.department_id || p.departmentId || p.id) === String(selectedDepartment)))
-      ? selectedDepartment
-      : "";
+    const defaultProg =
+      selectedDepartment !== "all" &&
+        instDepts.some(
+          (p) =>
+            String(p.department_id || p.departmentId || p.id) ===
+            String(selectedDepartment),
+        )
+        ? selectedDepartment
+        : "";
 
-    const availableSems = defaultProg ? getAvailableSemestersForDepartment(defaultProg) : [];
-    const defaultSem = (selectedSemester !== "all" && availableSems.some(s => String(s.semester_id || s.semesterId || s.id) === String(selectedSemester)))
-      ? selectedSemester
-      : "";
+    const availableSems = defaultProg
+      ? getAvailableSemestersForDepartment(defaultProg)
+      : [];
+    const defaultSem =
+      selectedSemester !== "all" &&
+        availableSems.some(
+          (s) =>
+            String(s.semester_id || s.semesterId || s.id) ===
+            String(selectedSemester),
+        )
+        ? selectedSemester
+        : "";
 
-    const activeBatchId = globalSelectedBatch?.batch_id || globalSelectedBatch?.batchId || globalSelectedBatch?.id;
+    const activeBatchId =
+      globalSelectedBatch?.batch_id ||
+      globalSelectedBatch?.batchId ||
+      globalSelectedBatch?.id;
     const defaultBatch = defaultSem && activeBatchId ? activeBatchId : "";
 
     setStudentForm({
@@ -283,26 +375,64 @@ const StudentManagement = () => {
   const handleOpenStudentEdit = (stu) => {
     setEditStudent(stu);
     setStudentForm({
-      enrollment_no: (stu.enrollment_no || stu.enrollmentNo || "").toUpperCase(),
+      enrollment_no: (
+        stu.enrollment_no ||
+        stu.enrollmentNo ||
+        ""
+      ).toUpperCase(),
       first_name: stu.first_name || stu.firstName || "",
       last_name: stu.last_name || stu.lastName || "",
       surname: stu.surname || "",
       email: stu.email || "",
-      mobile: stu.mobile || "",
+      //mobile: stu.mobile || "",
+      mobile: (stu.mobile || "").replace(/\D/g, "").slice(0, 10),
       gender: stu.gender || "Male",
       date_of_birth: stu.date_of_birth || stu.dateOfBirth || "",
       address: stu.address || "",
-      institute_id: stu.institute_id || stu.instituteId || (institutes.length > 0 ? (institutes[0].institute_id || institutes[0].instituteId || institutes[0].id) : ""),
-      department_id: stu.department_id || stu.departmentId || (programs.length > 0 ? (programs[0].department_id || programs[0].departmentId || programs[0].id) : ""),
-      semester_id: stu.semester_id || stu.semesterId || (semesters.length > 0 ? (semesters[0].semester_id || semesters[0].semesterId || semesters[0].id) : ""),
-      batch_id: stu.batch_id || stu.batchId || (batches.length > 0 ? (batches[0].batch_id || batches[0].batchId || batches[0].id) : ""),
+      institute_id:
+        stu.institute_id ||
+        stu.instituteId ||
+        (institutes.length > 0
+          ? institutes[0].institute_id ||
+          institutes[0].instituteId ||
+          institutes[0].id
+          : ""),
+      department_id:
+        stu.department_id ||
+        stu.departmentId ||
+        (programs.length > 0
+          ? programs[0].department_id ||
+          programs[0].departmentId ||
+          programs[0].id
+          : ""),
+      semester_id:
+        stu.semester_id ||
+        stu.semesterId ||
+        (semesters.length > 0
+          ? semesters[0].semester_id ||
+          semesters[0].semesterId ||
+          semesters[0].id
+          : ""),
+      batch_id:
+        stu.batch_id ||
+        stu.batchId ||
+        (batches.length > 0
+          ? batches[0].batch_id || batches[0].batchId || batches[0].id
+          : ""),
       blood_group: stu.blood_group || stu.bloodGroup || "O+",
       parent_name: stu.parent_name || stu.parentName || "",
-      parent_mobile: stu.parent_mobile || stu.parentMobile || "",
+      parent_mobile: (stu.parent_mobile || stu.parentMobile || "")
+        .replace(/\D/g, "")
+        .slice(0, 10),
       parent_email: stu.parent_email || stu.parentEmail || "",
       admission_date: stu.admission_date || stu.admissionDate || "",
       profile_photo: stu.profile_photo || stu.profilePhoto || "",
-      is_active: stu.is_active !== undefined ? stu.is_active : (stu.isActive !== undefined ? stu.isActive : true),
+      is_active:
+        stu.is_active !== undefined
+          ? stu.is_active
+          : stu.isActive !== undefined
+            ? stu.isActive
+            : true,
     });
     setShowStudentModal(true);
   };
@@ -311,13 +441,20 @@ const StudentManagement = () => {
     if (!deletingUser) return;
     setDeleting(true);
     try {
-      const id = deletingUser.id || deletingUser.student_id || deletingUser.studentId;
+      const id =
+        deletingUser.id || deletingUser.student_id || deletingUser.studentId;
       await adminApi.deleteStudent(id);
-      notifySuccess(`Student '${deletingUser.name || "record"}' deleted successfully!`);
+      notifySuccess(
+        `Student '${deletingUser.name || "record"}' deleted successfully!`,
+      );
       await fetchAllData();
     } catch (err) {
       console.error("Delete student error:", err);
-      const serverMsg = err.response?.data?.error || err.response?.data?.message || err.message || "Failed to delete student";
+      const serverMsg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        "Failed to delete student";
       notifyError(`Failed to delete student record: ${serverMsg}`);
     } finally {
       setDeleting(false);
@@ -325,58 +462,240 @@ const StudentManagement = () => {
     }
   };
 
-  const isUuid = (val) => typeof val === 'string' && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(val);
-  const toValidUuidOrNull = (val) => (val && isUuid(String(val).trim())) ? String(val).trim() : null;
-  const isDateStr = (val) => typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val);
-  const toValidDateOrNull = (val) => (val && isDateStr(String(val).trim())) ? String(val).trim() : null;
+  const isUuid = (val) =>
+    typeof val === "string" &&
+    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
+      val,
+    );
+  const toValidUuidOrNull = (val) =>
+    val && isUuid(String(val).trim()) ? String(val).trim() : null;
+  const isDateStr = (val) =>
+    typeof val === "string" && /^\d{4}-\d{2}-\d{2}$/.test(val);
+  const toValidDateOrNull = (val) =>
+    val && isDateStr(String(val).trim()) ? String(val).trim() : null;
 
   const handleSaveStudent = async (e) => {
     e.preventDefault();
-    const todayDateStr = new Date().toISOString().split("T")[0];
-    if (studentForm.date_of_birth && studentForm.date_of_birth > todayDateStr) {
-      notifyError("Date of Birth cannot be in the future (after today).");
+
+    // 1. Mandatory Academic Selection Validations
+    if (!studentForm.institute_id) {
+      notifyError("Please select an Institute.");
       return;
     }
+    if (!studentForm.department_id) {
+      notifyError("Please select a Department.");
+      return;
+    }
+    if (!studentForm.semester_id) {
+      notifyError("Please select an Enrolled Semester.");
+      return;
+    }
+    if (!studentForm.batch_id) {
+      notifyError("Please select an Academic Batch.");
+      return;
+    }
+
+    // 2. Enrollment Number Validation
+    const cleanEnrollment = studentForm.enrollment_no
+      ? String(studentForm.enrollment_no).trim().toUpperCase()
+      : "";
+    if (!cleanEnrollment) {
+      notifyError("Enrollment Number is required.");
+      return;
+    }
+    if (cleanEnrollment.length < 3 || cleanEnrollment.length > 30) {
+      notifyError("Enrollment Number must be between 3 and 30 characters.");
+      return;
+    }
+    if (!/^[A-Z0-9-]+$/.test(cleanEnrollment)) {
+      notifyError(
+        "Enrollment Number can only contain uppercase letters, numbers, and hyphens.",
+      );
+      return;
+    }
+
+    // 3. First Name Validation
+    const cleanFirstName = studentForm.first_name
+      ? String(studentForm.first_name).trim()
+      : "";
+    if (!cleanFirstName) {
+      notifyError("First Name is required.");
+      return;
+    }
+    if (cleanFirstName.length < 2) {
+      notifyError("First Name must be at least 2 characters.");
+      return;
+    }
+    if (!/^[a-zA-Z\s.'-]+$/.test(cleanFirstName)) {
+      notifyError("First Name can only contain letters and spaces.");
+      return;
+    }
+
+    // 4. Last Name Validation (Optional)
+    const cleanLastName = studentForm.last_name
+      ? String(studentForm.last_name).trim()
+      : "";
+    if (cleanLastName && !/^[a-zA-Z\s.'-]+$/.test(cleanLastName)) {
+      notifyError("Last Name can only contain letters and spaces.");
+      return;
+    }
+
+    // 5. Surname Validation (Optional)
+    const cleanSurname = studentForm.surname
+      ? String(studentForm.surname).trim()
+      : "";
+    if (cleanSurname && !/^[a-zA-Z\s.'-]+$/.test(cleanSurname)) {
+      notifyError("Surname can only contain letters and spaces.");
+      return;
+    }
+
+    // 6. Student Email Validation
+    const cleanEmail = studentForm.email
+      ? String(studentForm.email).trim()
+      : "";
+    if (!cleanEmail) {
+      notifyError("Student Email is required.");
+      return;
+    }
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(cleanEmail)) {
+      notifyError("Please enter a valid Student Email address.");
+      return;
+    }
+
+    // 7. Student Mobile Validation (Optional)
+    const cleanStudentMobile = studentForm.mobile
+      ? String(studentForm.mobile).trim()
+      : "";
+    if (cleanStudentMobile && !/^[6-9]\d{9}$/.test(cleanStudentMobile)) {
+      notifyError(
+        "Enter Valid Mobile Number (10 digits starting with 6, 7, 8, or 9).",
+      );
+      return;
+    }
+
+    // 8. Date of Birth Validation (Optional)
+    const todayDateStr = new Date().toISOString().split("T")[0];
+    if (studentForm.date_of_birth) {
+      if (studentForm.date_of_birth > todayDateStr) {
+        notifyError("Date of Birth cannot be in the future (after today).");
+        return;
+      }
+      if (studentForm.date_of_birth < "1950-01-01") {
+        notifyError("Please enter a valid Date of Birth (after 1950).");
+        return;
+      }
+    }
+
+    // 9. Admission Date Validation (Optional)
+    if (studentForm.admission_date) {
+      if (studentForm.admission_date > todayDateStr) {
+        notifyError("Admission Date cannot be in the future.");
+        return;
+      }
+      if (
+        studentForm.date_of_birth &&
+        studentForm.admission_date <= studentForm.date_of_birth
+      ) {
+        notifyError("Admission Date must be after Date of Birth.");
+        return;
+      }
+    }
+
+    // 10. Parent Name Validation (Optional)
+    const cleanParentName = studentForm.parent_name
+      ? String(studentForm.parent_name).trim()
+      : "";
+    if (cleanParentName && !/^[a-zA-Z\s.'-]+$/.test(cleanParentName)) {
+      notifyError("Parent Name can only contain letters and spaces.");
+      return;
+    }
+
+    // 11. Parent Mobile Validation (Optional)
+    const cleanParentMobile = studentForm.parent_mobile
+      ? String(studentForm.parent_mobile).trim()
+      : "";
+    if (cleanParentMobile && !/^[6-9]\d{9}$/.test(cleanParentMobile)) {
+      notifyError(
+        "Enter Valid Parent Mobile Number (10 digits starting with 6, 7, 8, or 9).",
+      );
+      return;
+    }
+
+    // 12. Parent Email Validation (Optional)
+    const cleanParentEmail = studentForm.parent_email
+      ? String(studentForm.parent_email).trim()
+      : "";
+    if (cleanParentEmail && !emailRegex.test(cleanParentEmail)) {
+      notifyError("Please enter a valid Parent Email address.");
+      return;
+    }
+
+    // 13. Profile Photo Validation (Optional)
+    const cleanProfilePhoto = studentForm.profile_photo
+      ? String(studentForm.profile_photo).trim()
+      : "";
+    if (
+      cleanProfilePhoto &&
+      !cleanProfilePhoto.startsWith("data:image/") &&
+      !cleanProfilePhoto.startsWith("http://") &&
+      !cleanProfilePhoto.startsWith("https://")
+    ) {
+      notifyError(
+        "Profile photo must be a valid image URL (http/https) or an uploaded image.",
+      );
+      return;
+    }
+
     setSaving(true);
     try {
       const payload = {
-        enrollment_no: studentForm.enrollment_no && String(studentForm.enrollment_no).trim() !== ""
-          ? String(studentForm.enrollment_no).trim().toUpperCase()
-          : `25CI${Math.floor(10000 + Math.random() * 90000)}`,
-        first_name: studentForm.first_name ? String(studentForm.first_name).trim() : "Student",
-        last_name: studentForm.last_name ? String(studentForm.last_name).trim() : "",
-        surname: studentForm.surname ? String(studentForm.surname).trim() : "",
-        email: studentForm.email ? String(studentForm.email).trim() : `student${Math.floor(1000 + Math.random() * 9000)}@educonnect.ac.in`,
-        mobile: studentForm.mobile ? String(studentForm.mobile).trim() : "",
+        enrollment_no: cleanEnrollment,
+        first_name: cleanFirstName,
+        last_name: cleanLastName,
+        surname: cleanSurname,
+        email: cleanEmail,
+        mobile: cleanStudentMobile || "N/A",
         gender: studentForm.gender || "Male",
         date_of_birth: toValidDateOrNull(studentForm.date_of_birth),
-        address: studentForm.address ? String(studentForm.address).trim() : "",
+        address: studentForm.address
+          ? String(studentForm.address).trim().slice(0, 500)
+          : "",
         institute_id: toValidUuidOrNull(studentForm.institute_id),
         department_id: toValidUuidOrNull(studentForm.department_id),
         semester_id: toValidUuidOrNull(studentForm.semester_id),
         batch_id: toValidUuidOrNull(studentForm.batch_id),
-        parent_name: studentForm.parent_name ? String(studentForm.parent_name).trim() : "",
-        parent_mobile: studentForm.parent_mobile ? String(studentForm.parent_mobile).trim() : "",
-        parent_email: studentForm.parent_email ? String(studentForm.parent_email).trim() : "",
+        parent_name: cleanParentName,
+        parent_mobile: cleanParentMobile,
+        parent_email: cleanParentEmail,
         blood_group: studentForm.blood_group || "O+",
         admission_date: toValidDateOrNull(studentForm.admission_date),
-        profile_photo: studentForm.profile_photo && String(studentForm.profile_photo).trim() !== "" ? studentForm.profile_photo : null,
+        profile_photo: cleanProfilePhoto || null,
         is_active: Boolean(studentForm.is_active),
       };
 
       if (editStudent) {
-        const id = editStudent.student_id || editStudent.studentId || editStudent.id;
+        const id =
+          editStudent.student_id || editStudent.studentId || editStudent.id;
         await adminApi.updateStudent(id, payload);
-        notifySuccess(`Student '${payload.first_name} ${payload.last_name}' details updated successfully!`);
+        notifySuccess(
+          `Student '${payload.first_name} ${payload.last_name}' details updated successfully!`,
+        );
       } else {
         await adminApi.createStudent(payload);
-        notifySuccess(`Student '${payload.first_name} ${payload.last_name}' added successfully to database!`);
+        notifySuccess(
+          `Student '${payload.first_name} ${payload.last_name}' added successfully to database!`,
+        );
       }
       await fetchAllData();
       setShowStudentModal(false);
     } catch (err) {
       console.error("Save student error:", err);
-      const serverMsg = err.response?.data?.error || err.response?.data?.message || err.message || "Unknown error";
+      const serverMsg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        "Unknown error";
       notifyError(`Failed to save student record: ${serverMsg}`);
     } finally {
       setSaving(false);
@@ -388,7 +707,9 @@ const StudentManagement = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
-          <h1 className="text-xl font-bold text-[#1E293B]">Student Management</h1>
+          <h1 className="text-xl font-bold text-[#1E293B]">
+            Student Management
+          </h1>
         </div>
 
         <div className="flex items-center gap-3">
@@ -416,18 +737,32 @@ const StudentManagement = () => {
                   const newInst = e.target.value;
                   setSelectedInstitute(newInst);
                   if (newInst !== "all") {
-                    const validProgs = programs.filter((p) => (p.institute_id || p.instituteId) === newInst);
-                    if (!validProgs.some((p) => (p.department_id || p.program_id || p.id) === selectedDepartment)) {
+                    const validProgs = programs.filter(
+                      (p) => (p.institute_id || p.instituteId) === newInst,
+                    );
+                    if (
+                      !validProgs.some(
+                        (p) =>
+                          (p.department_id || p.program_id || p.id) ===
+                          selectedDepartment,
+                      )
+                    ) {
                       setSelectedDepartment("all");
                     }
                   }
                 }}
                 className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs font-semibold text-[#1E293B] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all cursor-pointer"
               >
-                <option value="all">All Institutes ({institutes.length})</option>
+                <option value="all">
+                  All Institutes ({institutes.length})
+                </option>
                 {institutes.map((inst) => (
-                  <option key={inst.institute_id || inst.id} value={inst.institute_id || inst.id}>
-                    {inst.institute_code || inst.code} - {inst.institute_name || inst.name}
+                  <option
+                    key={inst.institute_id || inst.id}
+                    value={inst.institute_id || inst.id}
+                  >
+                    {inst.institute_code || inst.code} -{" "}
+                    {inst.institute_name || inst.name}
                   </option>
                 ))}
               </select>
@@ -442,8 +777,12 @@ const StudentManagement = () => {
               >
                 <option value="all">All Departments</option>
                 {availableDepartments.map((prog) => (
-                  <option key={prog.department_id || prog.program_id || prog.id} value={prog.department_id || prog.program_id || prog.id}>
-                    {prog.department_code || prog.program_code || prog.code} - {prog.department_name || prog.program_name || prog.name}
+                  <option
+                    key={prog.department_id || prog.program_id || prog.id}
+                    value={prog.department_id || prog.program_id || prog.id}
+                  >
+                    {prog.department_code || prog.program_code || prog.code} -{" "}
+                    {prog.department_name || prog.program_name || prog.name}
                   </option>
                 ))}
               </select>
@@ -457,11 +796,17 @@ const StudentManagement = () => {
                 className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl text-xs font-semibold text-[#1E293B] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all cursor-pointer"
               >
                 <option value="all">All Semesters</option>
-                {getAvailableSemestersForDepartment(selectedDepartment).map((sem) => (
-                  <option key={sem.semester_id || sem.id} value={sem.semester_id || sem.id}>
-                    {sem.semester_name || `Semester ${sem.semester_number || sem.number}`}
-                  </option>
-                ))}
+                {getAvailableSemestersForDepartment(selectedDepartment).map(
+                  (sem) => (
+                    <option
+                      key={sem.semester_id || sem.id}
+                      value={sem.semester_id || sem.id}
+                    >
+                      {sem.semester_name ||
+                        `Semester ${sem.semester_number || sem.number}`}
+                    </option>
+                  ),
+                )}
               </select>
             </div>
 
@@ -470,6 +815,7 @@ const StudentManagement = () => {
               <div className="relative">
                 <input
                   type="text"
+                  maxLength={100}
                   placeholder="Search name, enrollment, email..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -521,8 +867,13 @@ const StudentManagement = () => {
                 </tr>
               ) : filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="p-8 text-center text-[#64748B] font-medium">
-                    No student records found in database. Click <strong className="text-[#2563EB]">"Add Student"</strong> to create a new record.
+                  <td
+                    colSpan="6"
+                    className="p-8 text-center text-[#64748B] font-medium"
+                  >
+                    No student records found in database. Click{" "}
+                    <strong className="text-[#2563EB]">"Add Student"</strong> to
+                    create a new record.
                   </td>
                 </tr>
               ) : (
@@ -536,16 +887,24 @@ const StudentManagement = () => {
 
                   return (
                     <tr key={sId || enroll} className="hover:bg-[#F8FAFC]">
-                      <td className="p-3.5 font-mono font-bold text-[#2563EB]">{enroll}</td>
-                      <td className="p-3.5 font-semibold">{fName} {lName}</td>
+                      <td className="p-3.5 font-mono font-bold text-[#2563EB]">
+                        {enroll}
+                      </td>
+                      <td className="p-3.5 font-semibold">
+                        {fName} {lName}
+                      </td>
                       <td className="p-3.5 font-mono">{stu.mobile || "N/A"}</td>
                       <td className="p-3.5">
-                        <span className="font-semibold text-[#1E293B]">{getDepartmentCode(progId)}</span>
+                        <span className="font-semibold text-[#1E293B]">
+                          {getDepartmentCode(progId)}
+                        </span>
                         <span className="px-2 py-0.5 ml-2 rounded bg-[#14B8A6]/10 text-[#14B8A6] font-bold text-[11px]">
                           ({getSemesterLabel(semId)})
                         </span>
                       </td>
-                      <td className="p-3.5 font-medium">{stu.gender || "Male"}</td>
+                      <td className="p-3.5 font-medium">
+                        {stu.gender || "Male"}
+                      </td>
                       <td className="p-3.5 text-right whitespace-nowrap">
                         <div className="inline-flex items-center justify-end gap-1.5">
                           <button
@@ -563,7 +922,12 @@ const StudentManagement = () => {
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => setDeletingUser({ id: sId, name: `${fName} ${lName}` })}
+                            onClick={() =>
+                              setDeletingUser({
+                                id: sId,
+                                name: `${fName} ${lName}`,
+                              })
+                            }
                             className="p-1.5 hover:bg-[#EF4444]/10 rounded-lg text-[#EF4444] transition-colors cursor-pointer"
                             title="Delete Record"
                           >
@@ -591,8 +955,12 @@ const StudentManagement = () => {
                   <GraduationCap className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-extrabold text-[#1E293B]">Student Information</h3>
-                  <p className="text-xs text-[#64748B]">Complete profile details of enrolled student</p>
+                  <h3 className="text-lg font-extrabold text-[#1E293B]">
+                    Student Information
+                  </h3>
+                  <p className="text-xs text-[#64748B]">
+                    Complete profile details of enrolled student
+                  </p>
                 </div>
               </div>
               <button
@@ -616,23 +984,42 @@ const StudentManagement = () => {
                   />
                 ) : (
                   <div className="w-20 h-20 rounded-xl bg-gradient-to-tr from-[#2563EB] to-[#14B8A6] text-white font-extrabold text-2xl flex items-center justify-center shadow-xs shrink-0">
-                    {(viewStudent.first_name || viewStudent.firstName || "S")[0]}
+                    {
+                      (viewStudent.first_name ||
+                        viewStudent.firstName ||
+                        "S")[0]
+                    }
                   </div>
                 )}
                 <div className="flex-1 text-center sm:text-left space-y-1">
                   <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                     <h4 className="text-lg font-extrabold text-[#1E293B]">
-                      {viewStudent.first_name || viewStudent.firstName} {viewStudent.last_name || viewStudent.lastName}
+                      {viewStudent.first_name || viewStudent.firstName}{" "}
+                      {viewStudent.last_name || viewStudent.lastName}
                     </h4>
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${viewStudent.is_active !== false && viewStudent.isActive !== false ? 'bg-[#14B8A6]/10 text-[#14B8A6] border-[#14B8A6]/20' : 'bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/20'}`}>
-                      {viewStudent.is_active !== false && viewStudent.isActive !== false ? 'Active Student' : 'Inactive'}
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${viewStudent.is_active !== false && viewStudent.isActive !== false ? "bg-[#14B8A6]/10 text-[#14B8A6] border-[#14B8A6]/20" : "bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/20"}`}
+                    >
+                      {viewStudent.is_active !== false &&
+                        viewStudent.isActive !== false
+                        ? "Active Student"
+                        : "Inactive"}
                     </span>
                   </div>
                   <p className="font-mono text-[#2563EB] font-bold text-xs">
-                    Enrollment No: {viewStudent.enrollment_no || viewStudent.enrollmentNo || "N/A"}
+                    Enrollment No:{" "}
+                    {viewStudent.enrollment_no ||
+                      viewStudent.enrollmentNo ||
+                      "N/A"}
                   </p>
                   <p className="text-xs text-[#64748B] font-medium">
-                    {getDepartmentName(viewStudent.department_id || viewStudent.departmentId)} • {getSemesterLabel(viewStudent.semester_id || viewStudent.semesterId)}
+                    {getDepartmentName(
+                      viewStudent.department_id || viewStudent.departmentId,
+                    )}{" "}
+                    •{" "}
+                    {getSemesterLabel(
+                      viewStudent.semester_id || viewStudent.semesterId,
+                    )}
                   </p>
                 </div>
               </div>
@@ -644,39 +1031,72 @@ const StudentManagement = () => {
                 </h5>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Institute</span>
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                      Institute
+                    </span>
                     <p className="font-semibold text-[#1E293B]">
-                      {getInstituteCode(viewStudent.institute_id || viewStudent.instituteId)} - {getInstituteName(viewStudent.institute_id || viewStudent.instituteId)}
+                      {getInstituteCode(
+                        viewStudent.institute_id || viewStudent.instituteId,
+                      )}{" "}
+                      -{" "}
+                      {getInstituteName(
+                        viewStudent.institute_id || viewStudent.instituteId,
+                      )}
                     </p>
                   </div>
                   <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Department</span>
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                      Department
+                    </span>
                     <p className="font-semibold text-[#1E293B]">
-                      {getDepartmentCode(viewStudent.department_id || viewStudent.departmentId)} - {getDepartmentName(viewStudent.department_id || viewStudent.departmentId)}
+                      {getDepartmentCode(
+                        viewStudent.department_id || viewStudent.departmentId,
+                      )}{" "}
+                      -{" "}
+                      {getDepartmentName(
+                        viewStudent.department_id || viewStudent.departmentId,
+                      )}
                     </p>
                   </div>
                   <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Enrolled Semester</span>
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                      Enrolled Semester
+                    </span>
                     <p className="font-semibold text-[#14B8A6]">
-                      {getSemesterLabel(viewStudent.semester_id || viewStudent.semesterId)}
+                      {getSemesterLabel(
+                        viewStudent.semester_id || viewStudent.semesterId,
+                      )}
                     </p>
                   </div>
                   <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Academic Batch</span>
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                      Academic Batch
+                    </span>
                     <p className="font-semibold text-[#F59E0B]">
-                      {getBatchName(viewStudent.batch_id || viewStudent.batchId)}
+                      {getBatchName(
+                        viewStudent.batch_id || viewStudent.batchId,
+                      )}
                     </p>
                   </div>
                   <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Admission Date</span>
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                      Admission Date
+                    </span>
                     <p className="font-medium text-[#1E293B]">
-                      {viewStudent.admission_date || viewStudent.admissionDate || "N/A"}
+                      {viewStudent.admission_date ||
+                        viewStudent.admissionDate ||
+                        "N/A"}
                     </p>
                   </div>
                   <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Account Status</span>
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                      Account Status
+                    </span>
                     <p className="font-bold text-[#1E293B]">
-                      {viewStudent.is_active !== false && viewStudent.isActive !== false ? "Active" : "Inactive"}
+                      {viewStudent.is_active !== false &&
+                        viewStudent.isActive !== false
+                        ? "Active"
+                        : "Inactive"}
                     </p>
                   </div>
                 </div>
@@ -689,24 +1109,48 @@ const StudentManagement = () => {
                 </h5>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Student Email</span>
-                    <p className="font-medium text-[#1E293B]">{viewStudent.email || "N/A"}</p>
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                      Student Email
+                    </span>
+                    <p className="font-medium text-[#1E293B]">
+                      {viewStudent.email || "N/A"}
+                    </p>
                   </div>
                   <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Mobile Number</span>
-                    <p className="font-mono text-[#1E293B] font-bold">{viewStudent.mobile || "N/A"}</p>
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                      Mobile Number
+                    </span>
+                    <p className="font-mono text-[#1E293B] font-bold">
+                      {viewStudent.mobile || "N/A"}
+                    </p>
                   </div>
                   <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Gender</span>
-                    <p className="font-medium text-[#1E293B]">{viewStudent.gender || "N/A"}</p>
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                      Gender
+                    </span>
+                    <p className="font-medium text-[#1E293B]">
+                      {viewStudent.gender || "N/A"}
+                    </p>
                   </div>
                   <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Date of Birth</span>
-                    <p className="font-medium text-[#1E293B]">{viewStudent.date_of_birth || viewStudent.dateOfBirth || "N/A"}</p>
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                      Date of Birth
+                    </span>
+                    <p className="font-medium text-[#1E293B]">
+                      {viewStudent.date_of_birth ||
+                        viewStudent.dateOfBirth ||
+                        "N/A"}
+                    </p>
                   </div>
                   <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] sm:col-span-2">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Blood Group</span>
-                    <p className="font-semibold text-[#EF4444]">{viewStudent.blood_group || viewStudent.bloodGroup || "N/A"}</p>
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                      Blood Group
+                    </span>
+                    <p className="font-semibold text-[#EF4444]">
+                      {viewStudent.blood_group ||
+                        viewStudent.bloodGroup ||
+                        "N/A"}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -714,20 +1158,39 @@ const StudentManagement = () => {
               {/* 3. Parent / Guardian Contact */}
               <div>
                 <h5 className="font-bold text-[#2563EB] uppercase text-[11px] mb-2 tracking-wider flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5" /> Parent / Guardian Information
+                  <Phone className="w-3.5 h-3.5" /> Parent / Guardian
+                  Information
                 </h5>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Parent Name</span>
-                    <p className="font-medium text-[#1E293B]">{viewStudent.parent_name || viewStudent.parentName || "N/A"}</p>
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                      Parent Name
+                    </span>
+                    <p className="font-medium text-[#1E293B]">
+                      {viewStudent.parent_name ||
+                        viewStudent.parentName ||
+                        "N/A"}
+                    </p>
                   </div>
                   <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Parent Mobile</span>
-                    <p className="font-mono text-[#1E293B] font-bold">{viewStudent.parent_mobile || viewStudent.parentMobile || "N/A"}</p>
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                      Parent Mobile
+                    </span>
+                    <p className="font-mono text-[#1E293B] font-bold">
+                      {viewStudent.parent_mobile ||
+                        viewStudent.parentMobile ||
+                        "N/A"}
+                    </p>
                   </div>
                   <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Parent Email</span>
-                    <p className="font-medium text-[#1E293B]">{viewStudent.parent_email || viewStudent.parentEmail || "N/A"}</p>
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                      Parent Email
+                    </span>
+                    <p className="font-medium text-[#1E293B]">
+                      {viewStudent.parent_email ||
+                        viewStudent.parentEmail ||
+                        "N/A"}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -735,24 +1198,41 @@ const StudentManagement = () => {
               {/* 4. Address & System Metadata */}
               <div>
                 <h5 className="font-bold text-[#2563EB] uppercase text-[11px] mb-2 tracking-wider flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5" /> Residential Address & System Metadata
+                  <MapPin className="w-3.5 h-3.5" /> Residential Address &
+                  System Metadata
                 </h5>
                 <div className="space-y-2.5">
                   <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Residential Address</span>
-                    <p className="font-medium text-[#1E293B]">{viewStudent.address || "N/A"}</p>
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                      Residential Address
+                    </span>
+                    <p className="font-medium text-[#1E293B]">
+                      {viewStudent.address || "N/A"}
+                    </p>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                      <span className="text-[10px] text-[#64748B] font-bold block uppercase">Record Created At</span>
+                      <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                        Record Created At
+                      </span>
                       <p className="font-mono text-[#64748B] text-[11px]">
-                        {viewStudent.created_at || viewStudent.createdAt ? new Date(viewStudent.created_at || viewStudent.createdAt).toLocaleString("en-IN") : "N/A"}
+                        {viewStudent.created_at || viewStudent.createdAt
+                          ? new Date(
+                            viewStudent.created_at || viewStudent.createdAt,
+                          ).toLocaleString("en-IN")
+                          : "N/A"}
                       </p>
                     </div>
                     <div className="p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                      <span className="text-[10px] text-[#64748B] font-bold block uppercase">Last Updated At</span>
+                      <span className="text-[10px] text-[#64748B] font-bold block uppercase">
+                        Last Updated At
+                      </span>
                       <p className="font-mono text-[#64748B] text-[11px]">
-                        {viewStudent.updated_at || viewStudent.updatedAt ? new Date(viewStudent.updated_at || viewStudent.updatedAt).toLocaleString("en-IN") : "N/A"}
+                        {viewStudent.updated_at || viewStudent.updatedAt
+                          ? new Date(
+                            viewStudent.updated_at || viewStudent.updatedAt,
+                          ).toLocaleString("en-IN")
+                          : "N/A"}
                       </p>
                     </div>
                   </div>
@@ -762,7 +1242,11 @@ const StudentManagement = () => {
 
             {/* Footer */}
             <div className="flex justify-end pt-3 border-t border-[#E2E8F0] shrink-0">
-              <Button variant="outline" size="sm" onClick={() => setViewStudent(null)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setViewStudent(null)}
+              >
                 Close
               </Button>
             </div>
@@ -776,7 +1260,9 @@ const StudentManagement = () => {
           <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4 my-auto max-h-[90vh] flex flex-col animate-fade-in text-xs">
             <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3 shrink-0">
               <h3 className="text-base font-bold text-[#1E293B]">
-                {editStudent ? "Edit Student Information" : "Add New Student Record"}
+                {editStudent
+                  ? "Edit Student Information"
+                  : "Add New Student Record"}
               </h3>
               <button
                 onClick={() => setShowStudentModal(false)}
@@ -785,18 +1271,24 @@ const StudentManagement = () => {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleSaveStudent} className="flex flex-col grow overflow-hidden space-y-4">
+            <form
+              onSubmit={handleSaveStudent}
+              className="flex flex-col grow overflow-hidden space-y-4"
+            >
               <div className="overflow-y-auto pr-1 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs grow">
                 <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">Institute</label>
+                  <label className="block text-[#64748B] mb-1 font-semibold">
+                    Institute <span className="text-red-500">*</span>
+                  </label>
                   <select
+                    required
                     value={studentForm.institute_id || ""}
                     onChange={(e) => {
                       const newInst = e.target.value;
                       setStudentForm({
                         ...studentForm,
                         institute_id: newInst,
-                        program_id: "",
+                        department_id: "",
                         semester_id: "",
                         batch_id: "",
                       });
@@ -805,10 +1297,12 @@ const StudentManagement = () => {
                   >
                     <option value="">-- Select Institute --</option>
                     {institutes.map((inst) => {
-                      const instId = inst.institute_id || inst.instituteId || inst.id;
+                      const instId =
+                        inst.institute_id || inst.instituteId || inst.id;
                       return (
                         <option key={instId} value={instId}>
-                          {inst.institute_code || inst.code} - {inst.institute_name || inst.name}
+                          {inst.institute_code || inst.code} -{" "}
+                          {inst.institute_name || inst.name}
                         </option>
                       );
                     })}
@@ -816,8 +1310,11 @@ const StudentManagement = () => {
                 </div>
 
                 <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">Department</label>
+                  <label className="block text-[#64748B] mb-1 font-semibold">
+                    Department <span className="text-red-500">*</span>
+                  </label>
                   <select
+                    required
                     disabled={!studentForm.institute_id}
                     value={studentForm.department_id || ""}
                     onChange={(e) => {
@@ -830,8 +1327,8 @@ const StudentManagement = () => {
                       });
                     }}
                     className={`w-full p-2.5 border border-[#E2E8F0] rounded-lg font-semibold ${!studentForm.institute_id
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : "bg-[#F8FAFC] focus:bg-white text-[#1E293B]"
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : "bg-[#F8FAFC] focus:bg-white text-[#1E293B]"
                       }`}
                   >
                     {!studentForm.institute_id ? (
@@ -841,15 +1338,21 @@ const StudentManagement = () => {
                         <option value="">-- Select Department --</option>
                         {formAvailableDepartments.length > 0 ? (
                           formAvailableDepartments.map((dept) => {
-                            const dId = dept.department_id || dept.departmentId || dept.id;
+                            const dId =
+                              dept.department_id ||
+                              dept.departmentId ||
+                              dept.id;
                             return (
                               <option key={dId} value={dId}>
-                                {dept.department_code || dept.code} - {dept.department_name || dept.name}
+                                {dept.department_code || dept.code} -{" "}
+                                {dept.department_name || dept.name}
                               </option>
                             );
                           })
                         ) : (
-                          <option value="" disabled>No departments found for selected institute</option>
+                          <option value="" disabled>
+                            No departments found for selected institute
+                          </option>
                         )}
                       </>
                     )}
@@ -857,8 +1360,11 @@ const StudentManagement = () => {
                 </div>
 
                 <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">Enrolled Semester</label>
+                  <label className="block text-[#64748B] mb-1 font-semibold">
+                    Enrolled Semester <span className="text-red-500">*</span>
+                  </label>
                   <select
+                    required
                     disabled={!studentForm.department_id}
                     value={studentForm.semester_id || ""}
                     onChange={(e) => {
@@ -870,8 +1376,8 @@ const StudentManagement = () => {
                       });
                     }}
                     className={`w-full p-2.5 border border-[#E2E8F0] rounded-lg font-semibold ${!studentForm.department_id
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : "bg-[#F8FAFC] focus:bg-white text-[#14B8A6]"
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : "bg-[#F8FAFC] focus:bg-white text-[#14B8A6]"
                       }`}
                   >
                     {!studentForm.department_id ? (
@@ -880,10 +1386,12 @@ const StudentManagement = () => {
                       <>
                         <option value="">-- Select Semester --</option>
                         {formAvailableSemesters.map((sem) => {
-                          const sId = sem.semester_id || sem.semesterId || sem.id;
+                          const sId =
+                            sem.semester_id || sem.semesterId || sem.id;
                           return (
                             <option key={sId} value={sId}>
-                              {sem.semester_name || `Semester ${sem.semester_number || sem.number}`}
+                              {sem.semester_name ||
+                                `Semester ${sem.semester_number || sem.number}`}
                             </option>
                           );
                         })}
@@ -893,14 +1401,22 @@ const StudentManagement = () => {
                 </div>
 
                 <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">Academic Batch</label>
+                  <label className="block text-[#64748B] mb-1 font-semibold">
+                    Academic Batch <span className="text-red-500">*</span>
+                  </label>
                   <select
+                    required
                     disabled={!studentForm.semester_id}
                     value={studentForm.batch_id || ""}
-                    onChange={(e) => setStudentForm({ ...studentForm, batch_id: e.target.value })}
+                    onChange={(e) =>
+                      setStudentForm({
+                        ...studentForm,
+                        batch_id: e.target.value,
+                      })
+                    }
                     className={`w-full p-2.5 border border-[#E2E8F0] rounded-lg font-semibold ${!studentForm.semester_id
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : "bg-[#F8FAFC] focus:bg-white text-[#F59E0B]"
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : "bg-[#F8FAFC] focus:bg-white text-[#F59E0B]"
                       }`}
                   >
                     {!studentForm.semester_id ? (
@@ -923,78 +1439,142 @@ const StudentManagement = () => {
                 </div>
 
                 <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">Enrollment No</label>
+                  <label className="block text-[#64748B] mb-1 font-semibold">
+                    Enrollment No <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
+                    required
+                    maxLength={30}
                     placeholder="e.g. 25CI211001"
                     value={studentForm.enrollment_no}
-                    onChange={(e) => setStudentForm({ ...studentForm, enrollment_no: e.target.value.toUpperCase() })}
+                    onChange={(e) =>
+                      setStudentForm({
+                        ...studentForm,
+                        enrollment_no: e.target.value
+                          .toUpperCase()
+                          .replace(/[^A-Z0-9-]/g, "")
+                          .slice(0, 30),
+                      })
+                    }
                     className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg font-mono font-bold text-[#2563EB]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">First Name</label>
+                  <label className="block text-[#64748B] mb-1 font-semibold">
+                    First Name <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     required
+                    maxLength={50}
                     placeholder="First name"
                     value={studentForm.first_name}
-                    onChange={(e) => setStudentForm({ ...studentForm, first_name: e.target.value })}
+                    onChange={(e) =>
+                      setStudentForm({
+                        ...studentForm,
+                        first_name: e.target.value
+                          .replace(/[^a-zA-Z\s.'-]/g, "")
+                          .slice(0, 50),
+                      })
+                    }
                     className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">Last Name</label>
+                  <label className="block text-[#64748B] mb-1 font-semibold">
+                    Last Name
+                  </label>
                   <input
                     type="text"
+                    maxLength={50}
                     placeholder="Last name"
                     value={studentForm.last_name}
-                    onChange={(e) => setStudentForm({ ...studentForm, last_name: e.target.value })}
+                    onChange={(e) =>
+                      setStudentForm({
+                        ...studentForm,
+                        last_name: e.target.value
+                          .replace(/[^a-zA-Z\s.'-]/g, "")
+                          .slice(0, 50),
+                      })
+                    }
                     className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">Surname</label>
+                  <label className="block text-[#64748B] mb-1 font-semibold">
+                    Surname
+                  </label>
                   <input
                     type="text"
+                    maxLength={50}
                     placeholder="Surname"
                     value={studentForm.surname}
-                    onChange={(e) => setStudentForm({ ...studentForm, surname: e.target.value })}
+                    onChange={(e) =>
+                      setStudentForm({
+                        ...studentForm,
+                        surname: e.target.value
+                          .replace(/[^a-zA-Z\s.'-]/g, "")
+                          .slice(0, 50),
+                      })
+                    }
                     className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">Student Email</label>
+                  <label className="block text-[#64748B] mb-1 font-semibold">
+                    Student Email <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="email"
                     required
+                    maxLength={100}
                     placeholder="student@educonnect.ac.in"
                     value={studentForm.email}
-                    onChange={(e) => setStudentForm({ ...studentForm, email: e.target.value })}
+                    onChange={(e) =>
+                      setStudentForm({
+                        ...studentForm,
+                        email: e.target.value.trim().slice(0, 100),
+                      })
+                    }
                     className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">Student Mobile</label>
+                  <label className="block text-[#64748B] mb-1 font-semibold">
+                    Student Mobile
+                  </label>
                   <input
-                    type="text"
-                    placeholder="+91 9876543210"
+                    type="tel"
+                    maxLength={10}
+                    placeholder="9876543210"
+                    pattern="[6-9][0-9]{9}"
                     value={studentForm.mobile}
-                    onChange={(e) => setStudentForm({ ...studentForm, mobile: e.target.value })}
+                    onChange={(e) =>
+                      setStudentForm({
+                        ...studentForm,
+                        mobile: e.target.value.replace(/\D/g, "").slice(0, 10),
+                      })
+                    }
                     className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">Gender</label>
+                  <label className="block text-[#64748B] mb-1 font-semibold">
+                    Gender <span className="text-red-500">*</span>
+                  </label>
                   <select
+                    required
                     value={studentForm.gender}
-                    onChange={(e) => setStudentForm({ ...studentForm, gender: e.target.value })}
+                    onChange={(e) =>
+                      setStudentForm({ ...studentForm, gender: e.target.value })
+                    }
                     className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
                   >
                     <option value="Male">Male</option>
@@ -1004,16 +1584,23 @@ const StudentManagement = () => {
                 </div>
 
                 <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">Date of Birth</label>
+                  <label className="block text-[#64748B] mb-1 font-semibold">
+                    Date of Birth
+                  </label>
                   <input
                     type="date"
                     max={new Date().toISOString().split("T")[0]}
+                    min="1950-01-01"
                     value={studentForm.date_of_birth}
                     onChange={(e) => {
                       const val = e.target.value;
-                      const todayDateStr = new Date().toISOString().split("T")[0];
+                      const todayDateStr = new Date()
+                        .toISOString()
+                        .split("T")[0];
                       if (val && val > todayDateStr) {
-                        alert("Date of Birth cannot be in the future (after today).");
+                        notifyError(
+                          "Date of Birth cannot be in the future (after today).",
+                        );
                         return;
                       }
                       setStudentForm({ ...studentForm, date_of_birth: val });
@@ -1023,10 +1610,17 @@ const StudentManagement = () => {
                 </div>
 
                 <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">Blood Group</label>
+                  <label className="block text-[#64748B] mb-1 font-semibold">
+                    Blood Group
+                  </label>
                   <select
                     value={studentForm.blood_group}
-                    onChange={(e) => setStudentForm({ ...studentForm, blood_group: e.target.value })}
+                    onChange={(e) =>
+                      setStudentForm({
+                        ...studentForm,
+                        blood_group: e.target.value,
+                      })
+                    }
                     className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
                   >
                     <option value="A+">A+</option>
@@ -1041,67 +1635,147 @@ const StudentManagement = () => {
                 </div>
 
                 <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">Admission Date</label>
+                  <label className="block text-[#64748B] mb-1 font-semibold">
+                    Admission Date
+                  </label>
                   <input
                     type="date"
+                    max={new Date().toISOString().split("T")[0]}
                     value={studentForm.admission_date}
-                    onChange={(e) => setStudentForm({ ...studentForm, admission_date: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const todayDateStr = new Date()
+                        .toISOString()
+                        .split("T")[0];
+                      if (val && val > todayDateStr) {
+                        notifyError("Admission Date cannot be in the future.");
+                        return;
+                      }
+                      if (
+                        studentForm.date_of_birth &&
+                        val &&
+                        val <= studentForm.date_of_birth
+                      ) {
+                        notifyError(
+                          "Admission Date must be after Date of Birth.",
+                        );
+                        return;
+                      }
+                      setStudentForm({
+                        ...studentForm,
+                        admission_date: val,
+                      });
+                    }}
                     className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">Parent Name</label>
+                  <label className="block text-[#64748B] mb-1 font-semibold">
+                    Parent Name
+                  </label>
                   <input
                     type="text"
+                    maxLength={100}
                     placeholder="Parent / Guardian Name"
                     value={studentForm.parent_name}
-                    onChange={(e) => setStudentForm({ ...studentForm, parent_name: e.target.value })}
+                    onChange={(e) =>
+                      setStudentForm({
+                        ...studentForm,
+                        parent_name: e.target.value
+                          .replace(/[^a-zA-Z\s.'-]/g, "")
+                          .slice(0, 100),
+                      })
+                    }
                     className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">Parent Mobile</label>
+                  <label className="block text-[#64748B] mb-1 font-semibold">
+                    Parent Mobile
+                  </label>
                   <input
-                    type="text"
-                    placeholder="+91 9876543210"
+                    type="tel"
+                    maxLength={10}
+                    placeholder="9876543210"
+                    pattern="[6-9][0-9]{9}"
                     value={studentForm.parent_mobile}
-                    onChange={(e) => setStudentForm({ ...studentForm, parent_mobile: e.target.value })}
+                    onChange={(e) =>
+                      setStudentForm({
+                        ...studentForm,
+                        parent_mobile: e.target.value
+                          .replace(/\D/g, "")
+                          .slice(0, 10),
+                      })
+                    }
                     className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[#64748B] mb-1 font-semibold">Parent Email</label>
+                  <label className="block text-[#64748B] mb-1 font-semibold">
+                    Parent Email
+                  </label>
                   <input
                     type="email"
+                    maxLength={100}
                     value={studentForm.parent_email}
-                    onChange={(e) => setStudentForm({ ...studentForm, parent_email: e.target.value })}
+                    onChange={(e) =>
+                      setStudentForm({
+                        ...studentForm,
+                        parent_email: e.target.value.trim().slice(0, 100),
+                      })
+                    }
                     placeholder="parent@gmail.com"
                     className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
                   />
                 </div>
 
                 <div className="sm:col-span-2 space-y-1.5">
-                  <label className="block text-[#64748B] font-semibold">Upload Profile Photo or Image URL</label>
+                  <label className="block text-[#64748B] font-semibold">
+                    Upload Profile Photo or Image URL
+                  </label>
                   <div className="flex flex-col sm:flex-row items-center gap-3">
                     <input
                       type="text"
+                      maxLength={1000}
                       placeholder="Paste image URL (optional)"
                       value={studentForm.profile_photo || ""}
-                      onChange={(e) => setStudentForm({ ...studentForm, profile_photo: e.target.value })}
+                      onChange={(e) =>
+                        setStudentForm({
+                          ...studentForm,
+                          profile_photo: e.target.value.trim().slice(0, 1000),
+                        })
+                      }
                       className="flex-1 w-full p-2 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg text-xs"
                     />
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/png, image/jpeg, image/jpg, image/webp"
                       onChange={(e) => {
                         const file = e.target.files[0];
                         if (file) {
+                          if (!file.type.startsWith("image/")) {
+                            notifyError(
+                              "Please select a valid image file (JPG, PNG, WebP).",
+                            );
+                            e.target.value = "";
+                            return;
+                          }
+                          if (file.size > 5 * 1024 * 1024) {
+                            notifyError(
+                              "Image file size must be less than 5MB.",
+                            );
+                            e.target.value = "";
+                            return;
+                          }
                           const reader = new FileReader();
                           reader.onloadend = () => {
-                            setStudentForm({ ...studentForm, profile_photo: reader.result });
+                            setStudentForm({
+                              ...studentForm,
+                              profile_photo: reader.result,
+                            });
                           };
                           reader.readAsDataURL(file);
                         }
@@ -1119,12 +1793,20 @@ const StudentManagement = () => {
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-[#64748B] mb-1 font-semibold">Residential Address</label>
+                  <label className="block text-[#64748B] mb-1 font-semibold">
+                    Residential Address
+                  </label>
                   <textarea
                     rows={2}
+                    maxLength={500}
                     placeholder="Student address"
                     value={studentForm.address}
-                    onChange={(e) => setStudentForm({ ...studentForm, address: e.target.value })}
+                    onChange={(e) =>
+                      setStudentForm({
+                        ...studentForm,
+                        address: e.target.value.slice(0, 500),
+                      })
+                    }
                     className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] rounded-lg"
                   />
                 </div>
@@ -1134,20 +1816,38 @@ const StudentManagement = () => {
                     type="checkbox"
                     id="student_active"
                     checked={studentForm.is_active}
-                    onChange={(e) => setStudentForm({ ...studentForm, is_active: e.target.checked })}
+                    onChange={(e) =>
+                      setStudentForm({
+                        ...studentForm,
+                        is_active: e.target.checked,
+                      })
+                    }
                     className="rounded border-[#E2E8F0] text-[#2563EB] focus:ring-[#2563EB]"
                   />
-                  <label htmlFor="student_active" className="text-xs font-bold text-[#1E293B] cursor-pointer">
+                  <label
+                    htmlFor="student_active"
+                    className="text-xs font-bold text-[#1E293B] cursor-pointer"
+                  >
                     Student Active Status
                   </label>
                 </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-[#E2E8F0] shrink-0">
-                <Button variant="outline" size="sm" type="button" onClick={() => setShowStudentModal(false)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  onClick={() => setShowStudentModal(false)}
+                >
                   Cancel
                 </Button>
-                <Button variant="accent" size="sm" type="submit" disabled={saving}>
+                <Button
+                  variant="accent"
+                  size="sm"
+                  type="submit"
+                  disabled={saving}
+                >
                   {saving ? (
                     <div className="flex items-center gap-1">
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -1169,7 +1869,7 @@ const StudentManagement = () => {
         onClose={() => setDeletingUser(null)}
         onConfirm={handleConfirmDeleteUser}
         title="Delete Student Record"
-        message={`Are you sure you want to delete student "${deletingUser?.name || 'this record'}"? This action cannot be undone.`}
+        message={`Are you sure you want to delete student "${deletingUser?.name || "this record"}"? This action cannot be undone.`}
         confirmText="Delete Record"
         loading={deleting}
         variant="danger"

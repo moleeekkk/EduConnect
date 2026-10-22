@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { Send, CheckCircle2, MessageSquare, Clock, User, BookOpen, Edit3, MessageCircle } from "lucide-react";
+import { Send, CheckCircle2, MessageSquare, Clock, User, BookOpen, Edit3, MessageCircle, CalendarRange } from "lucide-react";
 import Button from "../../components/common/Button";
 import { teacherApi } from "../../services/api";
 import { notifySuccess, notifyError } from "../../utils/toast";
+import { useBatch } from "../../context/BatchContext";
 
 const TeacherReplyDoubts = () => {
+  const { selectedBatch, batches } = useBatch();
+  const activeBatch = selectedBatch || batches.find((b) => b.is_active === true || b.isActive === true) || batches[0];
+  const activeBatchId = activeBatch ? String(activeBatch.batch_id || activeBatch.batchId || activeBatch.id) : null;
+  const batchName = activeBatch?.batch_name || activeBatch?.name || "Active Batch";
+
   const [doubts, setDoubts] = useState([]);
   const [students, setStudents] = useState([]);
   const [selectedDoubt, setSelectedDoubt] = useState(null);
@@ -78,10 +84,22 @@ const TeacherReplyDoubts = () => {
     }
   };
 
-  const pendingCount = doubts.filter((d) => d.status !== "Answered" && !d.reply && !d.answer).length;
-  const answeredCount = doubts.filter((d) => d.status === "Answered" || Boolean(d.reply || d.answer)).length;
+  const batchStudents = students.filter(
+    (s) => !activeBatchId || String(s.batch_id || s.batchId) === activeBatchId
+  );
 
-  const filteredDoubts = doubts.filter((doubt) => {
+  const batchDoubts = doubts.filter((d) => {
+    if (!activeBatchId) return true;
+    if (d.batch_id) return String(d.batch_id) === activeBatchId;
+    return batchStudents.some(
+      (s) => String(s.student_id || s.id) === String(d.student_id)
+    );
+  });
+
+  const pendingCount = batchDoubts.filter((d) => d.status !== "Answered" && !d.reply && !d.answer).length;
+  const answeredCount = batchDoubts.filter((d) => d.status === "Answered" || Boolean(d.reply || d.answer)).length;
+
+  const filteredDoubts = batchDoubts.filter((doubt) => {
     const isAns = doubt.status === "Answered" || Boolean(doubt.reply || doubt.answer);
     if (statusFilter === "pending") return !isAns;
     if (statusFilter === "answered") return isAns;
@@ -93,7 +111,10 @@ const TeacherReplyDoubts = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
-          <h1 className="text-xl font-bold text-[#1E293B]">Reply Student Doubts</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold text-[#1E293B]">Reply Student Doubts</h1>
+
+          </div>
 
         </div>
       </div>
@@ -103,17 +124,17 @@ const TeacherReplyDoubts = () => {
         <button
           onClick={() => setStatusFilter("all")}
           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${statusFilter === "all"
-              ? "bg-[#2563EB] text-white shadow-xs"
-              : "bg-white text-[#64748B] hover:bg-[#F8FAFC] border border-[#E2E8F0]"
+            ? "bg-[#2563EB] text-white shadow-xs"
+            : "bg-white text-[#64748B] hover:bg-[#F8FAFC] border border-[#E2E8F0]"
             }`}
         >
-          All ({doubts.length})
+          All ({batchDoubts.length})
         </button>
         <button
           onClick={() => setStatusFilter("pending")}
           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${statusFilter === "pending"
-              ? "bg-[#F59E0B] text-white shadow-xs"
-              : "bg-white text-[#64748B] hover:bg-[#F8FAFC] border border-[#E2E8F0]"
+            ? "bg-[#F59E0B] text-white shadow-xs"
+            : "bg-white text-[#64748B] hover:bg-[#F8FAFC] border border-[#E2E8F0]"
             }`}
         >
           Pending ({pendingCount})
@@ -121,8 +142,8 @@ const TeacherReplyDoubts = () => {
         <button
           onClick={() => setStatusFilter("answered")}
           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${statusFilter === "answered"
-              ? "bg-[#22C55E] text-white shadow-xs"
-              : "bg-white text-[#64748B] hover:bg-[#F8FAFC] border border-[#E2E8F0]"
+            ? "bg-[#22C55E] text-white shadow-xs"
+            : "bg-white text-[#64748B] hover:bg-[#F8FAFC] border border-[#E2E8F0]"
             }`}
         >
           Answered ({answeredCount})
@@ -172,8 +193,8 @@ const TeacherReplyDoubts = () => {
 
                     <span
                       className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${isAnswered
-                          ? "bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20"
-                          : "bg-[#F59E0B]/10 text-[#F59E0B] border border-[#F59E0B]/20"
+                        ? "bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20"
+                        : "bg-[#F59E0B]/10 text-[#F59E0B] border border-[#F59E0B]/20"
                         }`}
                     >
                       {isAnswered ? "Answered" : "Pending"}

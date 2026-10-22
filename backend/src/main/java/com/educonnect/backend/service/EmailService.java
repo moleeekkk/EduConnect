@@ -163,8 +163,12 @@ public class EmailService {
     }
 
     public boolean sendAssignmentReminderEmail(String toEmail, String studentName, String subject, String messageText) {
+        return sendAssignmentReminderEmail(toEmail, studentName, subject, messageText, null);
+    }
+
+    public boolean sendAssignmentReminderEmail(String toEmail, String studentName, String subject, String messageText, String ccEmail) {
         log.info("==================================================");
-        log.info("DISPATCHING ASSIGNMENT REMINDER EMAIL TO: {} ({})", toEmail, studentName);
+        log.info("DISPATCHING ASSIGNMENT REMINDER EMAIL TO: {} ({}), CC: {}", toEmail, studentName, ccEmail);
         log.info("SUBJECT: {}", subject);
         log.info("MESSAGE BODY:\n{}", messageText);
         log.info("==================================================");
@@ -179,6 +183,14 @@ public class EmailService {
 
             helper.setFrom(fromEmail);
             helper.setTo(toEmail);
+            if (ccEmail != null && !ccEmail.trim().isEmpty()) {
+                String[] ccs = ccEmail.split("[,;]");
+                for (String c : ccs) {
+                    if (c != null && !c.trim().isEmpty()) {
+                        helper.addCc(c.trim());
+                    }
+                }
+            }
             helper.setSubject(subject != null && !subject.trim().isEmpty() ? subject : "EduConnect - Assignment Submission Reminder");
 
             String formattedMessage = messageText != null ? messageText.replace("\n", "<br/>") : "";

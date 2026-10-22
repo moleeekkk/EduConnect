@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { Mail, Send, CheckCircle2, User, Phone, AtSign, Users, Database, Sparkles, AlertCircle, Search, RotateCcw, Filter } from "lucide-react";
+import { Mail, Send, CheckCircle2, User, Phone, AtSign, Users, Database, Sparkles, AlertCircle, Search, RotateCcw, Filter, CalendarRange } from "lucide-react";
 import Button from "../../components/common/Button";
 import { teacherApi } from "../../services/api";
 import { notifySuccess, notifyError } from "../../utils/toast";
+import { useBatch } from "../../context/BatchContext";
 
 const TeacherParentEmail = () => {
+  const { selectedBatch, batches } = useBatch();
+  const activeBatch = selectedBatch || batches.find((b) => b.is_active === true || b.isActive === true) || batches[0];
+  const activeBatchId = activeBatch ? String(activeBatch.batch_id || activeBatch.batchId || activeBatch.id) : null;
+
   const [sendMode, setSendMode] = useState("single"); // "single" or "all"
   const [students, setStudents] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -12,6 +17,7 @@ const TeacherParentEmail = () => {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [emailType, setEmailType] = useState("Attendance Report");
   const [customSubject, setCustomSubject] = useState("");
+  const [ccEmail, setCcEmail] = useState("");
   const [messageBody, setMessageBody] = useState("");
   const [sentSuccess, setSentSuccess] = useState(false);
   const [batchCount, setBatchCount] = useState(0);
@@ -44,6 +50,12 @@ const TeacherParentEmail = () => {
     fetchData();
   }, []);
 
+  // Filter students belonging to the active batch
+  const batchStudents = students.filter((stu) => {
+    if (!activeBatchId) return true;
+    return String(stu.batch_id || stu.batchId || "") === activeBatchId;
+  });
+
   const handleDepartmentChange = (e) => {
     setSelectedDept(e.target.value);
     setSelectedSem("all");
@@ -62,7 +74,7 @@ const TeacherParentEmail = () => {
     return String(semDeptId) === String(selectedDept);
   });
 
-  const filteredStudents = students.filter((stu) => {
+  const filteredStudents = batchStudents.filter((stu) => {
     const query = searchTerm.toLowerCase();
     const fullName = `${stu.first_name || ""} ${stu.last_name || ""}`.toLowerCase();
     const enroll = (stu.enrollment_no || "").toLowerCase();
@@ -185,6 +197,7 @@ const TeacherParentEmail = () => {
             student_name: studentName,
             subject: customSubject,
             message: messageBody,
+            cc: ccEmail,
           });
         });
         await Promise.all(emailPromises);
@@ -198,6 +211,7 @@ const TeacherParentEmail = () => {
           student_name: studentName,
           subject: customSubject,
           message: messageBody,
+          cc: ccEmail,
         });
         notifySuccess(`Email Dispatched to ${selectedStudent?.parent_name || selectedStudent?.parentName || "Parent"} (${recipientEmail})!`);
       }
@@ -218,24 +232,21 @@ const TeacherParentEmail = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
           <h1 className="text-xl font-bold text-[#1E293B]">Parent Email</h1>
-          <p className="text-xs text-[#64748B] mt-0.5">Send academic reports, attendance warnings, and notifications to student parents</p>
         </div>
 
         {/* Mode Selector Buttons */}
         <div className="inline-flex rounded-lg border border-[#E2E8F0] p-1 bg-[#F8FAFC]">
           <button
             onClick={() => setSendMode("single")}
-            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
-              sendMode === "single" ? "bg-[#2563EB] text-white shadow-xs" : "text-[#64748B]"
-            }`}
+            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${sendMode === "single" ? "bg-[#2563EB] text-white shadow-xs" : "text-[#64748B]"
+              }`}
           >
             <User className="w-3.5 h-3.5" /> Single Student
           </button>
           <button
             onClick={() => setSendMode("all")}
-            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
-              sendMode === "all" ? "bg-[#14B8A6] text-white shadow-xs" : "text-[#64748B]"
-            }`}
+            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${sendMode === "all" ? "bg-[#14B8A6] text-white shadow-xs" : "text-[#64748B]"
+              }`}
           >
             <Users className="w-3.5 h-3.5" /> Send to All ({filteredStudents.length})
           </button>
@@ -358,11 +369,10 @@ const TeacherParentEmail = () => {
                       <div
                         key={stuId}
                         onClick={() => setSelectedStudent(stu)}
-                        className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center gap-3 ${
-                          isSelected
-                            ? "bg-[#2563EB]/10 border-[#2563EB] shadow-xs"
-                            : "bg-[#F8FAFC] border-[#E2E8F0] hover:bg-[#E2E8F0]/50"
-                        }`}
+                        className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center gap-3 ${isSelected
+                          ? "bg-[#2563EB]/10 border-[#2563EB] shadow-xs"
+                          : "bg-[#F8FAFC] border-[#E2E8F0] hover:bg-[#E2E8F0]/50"
+                          }`}
                       >
                         <img
                           src={stu.profile_photo || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256"}
@@ -506,13 +516,24 @@ const TeacherParentEmail = () => {
             </div>
 
             <div>
+              <label className="block text-[#64748B] mb-1 font-semibold">
+                CC (Carbon Copy) <span className="font-normal text-[10px] text-[#94A3B8]">(Optional - comma separated, e.g. hod@educonnect.ac.in, mentor@educonnect.ac.in)</span>
+              </label>
+              <input
+                type="text"
+                value={ccEmail}
+                onChange={(e) => setCcEmail(e.target.value)}
+                placeholder="mentor@educonnect.ac.in, hod@educonnect.ac.in"
+                className="w-full p-2.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]"
+              />
+            </div>
+
+            <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-[#64748B] font-semibold">
                   Email Content / Message Body (Auto-generated from Database Records)
                 </label>
-                <span className="text-[10px] text-[#2563EB] font-bold flex items-center gap-1">
-                  <Database className="w-3 h-3" /> Live DB Data Linked
-                </span>
+
               </div>
               <textarea
                 rows={7}

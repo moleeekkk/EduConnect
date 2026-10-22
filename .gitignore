@@ -25,3 +25,11 @@ target/
 
 # Temporary scratch directory
 scratch/
+
+# Crash logs
+hs_err_pid*.log
+replay_pid*.log
+*.log
+
+# Eclipse
+.project

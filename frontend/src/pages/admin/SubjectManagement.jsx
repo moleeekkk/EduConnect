@@ -19,16 +19,24 @@ import {
 import Button from "../../components/common/Button";
 import ConfirmModal from "../../components/modals/ConfirmModal";
 import { adminApi } from "../../services/api";
+import { useBatch } from "../../context/BatchContext";
 import { notifySuccess, notifyError } from "../../utils/toast";
 
 const AdminSubjectManagement = () => {
+  const { selectedBatch: globalSelectedBatch } = useBatch();
   const [subjects, setSubjects] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [semesters, setSemesters] = useState([]);
+  const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deletingSubj, setDeletingSubj] = useState(null);
+
+  // Active batch ID selected globally from Navigation Bar
+  const activeBatchId = globalSelectedBatch
+    ? globalSelectedBatch.batch_id || globalSelectedBatch.batchId || globalSelectedBatch.id
+    : null;
 
   // Filter States
   const [selectedDepartment, setSelectedDepartment] = useState("all");
@@ -42,6 +50,7 @@ const AdminSubjectManagement = () => {
   const [subjectForm, setSubjectForm] = useState({
     subject_code: "",
     subject_name: "",
+    batch_id: "",
     department_id: "",
     semester_id: "",
     credits: 4,
@@ -54,14 +63,16 @@ const AdminSubjectManagement = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [subData, deptData, semData] = await Promise.all([
+      const [subData, deptData, semData, batchData] = await Promise.all([
         adminApi.getSubjects(),
         adminApi.getDepartments(),
         adminApi.getSemesters(),
+        adminApi.getBatches(),
       ]);
       setSubjects(Array.isArray(subData) ? subData : []);
       setDepartments(Array.isArray(deptData) ? deptData : []);
       setSemesters(Array.isArray(semData) ? semData : []);
+      setBatches(Array.isArray(batchData) ? batchData : []);
     } catch (err) {
       console.error("Subject management load error:", err);
     } finally {
@@ -72,6 +83,16 @@ const AdminSubjectManagement = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Helper mapping batch_id to Batch Name
+  const getBatchName = (batchId) => {
+    if (!batchId) return "N/A";
+    const batch = batches.find(
+      (b) =>
+        String(b.batch_id || b.batchId || b.id) === String(batchId)
+    );
+    return batch ? (batch.batch_name || batch.batchName || `${batch.start_year || batch.startYear}-${batch.end_year || batch.endYear}`) : "N/A";
+  };
 
   // Helper mapping department_id to Department Name / Code
   const getDepartmentName = (deptId) => {
@@ -133,10 +154,17 @@ const AdminSubjectManagement = () => {
     ? getAvailableSemesters(subjectForm.department_id)
     : semesters;
 
-  // Filtered Subjects list for table display
+  // Filtered Subjects list for table display based on navigation bar active batch
   const filteredSubjects = subjects.filter((subj) => {
+    const bId = subj.batch_id || subj.batchId;
     const deptId = subj.department_id || subj.departmentId || subj.program_id;
     const semId = subj.semester_id || subj.semesterId;
+
+    if (activeBatchId) {
+      if (!bId || String(bId) !== String(activeBatchId)) {
+        return false;
+      }
+    }
 
     if (selectedDepartment !== "all") {
       if (deptId) {
@@ -174,6 +202,7 @@ const AdminSubjectManagement = () => {
     setSubjectForm({
       subject_code: "",
       subject_name: "",
+      batch_id: activeBatchId || (batches[0]?.batch_id || batches[0]?.batchId || ""),
       department_id: "",
       semester_id: "",
       credits: "",
@@ -191,6 +220,7 @@ const AdminSubjectManagement = () => {
     setSubjectForm({
       subject_code: subj.subject_code || subj.code || "",
       subject_name: subj.subject_name || subj.name || "",
+      batch_id: subj.batch_id || subj.batchId || "",
       department_id: subj.department_id || subj.departmentId || subj.program_id || "",
       semester_id: subj.semester_id || subj.semesterId || "",
       credits: subj.credits !== undefined && subj.credits !== null ? subj.credits : 4,
@@ -254,6 +284,7 @@ const AdminSubjectManagement = () => {
       const payload = {
         subject_code: subjectForm.subject_code.trim(),
         subject_name: subjectForm.subject_name.trim(),
+        batch_id: toValidUuidOrNull(subjectForm.batch_id),
         department_id: toValidUuidOrNull(subjectForm.department_id),
         semester_id: toValidUuidOrNull(subjectForm.semester_id),
         credits: parseInt(subjectForm.credits) || 4,
@@ -306,6 +337,7 @@ const AdminSubjectManagement = () => {
         subject_id: "subj-" + Date.now(),
         subject_code: subjectForm.subject_code.trim(),
         subject_name: subjectForm.subject_name.trim(),
+        batch_id: subjectForm.batch_id,
         department_id: subjectForm.department_id,
         semester_id: subjectForm.semester_id,
         credits: parseInt(subjectForm.credits) || 4,
@@ -327,7 +359,7 @@ const AdminSubjectManagement = () => {
     <div className="space-y-6">
       {/* Module Header with Top Add Subject Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
-        <div>
+        <div className="flex items-center gap-3">
           <h1 className="text-xl font-bold text-[#1E293B]">Subject Management</h1>
 
         </div>
@@ -453,7 +485,7 @@ const AdminSubjectManagement = () => {
             <tbody className="divide-y divide-[#E2E8F0] text-[#1E293B]">
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="p-8 text-center text-[#64748B]">
+                  <td colSpan="8" className="p-8 text-center text-[#64748B]">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="w-5 h-5 animate-spin text-[#2563EB]" />
                       <span>Fetching subjects from database...</span>
@@ -462,7 +494,7 @@ const AdminSubjectManagement = () => {
                 </tr>
               ) : filteredSubjects.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="p-8 text-center text-[#64748B] font-medium">
+                  <td colSpan="8" className="p-8 text-center text-[#64748B] font-medium">
                     No subjects found matching your criteria. Click{" "}
                     <strong className="text-[#2563EB]">"Add Subject"</strong> at top to
                     create a new course.
@@ -565,7 +597,36 @@ const AdminSubjectManagement = () => {
 
             <form onSubmit={handleSaveSubject} className="flex flex-col grow overflow-hidden space-y-4">
               <div className="overflow-y-auto pr-1 space-y-4 text-xs grow">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Batch Selection (Before Department) */}
+                  <div>
+                    <label className="block text-[#64748B] mb-1 font-semibold">
+                      Batch <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={subjectForm.batch_id || ""}
+                      onChange={(e) =>
+                        setSubjectForm({ ...subjectForm, batch_id: e.target.value })
+                      }
+                      className="w-full p-2.5 border border-[#E2E8F0] bg-[#F8FAFC] focus:bg-white rounded-lg font-semibold text-[#1E293B]"
+                      required
+                    >
+                      <option value="">-- Select Batch --</option>
+                      {batches.map((b) => {
+                        const bId = b.batch_id || b.batchId || b.id;
+                        const bName =
+                          b.batch_name ||
+                          b.batchName ||
+                          `${b.start_year || b.startYear}-${b.end_year || b.endYear}`;
+                        return (
+                          <option key={bId} value={bId}>
+                            {bName}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
                   {/* Department Selection */}
                   <div>
                     <label className="block text-[#64748B] mb-1 font-semibold">
@@ -829,6 +890,12 @@ const AdminSubjectManagement = () => {
               {/* 2-Column Details Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-3">
+                  <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
+                    <span className="text-[10px] text-[#64748B] font-bold block uppercase">Selected Batch</span>
+                    <p className="font-bold text-[#2563EB] text-xs">
+                      {getBatchName(viewSubject.batch_id || viewSubject.batchId)}
+                    </p>
+                  </div>
                   <div className="p-3.5 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
                     <span className="text-[10px] text-[#64748B] font-bold block uppercase">Department & Code</span>
                     <p className="font-bold text-[#1E293B] text-xs">

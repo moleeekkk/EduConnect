@@ -91,6 +91,80 @@ export const getDisplayFileName = (fileName, attachment, fallbackTitle = "Docume
 };
 
 /**
+ * Helper to parse single or multiple files from stored attachment / file_path / file_name.
+ * Supports legacy single-file strings and new multi-file JSON arrays.
+ * Returns Array<{ name: string, path: string, size?: number, type?: string }>
+ */
+export const parseMultipleFiles = (rawAttachment, rawFileName, fallbackTitle = "Document") => {
+  if (!rawAttachment && !rawFileName) return [];
+
+  // 1. Try parsing rawAttachment as JSON array
+  if (typeof rawAttachment === "string" && rawAttachment.trim().startsWith("[")) {
+    try {
+      const parsed = JSON.parse(rawAttachment.trim());
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((item, idx) => {
+          if (typeof item === "string") {
+            return {
+              name: getDisplayFileName(null, item, `${fallbackTitle}_${idx + 1}`),
+              path: item,
+            };
+          }
+          return {
+            name: item.name || item.fileName || getDisplayFileName(null, item.path, `${fallbackTitle}_${idx + 1}`),
+            path: item.path || item.filePath || item.attachment || item.url || "",
+            size: item.size || item.fileSize,
+            type: item.type || item.fileType,
+          };
+        }).filter((f) => f.path || f.name);
+      }
+    } catch (e) {
+      // Not valid JSON, proceed to fallback
+    }
+  }
+
+  // 2. Try parsing rawFileName as JSON array
+  if (typeof rawFileName === "string" && rawFileName.trim().startsWith("[")) {
+    try {
+      const parsed = JSON.parse(rawFileName.trim());
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((item, idx) => ({
+          name: typeof item === "string" ? item : (item.name || item.fileName || `${fallbackTitle}_${idx + 1}`),
+          path: typeof item === "string" ? item : (item.path || item.url || ""),
+          size: item.size,
+          type: item.type,
+        }));
+      }
+    } catch (e) {}
+  }
+
+  // 3. Fallback: single file
+  const path = rawAttachment || rawFileName;
+  if (!path) return [];
+  const name = getDisplayFileName(rawFileName, rawAttachment, fallbackTitle);
+  return [{ name, path }];
+};
+
+/**
+ * Helper to serialize an array of files for backend storage
+ */
+export const serializeMultipleFiles = (files) => {
+  if (!Array.isArray(files) || files.length === 0) {
+    return { attachment: null, fileName: "" };
+  }
+  const serializedList = files.map((f) => ({
+    name: f.name || "Document",
+    path: f.path || f.dataUrl || f.url || "",
+    size: f.size || null,
+    type: f.type || null,
+  }));
+  return {
+    attachment: JSON.stringify(serializedList),
+    fileName: files.map((f) => f.name).filter(Boolean).join(", "),
+  };
+};
+
+/**
  * Triggers clean download for Data URLs, Blob URLs, or remote file paths.
  */
 export const downloadFile = (fileUrl, fileName = "Document") => {

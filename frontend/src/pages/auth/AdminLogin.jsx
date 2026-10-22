@@ -9,8 +9,8 @@ import { notifySuccess, notifyError } from "../../utils/toast";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("admin@educonnect.ac.in");
-  const [password, setPassword] = useState("admin123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -78,7 +78,7 @@ const AdminLogin = () => {
           <Input
             label="Email Address"
             type="email"
-            placeholder="admin@educonnect.ac.in"
+            placeholder="Enter registered admin email"
             value={email}
             onChange={(e) => {
               setEmail(e.target.value);

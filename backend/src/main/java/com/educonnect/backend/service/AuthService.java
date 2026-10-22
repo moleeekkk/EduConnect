@@ -197,53 +197,61 @@ public class AuthService {
         String email = request.getEmail().trim().toLowerCase();
         String rawPassword = request.getPassword().trim();
 
-        Optional<Admin> adminOpt = adminRepository.findByEmail(email);
-
-        if (adminOpt.isPresent()) {
-            Admin admin = adminOpt.get();
-            String storedHash = admin.getPassword();
-
-            boolean matches = isPasswordMatching(rawPassword, storedHash, "admin123", () -> {
-                // Auto-upgrade legacy plain text password to BCrypt hash
-                admin.setPassword(passwordEncoder.encode(rawPassword));
-                adminRepository.save(admin);
-            });
-
-            if (matches) {
-                return AuthResponse.builder()
-                        .success(true)
-                        .message("Admin login successful")
-                        .token("jwt-admin-token-" + System.currentTimeMillis())
-                        .role("Admin")
-                        .userId(admin.getAdminId().toString())
-                        .name(((admin.getFirstName() != null ? admin.getFirstName() : "") + " " + (admin.getLastName() != null ? admin.getLastName() : "")).trim())
-                        .identifier(admin.getEmail())
-                        .build();
-            } else {
-                return AuthResponse.builder()
-                        .success(false)
-                        .message("Invalid email address or password. Please enter correct credentials.")
-                        .build();
-            }
+        if (email.isEmpty() || rawPassword.isEmpty()) {
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Please enter both email address and password.")
+                    .build();
         }
 
-        // Demo Fallback
-        if ("admin@educonnect.ac.in".equalsIgnoreCase(email) && "admin123".equals(rawPassword)) {
+        Optional<Admin> adminOpt = adminRepository.findByEmail(email);
+
+        if (adminOpt.isEmpty()) {
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Invalid email address or password. Please enter correct credentials.")
+                    .build();
+        }
+
+        Admin admin = adminOpt.get();
+
+        if (Boolean.FALSE.equals(admin.getIsActive())) {
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("This administrator account has been deactivated. Please contact system support.")
+                    .build();
+        }
+
+        String storedHash = admin.getPassword();
+        if (storedHash == null || storedHash.trim().isEmpty()) {
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Invalid email address or password. Please enter correct credentials.")
+                    .build();
+        }
+
+        boolean matches = isPasswordMatching(rawPassword, storedHash, null, () -> {
+            // Auto-upgrade legacy plain text password to BCrypt hash
+            admin.setPassword(passwordEncoder.encode(rawPassword));
+            adminRepository.save(admin);
+        });
+
+        if (matches) {
             return AuthResponse.builder()
                     .success(true)
                     .message("Admin login successful")
                     .token("jwt-admin-token-" + System.currentTimeMillis())
                     .role("Admin")
-                    .userId("admin-demo-id")
-                    .name("System Administrator")
-                    .identifier(email)
+                    .userId(admin.getAdminId().toString())
+                    .name(((admin.getFirstName() != null ? admin.getFirstName() : "") + " " + (admin.getLastName() != null ? admin.getLastName() : "")).trim())
+                    .identifier(admin.getEmail())
+                    .build();
+        } else {
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Invalid email address or password. Please enter correct credentials.")
                     .build();
         }
-
-        return AuthResponse.builder()
-                .success(false)
-                .message("Invalid administrator credentials. Please try again.")
-                .build();
     }
 
     private String maskPhoneNumber(String phone) {
@@ -307,7 +315,7 @@ public class AuthService {
             }
         }
 
-        if (!userFound && !"teacher@educonnect.ac.in".equalsIgnoreCase(cleanEmail) && !"admin@educonnect.ac.in".equalsIgnoreCase(cleanEmail)) {
+        if (!userFound) {
             return AuthResponse.builder()
                     .success(false)
                     .message("No account found matching email address: " + cleanEmail)
@@ -359,14 +367,14 @@ public class AuthService {
         Optional<Teacher> teacherOpt = teacherRepository.findByEmail(cleanEmail);
         if (teacherOpt.isPresent()) {
             Teacher t = teacherOpt.get();
-            t.setPassword(newPassword.trim());
+            t.setPassword(passwordEncoder.encode(newPassword.trim()));
             teacherRepository.save(t);
         }
 
         Optional<Admin> adminOpt = adminRepository.findByEmail(cleanEmail);
         if (adminOpt.isPresent()) {
             Admin a = adminOpt.get();
-            a.setPassword(newPassword.trim());
+            a.setPassword(passwordEncoder.encode(newPassword.trim()));
             adminRepository.save(a);
         }
 
@@ -379,6 +387,9 @@ public class AuthService {
 
     private boolean isPasswordMatching(String rawPassword, String storedHash, String defaultFallback, Runnable autoUpgradeCallback) {
         if (storedHash == null || storedHash.trim().isEmpty()) {
+            if (defaultFallback == null || defaultFallback.trim().isEmpty()) {
+                return false;
+            }
             storedHash = defaultFallback;
         }
 

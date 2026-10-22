@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { CheckSquare, Plus, Eye, Award, CheckCircle2, Clock, Edit, Trash2, X } from "lucide-react";
+import { CheckSquare, Plus, Eye, Award, CheckCircle2, Clock, Edit, Trash2, X, CalendarRange } from "lucide-react";
 import Button from "../../components/common/Button";
 import { teacherApi } from "../../services/api";
 import { notifySuccess, notifyError } from "../../utils/toast";
+import { useBatch } from "../../context/BatchContext";
 
 const TeacherWeeklyTests = () => {
+  const { selectedBatch, batches } = useBatch();
+  const activeBatch = selectedBatch || batches.find((b) => b.is_active === true || b.isActive === true) || batches[0];
+  const activeBatchId = activeBatch ? String(activeBatch.batch_id || activeBatch.batchId || activeBatch.id) : null;
+  const batchName = activeBatch?.batch_name || activeBatch?.name || "Active Batch";
+
   const [tests, setTests] = useState([]);
   const [results, setResults] = useState([]);
   const [students, setStudents] = useState([]);
@@ -56,6 +62,19 @@ const TeacherWeeklyTests = () => {
   const [totalMarks, setTotalMarks] = useState(25);
   const [selectedDeptId, setSelectedDeptId] = useState("");
   const [selectedSemId, setSelectedSemId] = useState("");
+
+  const batchStudents = students.filter(
+    (s) => !activeBatchId || String(s.batch_id || s.batchId) === activeBatchId
+  );
+
+  const batchTests = tests.filter((test) => {
+    if (!activeBatchId) return true;
+    if (test.batch_id) return String(test.batch_id) === activeBatchId;
+    if (test.semester_id) {
+      return batchStudents.some((s) => String(s.semester_id || s.semesterId) === String(test.semester_id));
+    }
+    return true;
+  });
 
   const availableSemesters = semesters.filter((sem) => {
     if (!selectedDeptId) return true;
@@ -165,6 +184,18 @@ const TeacherWeeklyTests = () => {
   };
 
   const handleMarksChange = (studentId, value) => {
+    const maxMarks = viewResultsModal?.total_marks != null ? Number(viewResultsModal.total_marks) : 25;
+    if (value !== "" && !isNaN(value)) {
+      const numVal = Number(value);
+      if (numVal > maxMarks) {
+        notifyError(`Marks cannot be greater than the total test marks (${maxMarks}).`);
+        return;
+      }
+      if (numVal < 0) {
+        notifyError("Marks cannot be negative.");
+        return;
+      }
+    }
     setResults((prev) =>
       prev.map((r) =>
         r.student_id === studentId ? { ...r, obtained_marks: value === "" ? "" : Number(value) } : r
@@ -183,13 +214,32 @@ const TeacherWeeklyTests = () => {
   const handleSaveResults = async () => {
     const testId = viewResultsModal?.weekly_test_id || viewResultsModal?.weekly_exam_id;
     if (!testId) return;
+
+    const maxMarks = viewResultsModal?.total_marks != null ? Number(viewResultsModal.total_marks) : 25;
+    const overMarkStudent = results.find(
+      (r) => r.obtained_marks !== null && r.obtained_marks !== "" && Number(r.obtained_marks) > maxMarks
+    );
+    if (overMarkStudent) {
+      notifyError(`Marks for ${overMarkStudent.student_name || "student"} (${overMarkStudent.obtained_marks}) cannot exceed total test marks (${maxMarks}).`);
+      return;
+    }
+
+    const negativeMarkStudent = results.find(
+      (r) => r.obtained_marks !== null && r.obtained_marks !== "" && Number(r.obtained_marks) < 0
+    );
+    if (negativeMarkStudent) {
+      notifyError(`Marks for ${negativeMarkStudent.student_name || "student"} cannot be negative.`);
+      return;
+    }
+
     try {
       await teacherApi.saveWeeklyTestResults(testId, results);
       notifySuccess(`Weekly test marks saved to database for '${viewResultsModal.title}'!`);
       setViewResultsModal(null);
     } catch (err) {
       console.error("Error saving weekly test results:", err);
-      notifyError("Failed to save weekly test marks to database.");
+      const errMsg = err.response?.data?.message || err.response?.data?.error || "Failed to save weekly test marks to database.";
+      notifyError(errMsg);
     }
   };
 
@@ -198,7 +248,10 @@ const TeacherWeeklyTests = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs">
         <div>
-          <h1 className="text-xl font-bold text-[#1E293B]">Weekly Tests</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold text-[#1E293B]">Weekly Tests</h1>
+          </div>
+
         </div>
 
         <Button variant="accent" size="sm" icon={Plus} onClick={handleOpenAddModal} className="text-xs">
@@ -207,81 +260,87 @@ const TeacherWeeklyTests = () => {
       </div>
 
       {/* Test List */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {tests.map((test) => {
-          const testId = test.weekly_test_id || test.weekly_exam_id;
-          const testDate = test.test_date || test.exam_date;
-          return (
-            <div key={testId} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs flex flex-col justify-between space-y-4">
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#2563EB]/10 text-[#2563EB] font-mono font-bold text-[11px]">
-                    Test Date: {testDate}
-                  </span>
-                  <span className="font-bold text-[#14B8A6]">Total Marks: {test.total_marks}</span>
-                </div>
-
-                {(test.department_name || test.department_code || test.semester_name || test.semester_code) && (
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {(test.department_name || test.department_code) && (
-                      <span className="px-2 py-0.5 rounded-md bg-[#F8FAFC] border border-[#E2E8F0] text-[#2563EB] text-[10px] font-bold">
-                        Dept: {test.department_code || test.department_name}
-                      </span>
-                    )}
-                    {(test.semester_name || test.semester_code) && (
-                      <span className="px-2 py-0.5 rounded-md bg-[#F8FAFC] border border-[#E2E8F0] text-[#14B8A6] text-[10px] font-bold">
-                        {test.semester_name || `Semester ${test.semester_code}`}
-                      </span>
-                    )}
+      {batchTests.length === 0 ? (
+        <div className="p-8 text-center bg-white rounded-xl border border-[#E2E8F0] shadow-xs">
+          <p className="text-sm font-medium text-[#64748B]">No weekly tests found for batch: {batchName}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {batchTests.map((test) => {
+            const testId = test.weekly_test_id || test.weekly_exam_id;
+            const testDate = test.test_date || test.exam_date;
+            return (
+              <div key={testId} className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs flex flex-col justify-between space-y-4">
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#2563EB]/10 text-[#2563EB] font-mono font-bold text-[11px]">
+                      Test Date: {testDate}
+                    </span>
+                    <span className="font-bold text-[#14B8A6]">Total Marks: {test.total_marks}</span>
                   </div>
-                )}
 
-                <h3 className="text-sm font-bold text-[#1E293B]">{test.title}</h3>
-                <p className="text-[#64748B]">{test.description}</p>
+                  {(test.department_name || test.department_code || test.semester_name || test.semester_code) && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {(test.department_name || test.department_code) && (
+                        <span className="px-2 py-0.5 rounded-md bg-[#F8FAFC] border border-[#E2E8F0] text-[#2563EB] text-[10px] font-bold">
+                          Dept: {test.department_code || test.department_name}
+                        </span>
+                      )}
+                      {(test.semester_name || test.semester_code) && (
+                        <span className="px-2 py-0.5 rounded-md bg-[#F8FAFC] border border-[#E2E8F0] text-[#14B8A6] text-[10px] font-bold">
+                          {test.semester_name || `Semester ${test.semester_code}`}
+                        </span>
+                      )}
+                    </div>
+                  )}
 
-                {/* Start & End Timing Info */}
-                <div className="pt-2 border-t border-[#E2E8F0] flex items-center gap-1.5 text-xs text-[#1E293B] font-mono font-medium">
-                  <Clock className="w-3.5 h-3.5 text-[#2563EB]" />
-                  <span>Test Schedule: {test.start_time} to {test.end_time}</span>
+                  <h3 className="text-sm font-bold text-[#1E293B]">{test.title}</h3>
+                  <p className="text-[#64748B]">{test.description}</p>
+
+                  {/* Start & End Timing Info */}
+                  <div className="pt-2 border-t border-[#E2E8F0] flex items-center gap-1.5 text-xs text-[#1E293B] font-mono font-medium">
+                    <Clock className="w-3.5 h-3.5 text-[#2563EB]" />
+                    <span>Test Schedule: {test.start_time} to {test.end_time}</span>
+                  </div>
                 </div>
-              </div>
 
-              <div className="border-t border-[#E2E8F0] pt-3 flex flex-wrap items-center justify-between gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  icon={Eye}
-                  onClick={() => handleOpenResultsModal(test)}
-                  className="text-xs"
-                >
-                  Grade / Enter Student Marks
-                </Button>
-
-                <div className="flex items-center gap-2">
+                <div className="border-t border-[#E2E8F0] pt-3 flex flex-wrap items-center justify-between gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    icon={Edit}
-                    onClick={() => handleOpenEditModal(test)}
+                    icon={Eye}
+                    onClick={() => handleOpenResultsModal(test)}
                     className="text-xs"
                   >
-                    Edit
+                    Grade / Enter Student Marks
                   </Button>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    icon={Trash2}
-                    onClick={() => handleDeleteTest(testId)}
-                    className="text-xs !bg-[#EF4444]/10 !text-[#EF4444] hover:!bg-[#EF4444] hover:!text-white border-transparent"
-                  >
-                    Delete
-                  </Button>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={Edit}
+                      onClick={() => handleOpenEditModal(test)}
+                      className="text-xs"
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      icon={Trash2}
+                      onClick={() => handleDeleteTest(testId)}
+                      className="text-xs !bg-[#EF4444]/10 !text-[#EF4444] hover:!bg-[#EF4444] hover:!text-white border-transparent"
+                    >
+                      Delete
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Add / Edit Modal */}
       {showAddModal && (
@@ -456,55 +515,83 @@ const TeacherWeeklyTests = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E2E8F0]">
-                  {results.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="p-6 text-center text-[#64748B] italic">
-                        No students found matching the selected department and semester.
-                      </td>
-                    </tr>
-                  ) : (
-                    results.map((r) => {
-                    const om = r.obtained_marks;
-                    let grade = r.grade || "-";
-                    if (om !== null && om !== "" && !isNaN(om)) {
-                      const pct = (Number(om) / (viewResultsModal.total_marks || 25)) * 100;
-                      if (pct >= 90) grade = "A+";
-                      else if (pct >= 80) grade = "A";
-                      else if (pct >= 70) grade = "B+";
-                      else if (pct >= 60) grade = "B";
-                      else if (pct >= 50) grade = "C";
-                      else if (pct >= 40) grade = "D";
-                      else grade = "F";
+                  {(() => {
+                    const batchResults = results.filter((r) => {
+                      if (!activeBatchId) return true;
+                      if (r.batch_id) return String(r.batch_id) === activeBatchId;
+                      return batchStudents.some((s) => String(s.student_id || s.studentId) === String(r.student_id));
+                    });
+                    if (batchResults.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={5} className="p-6 text-center text-[#64748B] italic">
+                            No students found matching batch {batchName} and the selected department/semester.
+                          </td>
+                        </tr>
+                      );
                     }
-                    return (
-                      <tr key={r.student_id} className="hover:bg-[#F8FAFC]">
-                        <td className="p-2.5 font-bold text-[#1E293B]">{r.student_name}</td>
-                        <td className="p-2.5 font-mono text-[#2563EB] font-bold">{r.enrollment_no}</td>
-                        <td className="p-2.5">
-                          <input
-                            type="number"
-                            min="0"
-                            max={viewResultsModal.total_marks}
-                            value={r.obtained_marks ?? ""}
-                            onChange={(e) => handleMarksChange(r.student_id, e.target.value)}
-                            placeholder="Score"
-                            className="w-full p-1.5 rounded border border-[#E2E8F0] font-bold text-[#2563EB] bg-white focus:outline-none focus:border-[#2563EB]"
-                          />
-                        </td>
-                        <td className="p-2.5 font-extrabold text-[#22C55E] text-center">{grade}</td>
-                        <td className="p-2.5">
-                          <input
-                            type="text"
-                            value={r.remarks || ""}
-                            onChange={(e) => handleRemarksChange(r.student_id, e.target.value)}
-                            placeholder="Optional feedback..."
-                            className="w-full p-1.5 rounded border border-[#E2E8F0] text-[#64748B] bg-white focus:outline-none focus:border-[#2563EB]"
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })
-                  )}
+                    return batchResults.map((r) => {
+                      const om = r.obtained_marks;
+                      let grade = r.grade || "-";
+                      if (om !== null && om !== "" && !isNaN(om)) {
+                        const numOm = Number(om);
+                        const maxM = viewResultsModal.total_marks || 25;
+                        if (numOm > maxM) {
+                          grade = "Invalid";
+                        } else {
+                          const pct = (numOm / maxM) * 100;
+                          if (pct >= 90) grade = "A+";
+                          else if (pct >= 80) grade = "A";
+                          else if (pct >= 70) grade = "B+";
+                          else if (pct >= 60) grade = "B";
+                          else if (pct >= 50) grade = "C";
+                          else if (pct >= 40) grade = "D";
+                          else grade = "F";
+                        }
+                      }
+                      const isOverMax = om !== null && om !== "" && Number(om) > (viewResultsModal.total_marks || 25);
+                      const isNegative = om !== null && om !== "" && Number(om) < 0;
+
+                      return (
+                        <tr key={r.student_id} className="hover:bg-[#F8FAFC]">
+                          <td className="p-2.5 font-bold text-[#1E293B]">{r.student_name}</td>
+                          <td className="p-2.5 font-mono text-[#2563EB] font-bold">{r.enrollment_no}</td>
+                          <td className="p-2.5">
+                            <input
+                              type="number"
+                              min="0"
+                              max={viewResultsModal.total_marks}
+                              value={r.obtained_marks ?? ""}
+                              onChange={(e) => handleMarksChange(r.student_id, e.target.value)}
+                              placeholder={`0 - ${viewResultsModal.total_marks}`}
+                              className={`w-full p-1.5 rounded border font-bold transition-all focus:outline-none ${
+                                isOverMax || isNegative
+                                  ? "border-[#EF4444] text-[#EF4444] bg-[#FEF2F2] focus:border-[#EF4444]"
+                                  : "border-[#E2E8F0] text-[#2563EB] bg-white focus:border-[#2563EB]"
+                              }`}
+                            />
+                            {isOverMax && (
+                              <span className="text-[10px] text-[#EF4444] font-semibold block mt-0.5">
+                                Max allowed: {viewResultsModal.total_marks}
+                              </span>
+                            )}
+                          </td>
+                          <td className={`p-2.5 font-extrabold text-center ${grade === "Invalid" ? "text-[#EF4444]" : "text-[#22C55E]"}`}>
+                            {grade}
+                          </td>
+                          <td className="p-2.5">
+                            <input
+                              type="text"
+                              value={r.remarks || ""}
+                              onChange={(e) => handleRemarksChange(r.student_id, e.target.value)}
+                              placeholder="Optional feedback..."
+                              className="w-full p-1.5 rounded border border-[#E2E8F0] text-[#64748B] bg-white focus:outline-none focus:border-[#2563EB]"
+                            />
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
                 </tbody>
               </table>
             </div>

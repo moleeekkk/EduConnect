@@ -29,11 +29,15 @@ public class Subject {
     @JsonProperty("semester_id")
     private UUID semesterId;
 
+    @Column(name = "batch_id")
+    @JsonProperty("batch_id")
+    private UUID batchId;
+
     @Column(name = "subject_name", nullable = false, length = 100)
     @JsonProperty("subject_name")
     private String subjectName;
 
-    @Column(name = "subject_code", nullable = false, unique = true, length = 20)
+    @Column(name = "subject_code", nullable = false, length = 20)
     @JsonProperty("subject_code")
     private String subjectCode;
 
