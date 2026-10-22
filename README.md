@@ -1,4 +1,4 @@
-# 🎓 EduConnect — Smart Academic & Campus Management System
+# 🎓 EduConnect — A Smart Student, Teacher & Academic Management System
 
 **EduConnect** is a comprehensive, full-stack Academic ERP and Learning Management System (LMS) designed for colleges and universities. It bridges the gap between **Students**, **Faculty (Teachers)**, and **Administrators** through intuitive role-based portals, automated workflows, and centralized academic tracking.
 
