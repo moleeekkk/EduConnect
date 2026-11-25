@@ -1,202 +1,329 @@
-# 🎓 EduConnect — A Smart Student, Teacher & Academic Management System
+<div align="center">
 
-**EduConnect** is a comprehensive, full-stack Academic ERP and Learning Management System (LMS) designed for colleges and universities. It bridges the gap between **Students**, **Faculty (Teachers)**, and **Administrators** through intuitive role-based portals, automated workflows, and centralized academic tracking.
+# 🎓 EduConnect
+
+### A Smart Student, Teacher & Academic Management System
+
+A full-stack Academic ERP / Learning Management System for colleges and universities, connecting **Students**, **Faculty** and **Administrators** through dedicated role-based portals.
+
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.4.3-6DB33F?logo=springboot&logoColor=white)
+![Java](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-4169E1?logo=postgresql&logoColor=white)
+
+</div>
 
 ---
 
-## 🚀 Key Modules & Features
+## 📖 Table of Contents
+
+- [Overview](#-overview)
+- [Features](#-features)
+- [Tech Stack](#-tech-stack)
+- [Project Structure](#-project-structure)
+- [Getting Started](#-getting-started)
+- [Configuration](#-configuration)
+- [Authentication Flow](#-authentication-flow)
+- [API Overview](#-api-overview)
+- [Frontend Routes](#-frontend-routes)
+- [Running Tests](#-running-tests)
+- [Known Limitations & Roadmap](#-known-limitations--roadmap)
+- [Contributing](#-contributing)
+
+---
+
+## 🌟 Overview
+
+EduConnect centralizes everyday academic operations in one platform:
+
+- **Admins** build the academic hierarchy (institutes → departments → semesters → batches → subjects) and manage users.
+- **Teachers** mark attendance, publish assignments, tests, quizzes and study material, answer doubts and handle leave requests.
+- **Students** track attendance, submit assignments, practise quizzes, view results, raise doubts and apply for leave.
+
+---
+
+## 🚀 Features
 
 ### 👨‍💼 Administrator Portal
-- **Dashboard & Analytics**: Overview of institutional statistics, student enrollments, faculty counts, and academic performance metrics.
-- **Academic Hierarchy Management**:
-  - Institutes & Departments
-  - Semesters & Academic Terms
-  - Batches (Yearly cohorts)
-  - Subjects & Curriculum Management
-- **User Management**:
-  - Student enrollment, profile records, and status tracking
-  - Faculty directory and credentials management
-- **Curriculum & Allocation**: Teacher-to-subject allocation and departmental assignment.
-- **Reporting & System Configuration**: Exportable academic summaries and administrative settings.
+- **Dashboard & Reports** – institute-wide statistics and academic summaries
+- **Academic hierarchy** – Institutes, Departments, Semesters, Batches and Subjects
+- **User management** – student enrollment and faculty directory
+- **Teacher–Subject allocation** – assign faculty to subjects, batches and semesters
+- **Profile & system settings**
 
-### 👩‍🏫 Teacher (Faculty) Portal
-- **Interactive Faculty Dashboard**: Schedule view, quick access links, and pending review alerts.
-- **Student Management**: Filter students by batch, department, and semester.
-- **Attendance Marker**: Daily lecture attendance recording with instant status updates.
-- **Assignments & Grading**: Assignment creation with file uploads and online submission evaluation.
-- **Assessments**:
-  - Weekly test creation, scoring, and automated marksheet generation
-  - Multiple-choice quiz setup and topic-wise practice
-- **Study Materials**: Upload and distribute course lecture notes, syllabus modules, and reference files.
-- **Communication & Grievances**:
-  - Doubt resolution thread directly with students
-  - Leave approval management
-  - Automated parent email notification system for attendance and marksheet alerts
+### 👩‍🏫 Teacher Portal
+- **Dashboard** – schedule and quick-access shortcuts
+- **Manage students** – filter by batch, department and semester
+- **Attendance marker** – session-based attendance with per-student status
+- **Assignments** – create assignments with file upload and review submissions
+- **Weekly tests & quizzes** – create tests, record scores, set up practice quizzes
+- **Study material** – upload and share notes and reference files
+- **Doubts** – reply to student questions
+- **Leave management** – approve or reject student leave requests
+- **Parent email** – send attendance / result notifications to parents via SMTP
 
 ### 👨‍🎓 Student Portal
-- **Student Dashboard**: Real-time attendance percentage, pending submissions, test scores, and scheduled lectures.
-- **My Profile**: Personal details, enrollment info, parent contact, and profile photo update.
-- **Digital Student ID**: Secure college digital identity card with QR code.
-- **Attendance & Academics**: Subject-wise lecture attendance history and percentage meters.
-- **Assignments & Tests**:
-  - Online assignment submission with document attachment support
-  - Weekly test results and performance tracking
-  - Interactive quiz practice by subject
-- **E-Learning & Doubts**:
-  - Access study materials and lecture notes
-  - One-on-one doubt inquiry with respective subject faculty
-- **Leave Requests**: Formal leave application submission and tracking.
+- **Dashboard** – attendance, submissions and test overview
+- **Profile & Digital ID** – personal details and digital student ID card
+- **Attendance** – subject-wise history and percentage
+- **Assignments** – view and submit with file attachments
+- **Weekly tests & quiz practice** – results and topic practice
+- **Study material** – access notes shared by faculty
+- **Ask doubts** – send questions to subject teachers
+- **Leave requests** – apply and track status
+
+### ⚙️ Platform
+- Secure password storage with **BCrypt**
+- **Email OTP** login for students; **forgot-password** code flow for teachers and admins
+- In-app **document viewer** for uploaded files
+- Responsive UI with toast notifications and collapsible role-based sidebars
 
 ---
 
-## 🛠️ Technology Stack
+## 🛠️ Tech Stack
 
 | Layer | Technologies |
 | :--- | :--- |
-| **Frontend** | React 19, Vite, Tailwind CSS v4, Lucide React Icons, React Router v7, Axios, React Hot Toast |
-| **Backend** | Spring Boot, Java 17+, Spring Data JPA, Hibernate, Spring Mail (SMTP), Maven |
-| **Database** | PostgreSQL (`educonnect_db`) |
-| **Architecture** | RESTful API, Role-Based Access Control (RBAC), Monorepo Project Structure |
+| **Frontend** | React 19, Vite, Tailwind CSS v4, React Router v7, Axios, React Hook Form, Zod, Lucide React, React Hot Toast |
+| **Backend** | Spring Boot 3.4.3, Java 21, Spring Web, Spring Data JPA (Hibernate), Spring Security, Spring Validation, Spring Mail, Lombok, Maven |
+| **Database** | PostgreSQL |
+| **Testing** | JUnit 5, Spring Boot Test, Spring Security Test |
+| **Architecture** | Monorepo · RESTful API (`/api/v1`) · Controller → Service → Repository layering |
 
 ---
 
-## 📂 Project & Folder Structure
+## 📂 Project Structure
 
 ```
 EduConnect/
+├── backend/                      # Spring Boot REST API
+│   ├── src/main/java/com/educonnect/backend/
+│   │   ├── config/               # SecurityConfig (CORS, BCrypt), DataInitializer
+│   │   ├── controller/           # Auth, Admin, Teacher, Student, AssignmentFile
+│   │   ├── dto/                  # Request / response models
+│   │   ├── entity/               # JPA entities (Student, Teacher, Admin, Batch, Quiz, ...)
+│   │   ├── exception/            # GlobalExceptionHandler
+│   │   ├── repository/           # Spring Data JPA repositories
+│   │   └── service/              # Business logic (Auth, Admin, Teacher, Student, Email, ...)
+│   ├── src/main/resources/application.properties
+│   ├── src/test/                 # Controller & service tests
+│   ├── mvnw / mvnw.cmd
+│   └── pom.xml
 │
-├── backend/                             # Spring Boot Java REST API backend
+├── database/
+│   └── EduConnectData.sql        # PostgreSQL dump (custom format – restore with pg_restore)
+│
+├── frontend/                     # React + Vite client
 │   ├── src/
-│   │   ├── main/
-│   │   │   ├── java/com/educonnect/backend/
-│   │   │   │   ├── config/              # Security, CORS, and Web MVC configs
-│   │   │   │   ├── controller/          # REST API endpoints (Admin, Teacher, Student, Auth)
-│   │   │   │   ├── dto/                 # Data Transfer Objects & request models
-│   │   │   │   ├── entity/              # JPA Hibernate entity models (22 tables)
-│   │   │   │   ├── exception/           # Custom exception handling & error responses
-│   │   │   │   ├── repository/          # Spring Data JPA interfaces
-│   │   │   │   ├── service/             # Core business logic & database queries
-│   │   │   │   └── BackendApplication.java # Spring Boot main entry point
-│   │   │   └── resources/
-│   │   │       └── application.properties # Server port, PostgreSQL & Mail configurations
-│   │   └── test/                        # JUnit test suites
-│   ├── mvnw / mvnw.cmd                  # Maven wrappers
-│   ├── pom.xml                          # Maven dependencies & build definitions
-│   └── .gitignore
+│   │   ├── components/           # common, modals, navbar, sidebar
+│   │   ├── context/              # BatchContext
+│   │   ├── layouts/              # Admin / Teacher / Student / Auth layouts
+│   │   ├── pages/                # admin, teacher, student, auth views
+│   │   ├── routes/               # AppRoutes.jsx
+│   │   ├── services/api.js       # Axios instance & API calls
+│   │   └── utils/                # toast, fileViewer, maskEmail
+│   ├── package.json
+│   └── vite.config.js
 │
-├── database/                            # Database backup and seed files
-│   └── EduConnectData.sql               # Full PostgreSQL database backup (schema + records)
-│
-├── frontend/                            # React + Vite frontend client application
-│   ├── public/                          # Static assets and icons
-│   ├── src/
-│   │   ├── assets/logo/                 # Application brand logos
-│   │   ├── components/                  # Reusable UI component library
-│   │   │   ├── common/                  # Buttons, Inputs, Document Viewers, Modals
-│   │   │   ├── modals/                  # Action & confirmation popups
-│   │   │   ├── navbar/                  # Responsive navigation bar with dynamic avatar
-│   │   │   └── sidebar/                 # Collapsible role-based sidebar menus
-│   │   ├── context/                     # Global state (BatchContext, etc.)
-│   │   ├── layouts/                     # Layout shells (AdminLayout, TeacherLayout, StudentLayout, AuthLayout)
-│   │   ├── pages/                       # Application route views
-│   │   │   ├── admin/                   # Admin portal modules
-│   │   │   ├── auth/                    # Login, OTP verification & Forgot password views
-│   │   │   ├── student/                 # Student portal modules
-│   │   │   └── teacher/                 # Teacher portal modules
-│   │   ├── routes/                      # AppRoutes.jsx definition
-│   │   ├── services/                    # Centralized Axios API service layer (api.js)
-│   │   ├── utils/                       # Toast notifications, email masking, file helpers
-│   │   ├── App.jsx                      # App root component
-│   │   ├── index.css                    # Tailwind CSS configuration and theme tokens
-│   │   └── main.jsx                     # Vite entry point
-│   ├── package.json                     # NPM dependencies & scripts
-│   ├── vite.config.js                   # Vite bundler configuration
-│   └── .gitignore
-│
-├── .gitignore                           # Workspace git ignore rules
-└── README.md                            # Project documentation
+└── README.md
 ```
 
 ---
 
-## ⚡ Getting Started (Local Setup)
+## ⚡ Getting Started
 
-### 1. Prerequisites
-- **Node.js** (v18 or higher) & **npm**
-- **Java Development Kit (JDK)** 17 or higher
-- **PostgreSQL** 14 or higher
-- **Maven** (optional, wrapper `./mvnw` is included)
+### Prerequisites
+
+| Tool | Version |
+| :--- | :--- |
+| Node.js & npm | 18+ |
+| JDK | **21** |
+| PostgreSQL | 14+ |
+| Maven | optional – wrapper (`mvnw`) included |
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/moleeekkk/MCA-PROJECT.git
+cd MCA-PROJECT
+```
+
+### 2. Set up the database
+
+Create an empty database:
+
+```sql
+CREATE DATABASE educonnect_db;
+```
+
+Restore the bundled dump. It is a PostgreSQL **custom-format** archive (despite the `.sql` extension), so use `pg_restore`, not `psql`:
+
+```bash
+pg_restore -U postgres -d educonnect_db database/EduConnectData.sql
+```
+
+Or in pgAdmin: right-click `educonnect_db` → **Restore…** → choose `EduConnectData.sql`.
+
+> The backend runs with `spring.jpa.hibernate.ddl-auto=update`, so missing tables are created automatically. The dump additionally provides sample data, including the admin account.
+
+### 3. Configure & run the backend
+
+Set your own database and mail credentials (see [Configuration](#-configuration)), then:
+
+```bash
+cd backend
+
+# Linux / macOS
+./mvnw spring-boot:run
+
+# Windows
+mvnw.cmd spring-boot:run
+```
+
+API available at **http://localhost:8080/api/v1**
+
+### 4. Run the frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+App available at **http://localhost:5173**
+
+The frontend calls `http://localhost:8080/api/v1` (set in `frontend/src/services/api.js`). Change `API_BASE_URL` there if your backend runs elsewhere.
+
+### Production build
+
+```bash
+# Frontend
+cd frontend && npm run build        # output in frontend/dist
+
+# Backend
+cd backend && ./mvnw clean package  # jar in backend/target
+```
 
 ---
 
-### 2. Database Setup
+## ⚙️ Configuration
 
-1. Open **PostgreSQL / pgAdmin** and create an empty database:
-   ```sql
-   CREATE DATABASE educonnect_db;
-   ```
-2. Restore the database using the provided backup file [`database/EduConnectData.sql`](file:///c:/MCA/SEM_3/Project/EduConnect/database/EduConnectData.sql):
-   - **Using pgAdmin**: Right-click `educonnect_db` > **Restore...** > Choose `EduConnectData.sql` > Click **Restore**.
-   - **Using Command Line**:
-     ```bash
-     pg_restore -U postgres -d educonnect_db "database/EduConnectData.sql"
-     ```
+Settings live in `backend/src/main/resources/application.properties`.
 
-> **Note**: Spring Boot has `spring.jpa.hibernate.ddl-auto=update` configured, meaning tables can also be automatically created on startup from entity definitions.
-
----
-
-### 3. Backend Setup & Run
-
-1. Navigate to the `backend` folder:
-   ```bash
-   cd backend
-   ```
-2. Verify credentials in [`backend/src/main/resources/application.properties`](file:///c:/MCA/SEM_3/Project/EduConnect/backend/src/main/resources/application.properties):
-   ```properties
-   spring.datasource.url=jdbc:postgresql://localhost:5432/educonnect_db
-   spring.datasource.username=postgres
-   spring.datasource.password=YOUR_POSTGRES_PASSWORD
-   ```
-3. Run the Spring Boot application:
-   ```bash
-   # Windows
-   mvnw.cmd spring-boot:run
-
-   # Linux / macOS
-   ./mvnw spring-boot:run
-   ```
-   The backend server will start on `http://localhost:8080`.
-
----
-
-### 4. Frontend Setup & Run
-
-1. Open a new terminal and navigate to the `frontend` folder:
-   ```bash
-   cd frontend
-   ```
-2. Install npm dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
-4. Open your browser and navigate to:
-   ```
-   http://localhost:5173
-   ```
-
----
-
-## 🔑 Default Login Credentials
-
-| Portal | Email / Identifier | Password |
+| Property | Purpose | Default |
 | :--- | :--- | :--- |
-| **Admin** | `admin@educonnect.ac.in` | `admin123` |
-| **Teacher** | Registered Faculty Email | Account Password |
-| **Student** | Enrollment No / Student Email | Account Password / OTP |
+| `spring.datasource.url` | PostgreSQL JDBC URL | `jdbc:postgresql://localhost:5432/educonnect_db` |
+| `spring.datasource.username` / `password` | Database credentials | `postgres` / *your password* |
+| `spring.mail.host` / `port` | SMTP server (OTP, reset codes, parent emails) | `smtp.gmail.com` / `587` |
+| `spring.mail.username` / `password` | SMTP account (use a Gmail **App Password**) | *your values* |
+| `server.port` | Backend port | `8080` |
+| `spring.servlet.multipart.max-file-size` | Max upload size | `10MB` |
+| `app.upload.directory` | Folder for uploaded files | `uploads` |
+
+### 🔐 Keep secrets out of Git
+
+Do **not** commit real passwords. Spring Boot reads environment variables, so you can override any property without editing the file:
+
+```bash
+export SPRING_DATASOURCE_PASSWORD=your_db_password
+export SPRING_MAIL_USERNAME=your_email@gmail.com
+export SPRING_MAIL_PASSWORD=your_gmail_app_password
+./mvnw spring-boot:run
+```
+
+Or use placeholders in `application.properties`:
+
+```properties
+spring.datasource.password=${DB_PASSWORD}
+spring.mail.username=${MAIL_USERNAME}
+spring.mail.password=${MAIL_PASSWORD}
+```
 
 ---
+
+## 🔑 Authentication Flow
+
+| Role | Login method |
+| :--- | :--- |
+| **Student** | Enrollment number → 6-digit OTP sent by email → verify |
+| **Teacher** | Email + password (BCrypt) |
+| **Admin** | Email + password (BCrypt) |
+| **Reset password** | Email code → new password (teachers & admins) |
+
+Admin and teacher accounts come from the restored database. Use the credentials of the accounts in your dump; legacy plain-text passwords are automatically upgraded to BCrypt on first successful login.
+
+---
+
+## 🔌 API Overview
+
+Base URL: `http://localhost:8080/api/v1`
+
+| Prefix | Description |
+| :--- | :--- |
+| `/auth` | Student OTP (`/student/send-otp`, `/student/verify-otp`), teacher & admin login, forgot-password (`/forgot-password/send-code`, `/forgot-password/reset`) |
+| `/admin` | Institutes, departments, semesters, batches, subjects, students, faculty, teacher-subject allocation, reports |
+| `/teacher` | Attendance, assignments, weekly tests, quizzes, study material, doubts, leave management, parent email |
+| `/student` | Profile, attendance, assignments, tests, quizzes, study material, doubts, leave requests |
+
+---
+
+## 🧭 Frontend Routes
+
+| Area | Path | Pages |
+| :--- | :--- | :--- |
+| Public | `/`, `/student-login`, `/teacher-login`, `/admin-login`, `/verify-otp`, `/forgot-password` | Login selection & auth |
+| Student | `/student/*` | dashboard, profile, attendance, assignments, weekly-tests, quiz-practice, study-material, digital-id, leave-request, doubts |
+| Teacher | `/teacher/*` | dashboard, profile, students, attendance, assignments, weekly-tests, quiz-practice, study-material, reply-doubts, leave-management, parent-email |
+| Admin | `/admin/*` | dashboard, profile, institutes, departments, semesters, batches, subjects, students, teachers, teacher-subjects, reports |
+
+---
+
+## 🧪 Running Tests
+
+```bash
+cd backend
+./mvnw test
+```
+
+Covers the Admin, Teacher, Student and AssignmentFile controllers plus the Admin and Auth services.
+
+---
+
+## ⚠️ Known Limitations & Roadmap
+
+This project is under active development. Before any real-world deployment, note:
+
+- [ ] **Real JWT authentication** – login currently returns a placeholder token and the backend does not validate it yet
+- [ ] **Server-side authorization** – `SecurityConfig` currently permits all `/api/v1/**` requests; add role-based access control (Admin / Teacher / Student)
+- [ ] **Restrict CORS** to the deployed frontend origin instead of `*`
+- [ ] **Move all secrets** to environment variables or a secrets manager
+- [ ] **Persist OTPs** (currently held in memory, lost on restart) with expiry and rate limiting
+- [ ] Make the frontend API URL configurable via `.env` (`VITE_API_URL`)
+- [ ] Docker / docker-compose setup
+- [ ] CI pipeline (build + tests on every push)
+
+
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Commit your changes: `git commit -m "Add: your feature"`
+4. Push the branch: `git push origin feature/your-feature`
+5. Open a Pull Request
+
+
+
+## 📄 License
+
+No license has been specified yet. Add a `LICENSE` file (for example MIT) to define how others may use this project.
+
+---
+
+<div align="center">
+
+Made with ❤️ as an MCA project
+
+</div>
